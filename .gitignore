@@ -1,0 +1,21 @@
+/MacPGP/build
+.DS_Store
+
+# Secrets and credentials
+.env
+.env.*
+*.pem
+*.p12
+*.pfx
+*.key
+*.gpg
+*.pgp
+*.asc
+*.kbx
+*.kbx~
+*.secring
+*.keyring
+*.keystore
+*credentials*.json
+*secret*.json
+CLAUDE.md

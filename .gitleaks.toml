@@ -1,0 +1,12 @@
+title = "MacPGP gitleaks allowlist"
+
+[allowlist]
+  description = "Allow PGP armor header literals used for detection"
+  regexes = [
+    "-----BEGIN PGP PUBLIC KEY BLOCK-----",
+    "-----BEGIN PGP PRIVATE KEY BLOCK-----",
+    "-----BEGIN PGP SECRET KEY BLOCK-----",
+    "-----BEGIN PGP MESSAGE-----",
+    "-----BEGIN PGP SIGNATURE-----",
+    "-----BEGIN PGP SIGNED MESSAGE-----"
+  ]

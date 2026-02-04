@@ -1,0 +1,15 @@
+{
+  "originHash" : "b1592ab8704cb62c4b25df7c2a6b9999fb12ad9b88e8da3352019c33f5adc277",
+  "pins" : [
+    {
+      "identity" : "objectivepgp",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/krzyzanowskim/ObjectivePGP",
+      "state" : {
+        "revision" : "29d7a531f00140224434d0cbaf5f2f21168bfe9c",
+        "version" : "1.0.0"
+      }
+    }
+  ],
+  "version" : 3
+}
