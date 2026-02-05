@@ -120,26 +120,63 @@ struct EncryptView: View {
     private var fileInputSection: some View {
         @Bindable var state = sessionState
 
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("File")
-                .font(.headline)
+        return VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("File")
+                    .font(.headline)
 
-            if let file = sessionState.encryptSelectedFile {
-                HStack {
-                    Image(systemName: "doc.fill")
-                        .foregroundStyle(.secondary)
-                    Text(file.lastPathComponent)
-                        .lineLimit(1)
-                    Spacer()
-                    Button("Remove") {
-                        sessionState.encryptSelectedFile = nil
+                if let file = sessionState.encryptSelectedFile {
+                    HStack {
+                        Image(systemName: "doc.fill")
+                            .foregroundStyle(.secondary)
+                        Text(file.lastPathComponent)
+                            .lineLimit(1)
+                        Spacer()
+                        Button("Remove") {
+                            sessionState.encryptSelectedFile = nil
+                        }
                     }
+                    .padding()
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    DropZone(fileURL: $state.encryptSelectedFile)
                 }
-                .padding()
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else {
-                DropZone(fileURL: $state.encryptSelectedFile)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Output Location")
+                    .font(.headline)
+
+                if let location = sessionState.encryptOutputLocation {
+                    HStack {
+                        Image(systemName: "folder.fill")
+                            .foregroundStyle(.secondary)
+                        Text(location.path)
+                            .lineLimit(1)
+                            .font(.caption)
+                        Spacer()
+                        Button("Change") {
+                            chooseOutputLocation()
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    .padding()
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    Button {
+                        chooseOutputLocation()
+                    } label: {
+                        HStack {
+                            Image(systemName: "folder.badge.plus")
+                            Text("Choose Output Location")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
     }
@@ -163,7 +200,18 @@ struct EncryptView: View {
 
             if isProcessing {
                 Spacer()
-                ProgressView("Encrypting...")
+                VStack(spacing: 16) {
+                    if sessionState.encryptInputMode == .file && sessionState.encryptionProgress > 0 {
+                        ProgressView(value: sessionState.encryptionProgress) {
+                            Text("Encrypting file...")
+                        } currentValueLabel: {
+                            Text("\(Int(sessionState.encryptionProgress * 100))%")
+                        }
+                        .frame(width: 200)
+                    } else {
+                        ProgressView("Encrypting...")
+                    }
+                }
                 Spacer()
             } else if sessionState.encryptOutputText.isEmpty {
                 ContentUnavailableView(
@@ -223,13 +271,25 @@ struct EncryptView: View {
 
                 case .file:
                     guard let fileURL = sessionState.encryptSelectedFile else { return }
-                    let outputURL = try encryptionService.encrypt(
+
+                    // Reset progress
+                    await MainActor.run {
+                        sessionState.encryptionProgress = 0.0
+                    }
+
+                    // Use async encrypt with progress callback
+                    let outputURL = try await encryptionService.encryptAsync(
                         file: fileURL,
                         for: recipients,
                         signedBy: sessionState.encryptSignerKey,
                         passphrase: passphrase.isEmpty ? nil : passphrase,
-                        armored: sessionState.encryptArmorOutput
+                        outputURL: sessionState.encryptOutputLocation,
+                        armored: sessionState.encryptArmorOutput,
+                        progressCallback: { progress in
+                            sessionState.encryptionProgress = progress
+                        }
                     )
+
                     await MainActor.run {
                         sessionState.encryptOutputText = "File encrypted successfully:\n\(outputURL.path)"
                     }
@@ -245,6 +305,7 @@ struct EncryptView: View {
 
             await MainActor.run {
                 isProcessing = false
+                sessionState.encryptionProgress = 0.0
             }
         }
     }
@@ -252,6 +313,22 @@ struct EncryptView: View {
     private func copyOutput() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(sessionState.encryptOutputText, forType: .string)
+    }
+
+    private func chooseOutputLocation() {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = sessionState.encryptSelectedFile?.lastPathComponent ?? "encrypted"
+
+        if let inputFile = sessionState.encryptSelectedFile {
+            let fileName = inputFile.deletingPathExtension().lastPathComponent
+            let fileExtension = sessionState.encryptArmorOutput ? "asc" : "gpg"
+            panel.nameFieldStringValue = "\(fileName).\(fileExtension)"
+        }
+
+        if panel.runModal() == .OK {
+            sessionState.encryptOutputLocation = panel.url
+        }
     }
 }
 

@@ -16,6 +16,25 @@ A native macOS application for PGP encryption, decryption, signing, and key mana
 - **ASCII Armor Support** - Import/export keys and messages in armored format
 - **Session State** - Preserves input/output state across view navigation
 
+## Finder Integration
+
+MacPGP includes three macOS extensions that integrate directly with Finder for a seamless encryption workflow:
+
+- **File Badges** - Encrypted files (.gpg, .asc, .pgp) display a lock badge in Finder, making it easy to identify PGP-encrypted content at a glance
+- **Quick Look Previews** - Press Space on an encrypted file to see:
+  - Encryption metadata (algorithm, recipients, file size)
+  - Decrypt preview button with secure passphrase prompt
+  - In-place content preview (text and images) without saving to disk
+- **Custom Thumbnails** - Visual distinction for encrypted files:
+  - Binary files (.gpg, .pgp): Blue gradient with lock icon
+  - ASCII armored files (.asc): Green gradient with document-lock icon
+- **Context Menu Actions** - Right-click any file for quick access:
+  - "Encrypt with MacPGP" - Opens main app with recipient picker
+  - "Decrypt with MacPGP" - Opens main app with passphrase prompt
+
+**Enabling Extensions:**
+After first launch, enable the extensions in System Settings → Privacy & Security → Extensions → Finder Extensions / Quick Look / Thumbnails.
+
 ## Requirements
 
 - macOS 15.0+
@@ -35,22 +54,6 @@ A native macOS application for PGP encryption, decryption, signing, and key mana
    ```
 
 3. Build and run (⌘R)
-
-## Security Checks (Optional)
-
-Enable the secret-scanning pre-commit hook:
-```bash
-brew install pre-commit
-pre-commit install
-```
-
-Run it manually:
-```bash
-pre-commit run --all-files
-```
-
-If gitleaks flags the PGP armor header literals, the allowlist is in
-`.gitleaks.toml`.
 
 ## Dependencies
 

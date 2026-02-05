@@ -64,10 +64,23 @@ final class KeyringPersistence {
             publicData.append(keyData)
         }
 
-        try publicData.write(to: publicKeyringPath)
+        // Only write keyring files if there's data, otherwise delete them
+        if !publicData.isEmpty {
+            try publicData.write(to: publicKeyringPath)
+        } else {
+            // Delete public keyring file if it exists and we have no keys
+            if fileManager.fileExists(atPath: publicKeyringPath.path) {
+                try fileManager.removeItem(at: publicKeyringPath)
+            }
+        }
 
         if !secretData.isEmpty {
             try secretData.write(to: secretKeyringPath)
+        } else {
+            // Delete secret keyring file if it exists and we have no secret keys
+            if fileManager.fileExists(atPath: secretKeyringPath.path) {
+                try fileManager.removeItem(at: secretKeyringPath)
+            }
         }
     }
 
@@ -78,6 +91,9 @@ final class KeyringPersistence {
 
     func importKey(from data: Data) throws -> [Key] {
         let keys = try ObjectivePGP.readKeys(from: data)
+        if keys.isEmpty {
+            throw OperationError.invalidKeyData
+        }
         return keys
     }
 

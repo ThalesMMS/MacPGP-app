@@ -94,9 +94,13 @@ final class EncryptionService {
         signedBy signer: PGPKeyModel? = nil,
         passphrase: String? = nil,
         outputURL: URL? = nil,
-        armored: Bool = false
+        armored: Bool = false,
+        progressCallback: ((Double) -> Void)? = nil
     ) throws -> URL {
+        progressCallback?(0.0)
+
         let fileData = try Data(contentsOf: file)
+        progressCallback?(0.3)
 
         let encryptedData = try encrypt(
             data: fileData,
@@ -105,10 +109,12 @@ final class EncryptionService {
             passphrase: passphrase,
             armored: armored
         )
+        progressCallback?(0.7)
 
         let outputPath = outputURL ?? file.appendingPathExtension(armored ? "asc" : "gpg")
         try encryptedData.write(to: outputPath)
 
+        progressCallback?(1.0)
         return outputPath
     }
 
@@ -164,10 +170,16 @@ final class EncryptionService {
         file: URL,
         using key: PGPKeyModel,
         passphrase: String,
-        outputURL: URL? = nil
+        outputURL: URL? = nil,
+        progressCallback: ((Double) -> Void)? = nil
     ) throws -> URL {
+        progressCallback?(0.0)
+
         let fileData = try Data(contentsOf: file)
+        progressCallback?(0.3)
+
         let decryptedData = try decrypt(data: fileData, using: key, passphrase: passphrase)
+        progressCallback?(0.7)
 
         var outputPath: URL
         if let output = outputURL {
@@ -182,7 +194,74 @@ final class EncryptionService {
         }
 
         try decryptedData.write(to: outputPath)
+        progressCallback?(1.0)
         return outputPath
+    }
+
+    func encryptAsync(
+        file: URL,
+        for recipients: [PGPKeyModel],
+        signedBy signer: PGPKeyModel? = nil,
+        passphrase: String? = nil,
+        outputURL: URL? = nil,
+        armored: Bool = false,
+        progressCallback: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> URL {
+        try await Task.detached {
+            await MainActor.run { progressCallback?(0.0) }
+
+            let fileData = try Data(contentsOf: file)
+            await MainActor.run { progressCallback?(0.3) }
+
+            let encryptedData = try self.encrypt(
+                data: fileData,
+                for: recipients,
+                signedBy: signer,
+                passphrase: passphrase,
+                armored: armored
+            )
+            await MainActor.run { progressCallback?(0.7) }
+
+            let outputPath = outputURL ?? file.appendingPathExtension(armored ? "asc" : "gpg")
+            try encryptedData.write(to: outputPath)
+
+            await MainActor.run { progressCallback?(1.0) }
+            return outputPath
+        }.value
+    }
+
+    func decryptAsync(
+        file: URL,
+        using key: PGPKeyModel,
+        passphrase: String,
+        outputURL: URL? = nil,
+        progressCallback: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> URL {
+        try await Task.detached {
+            await MainActor.run { progressCallback?(0.0) }
+
+            let fileData = try Data(contentsOf: file)
+            await MainActor.run { progressCallback?(0.3) }
+
+            let decryptedData = try self.decrypt(data: fileData, using: key, passphrase: passphrase)
+            await MainActor.run { progressCallback?(0.7) }
+
+            var outputPath: URL
+            if let output = outputURL {
+                outputPath = output
+            } else {
+                let path = file.deletingPathExtension()
+                if file.pathExtension == "asc" || file.pathExtension == "gpg" {
+                    outputPath = path
+                } else {
+                    outputPath = file.appendingPathExtension("decrypted")
+                }
+            }
+
+            try decryptedData.write(to: outputPath)
+            await MainActor.run { progressCallback?(1.0) }
+            return outputPath
+        }.value
     }
 
     func tryDecrypt(data: Data, passphrase: String) throws -> (Data, PGPKeyModel) {

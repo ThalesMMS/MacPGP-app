@@ -3,12 +3,22 @@ import AppKit
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var servicesProvider: ServicesProvider?
+    private var extensionCommunicationService: ExtensionCommunicationService?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize and register Services menu integration
         let keyringService = KeyringService()
         servicesProvider = ServicesProvider(keyringService: keyringService)
         NSApp.servicesProvider = servicesProvider
+
+        // Initialize extension communication service for FinderSync integration
+        extensionCommunicationService = ExtensionCommunicationService()
+    }
+
+    /// Handles files opened from extensions or Finder
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        extensionCommunicationService?.handleOpenFiles(urls)
     }
 }
 
@@ -50,4 +60,6 @@ struct MacPGPApp: App {
 extension Notification.Name {
     static let showKeyGeneration = Notification.Name("showKeyGeneration")
     static let importKey = Notification.Name("importKey")
+    static let encryptFiles = ExtensionCommunicationService.encryptFilesNotification
+    static let decryptFiles = ExtensionCommunicationService.decryptFilesNotification
 }

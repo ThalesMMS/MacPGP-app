@@ -189,7 +189,14 @@ final class SigningService {
 
         var signatureData: Data?
         if let signature = signature {
-            signatureData = signature.data(using: .utf8)
+            // Check if signature is armored (ASCII) or base64-encoded binary
+            if signature.hasPrefix("-----BEGIN PGP SIGNATURE-----") {
+                // Armored signature - convert from UTF-8
+                signatureData = signature.data(using: .utf8)
+            } else {
+                // Base64-encoded binary signature - decode from base64
+                signatureData = Data(base64Encoded: signature)
+            }
         }
 
         return try verify(data: messageData, signature: signatureData)

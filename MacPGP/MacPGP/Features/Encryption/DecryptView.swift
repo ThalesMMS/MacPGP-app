@@ -31,7 +31,7 @@ struct DecryptView: View {
                 .frame(width: 120)
 
                 Button {
-                    promptForPassphrase()
+                    startDecryption()
                 } label: {
                     Label("Decrypt", systemImage: "lock.open.fill")
                 }
@@ -148,26 +148,63 @@ struct DecryptView: View {
     private var fileInputSection: some View {
         @Bindable var state = sessionState
 
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Encrypted File")
-                .font(.headline)
+        return VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Encrypted File")
+                    .font(.headline)
 
-            if let file = sessionState.decryptSelectedFile {
-                HStack {
-                    Image(systemName: "doc.fill")
-                        .foregroundStyle(.secondary)
-                    Text(file.lastPathComponent)
-                        .lineLimit(1)
-                    Spacer()
-                    Button("Remove") {
-                        sessionState.decryptSelectedFile = nil
+                if let file = sessionState.decryptSelectedFile {
+                    HStack {
+                        Image(systemName: "doc.fill")
+                            .foregroundStyle(.secondary)
+                        Text(file.lastPathComponent)
+                            .lineLimit(1)
+                        Spacer()
+                        Button("Remove") {
+                            sessionState.decryptSelectedFile = nil
+                        }
                     }
+                    .padding()
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    DropZone(fileURL: $state.decryptSelectedFile)
                 }
-                .padding()
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else {
-                DropZone(fileURL: $state.decryptSelectedFile)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Output Location")
+                    .font(.headline)
+
+                if let location = sessionState.decryptOutputLocation {
+                    HStack {
+                        Image(systemName: "folder.fill")
+                            .foregroundStyle(.secondary)
+                        Text(location.path)
+                            .lineLimit(1)
+                            .font(.caption)
+                        Spacer()
+                        Button("Change") {
+                            chooseOutputLocation()
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    .padding()
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    Button {
+                        chooseOutputLocation()
+                    } label: {
+                        HStack {
+                            Image(systemName: "folder.badge.plus")
+                            Text("Choose Output Location")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
     }
@@ -191,7 +228,18 @@ struct DecryptView: View {
 
             if isProcessing {
                 Spacer()
-                ProgressView("Decrypting...")
+                VStack(spacing: 16) {
+                    if sessionState.decryptInputMode == .file && sessionState.decryptionProgress > 0 {
+                        ProgressView(value: sessionState.decryptionProgress) {
+                            Text("Decrypting file...")
+                        } currentValueLabel: {
+                            Text("\(Int(sessionState.decryptionProgress * 100))%")
+                        }
+                        .frame(width: 200)
+                    } else {
+                        ProgressView("Decrypting...")
+                    }
+                }
                 Spacer()
             } else if sessionState.decryptOutputText.isEmpty {
                 ContentUnavailableView(
@@ -223,12 +271,23 @@ struct DecryptView: View {
         )
     }
 
-    private func promptForPassphrase() {
+    private func startDecryption() {
         if !sessionState.decryptAutoDetectKey && sessionState.decryptSelectedKey == nil {
             errorMessage = "Please select a decryption key"
             showingError = true
             return
         }
+
+        // Try keychain first if a specific key is selected
+        if !sessionState.decryptAutoDetectKey, let key = sessionState.decryptSelectedKey {
+            if let storedPassphrase = try? KeychainManager.shared.retrievePassphrase(forKeyID: key.shortKeyID) {
+                passphrase = storedPassphrase
+                decrypt()
+                return
+            }
+        }
+
+        // If no keychain passphrase found or auto-detect is enabled, prompt
         showingPassphrasePrompt = true
     }
 
@@ -277,10 +336,20 @@ struct DecryptView: View {
                         throw OperationError.noSecretKey
                     }
 
-                    let outputURL = try encryptionService.decrypt(
+                    // Reset progress
+                    await MainActor.run {
+                        sessionState.decryptionProgress = 0.0
+                    }
+
+                    // Use async decrypt with progress callback
+                    let outputURL = try await encryptionService.decryptAsync(
                         file: fileURL,
                         using: key,
-                        passphrase: passphrase
+                        passphrase: passphrase,
+                        outputURL: sessionState.decryptOutputLocation,
+                        progressCallback: { progress in
+                            sessionState.decryptionProgress = progress
+                        }
                     )
 
                     await MainActor.run {
@@ -298,6 +367,7 @@ struct DecryptView: View {
 
             await MainActor.run {
                 isProcessing = false
+                sessionState.decryptionProgress = 0.0
             }
         }
     }
@@ -311,6 +381,28 @@ struct DecryptView: View {
     private func copyOutput() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(sessionState.decryptOutputText, forType: .string)
+    }
+
+    private func chooseOutputLocation() {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "decrypted"
+
+        if let inputFile = sessionState.decryptSelectedFile {
+            let fileName = inputFile.lastPathComponent
+            // Remove .gpg or .asc extension if present
+            if fileName.hasSuffix(".gpg") {
+                panel.nameFieldStringValue = String(fileName.dropLast(4))
+            } else if fileName.hasSuffix(".asc") {
+                panel.nameFieldStringValue = String(fileName.dropLast(4))
+            } else {
+                panel.nameFieldStringValue = inputFile.deletingPathExtension().lastPathComponent
+            }
+        }
+
+        if panel.runModal() == .OK {
+            sessionState.decryptOutputLocation = panel.url
+        }
     }
 }
 

@@ -37,9 +37,16 @@ struct KeyIdentity: Identifiable, Hashable, Codable {
         let emailPattern = #"<([^>]+)>"#
         let commentPattern = #"\(([^)]+)\)"#
 
+        // Try to extract email from angle brackets first
         if let emailMatch = userID.range(of: emailPattern, options: .regularExpression) {
             let match = String(userID[emailMatch])
             email = String(match.dropFirst().dropLast())
+        } else {
+            // Handle plain email format (no angle brackets)
+            let emailRegex = #"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"#
+            if let range = userID.range(of: emailRegex, options: .regularExpression) {
+                email = String(userID[range])
+            }
         }
 
         if let commentMatch = userID.range(of: commentPattern, options: .regularExpression) {
@@ -50,6 +57,13 @@ struct KeyIdentity: Identifiable, Hashable, Codable {
         var nameString = userID
         if let emailRange = userID.range(of: emailPattern, options: .regularExpression) {
             nameString = String(nameString[..<emailRange.lowerBound])
+        } else {
+            // If no angle brackets, check if entire string is just an email
+            let emailRegex = #"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+            if userID.range(of: emailRegex, options: .regularExpression) != nil {
+                // Entire string is email, no name
+                nameString = ""
+            }
         }
         if let commentRange = nameString.range(of: commentPattern, options: .regularExpression) {
             nameString = String(nameString[..<commentRange.lowerBound])
