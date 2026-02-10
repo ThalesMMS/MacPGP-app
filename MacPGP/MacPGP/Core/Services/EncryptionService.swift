@@ -19,6 +19,16 @@ final class EncryptionService {
             throw OperationError.recipientKeyMissing
         }
 
+        // Validate recipient keys are not expired or revoked
+        for recipient in recipients {
+            if recipient.isRevoked {
+                throw OperationError.keyRevoked
+            }
+            if recipient.isExpired {
+                throw OperationError.keyExpired
+            }
+        }
+
         let recipientKeys = recipients.compactMap { keyringService.rawKey(for: $0) }
         guard recipientKeys.count == recipients.count else {
             throw OperationError.keyNotFound(keyID: "recipient")

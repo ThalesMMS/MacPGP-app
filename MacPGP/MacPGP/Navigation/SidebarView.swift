@@ -9,6 +9,9 @@ struct SidebarView: View {
                 NavigationLink(value: SidebarItem.keyring) {
                     Label(SidebarItem.keyring.rawValue, systemImage: SidebarItem.keyring.iconName)
                 }
+                NavigationLink(value: SidebarItem.webOfTrust) {
+                    Label(SidebarItem.webOfTrust.rawValue, systemImage: SidebarItem.webOfTrust.iconName)
+                }
             }
 
             Section("Operations") {

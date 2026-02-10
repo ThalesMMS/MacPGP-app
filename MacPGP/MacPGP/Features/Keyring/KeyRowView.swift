@@ -27,6 +27,26 @@ struct KeyRowView: View {
                             .foregroundStyle(.red)
                             .clipShape(Capsule())
                     }
+
+                    if key.isRevoked {
+                        Text("Revoked")
+                            .font(.caption2)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(.orange.opacity(0.2))
+                            .foregroundStyle(.orange)
+                            .clipShape(Capsule())
+                    }
+
+                    if key.trustLevel != .unknown {
+                        Text(key.trustLevel.displayName)
+                            .font(.caption2)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(trustLevelColor(for: key.trustLevel).opacity(0.2))
+                            .foregroundStyle(trustLevelColor(for: key.trustLevel))
+                            .clipShape(Capsule())
+                    }
                 }
 
                 if let email = key.email, !email.isEmpty {
@@ -54,6 +74,16 @@ struct KeyRowView: View {
             .font(.title2)
             .foregroundStyle(key.isSecretKey ? .orange : .secondary)
             .frame(width: 32)
+    }
+
+    private func trustLevelColor(for level: TrustLevel) -> Color {
+        switch level {
+        case .unknown: return .gray
+        case .never: return .red
+        case .marginal: return .orange
+        case .full: return .green
+        case .ultimate: return .purple
+        }
     }
 }
 

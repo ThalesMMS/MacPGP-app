@@ -3,6 +3,8 @@ import SwiftUI
 struct KeyFingerprintView: View {
     let fingerprint: String
     @State private var showCopied = false
+    @State private var showQRCode = false
+    @State private var audioService = FingerprintAudioService()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -11,6 +13,28 @@ struct KeyFingerprintView: View {
                     .font(.headline)
 
                 Spacer()
+
+                Button {
+                    if audioService.isPlaying {
+                        audioService.stop()
+                    } else {
+                        audioService.speak(fingerprint)
+                    }
+                } label: {
+                    Label(audioService.isPlaying ? "Stop" : "Read Aloud", systemImage: audioService.isPlaying ? "stop.fill" : "speaker.wave.2")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+
+                Button {
+                    withAnimation {
+                        showQRCode.toggle()
+                    }
+                } label: {
+                    Label(showQRCode ? "Hide QR Code" : "Show QR Code", systemImage: "qrcode")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
 
                 Button {
                     copyFingerprint()
@@ -28,6 +52,21 @@ struct KeyFingerprintView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(nsColor: .textBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            if showQRCode {
+                VStack(spacing: 8) {
+                    QRCodeView(fingerprint, size: 200)
+                        .padding()
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    Text("Scan to verify fingerprint")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
         }
     }
 

@@ -15,6 +15,7 @@ enum OperationError: LocalizedError {
     case persistenceError(underlying: Error?)
     case invalidKeyData
     case keyExpired
+    case keyRevoked
     case noPublicKey
     case noSecretKey
     case recipientKeyMissing
@@ -52,6 +53,8 @@ enum OperationError: LocalizedError {
             return "Invalid key data"
         case .keyExpired:
             return "Key has expired"
+        case .keyRevoked:
+            return "Key has been revoked"
         case .noPublicKey:
             return "No public key available"
         case .noSecretKey:
@@ -97,6 +100,8 @@ enum OperationError: LocalizedError {
             return "The key data appears to be corrupted or in an unsupported format."
         case .keyExpired:
             return "Generate a new key or extend the expiration date."
+        case .keyRevoked:
+            return "The key has been revoked and cannot be used. Contact the key owner for a valid key."
         case .noPublicKey, .noSecretKey:
             return "Import or generate the required key type."
         case .recipientKeyMissing:

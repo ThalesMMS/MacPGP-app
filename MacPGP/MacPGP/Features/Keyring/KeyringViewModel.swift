@@ -33,6 +33,8 @@ final class KeyringViewModel {
             keys = keys.filter { !$0.isSecretKey }
         case .expired:
             keys = keys.filter { $0.isExpired }
+        case .revoked:
+            keys = keys.filter { $0.isRevoked }
         }
 
         switch sortOrder {
@@ -83,6 +85,7 @@ enum KeyFilterType: String, CaseIterable, Identifiable {
     case secret = "Secret Keys"
     case `public` = "Public Keys"
     case expired = "Expired"
+    case revoked = "Revoked"
 
     var id: String { rawValue }
 }

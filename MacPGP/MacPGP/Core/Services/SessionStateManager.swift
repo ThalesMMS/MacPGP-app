@@ -11,6 +11,7 @@ final class SessionStateManager {
     var encryptSignerKey: PGPKeyModel?
     var encryptInputMode: InputMode = .text
     var encryptSelectedFile: URL?
+    var encryptSelectedFiles: [URL] = []
     var encryptOutputLocation: URL?
     var encryptArmorOutput = true
     var encryptionProgress: Double = 0.0
@@ -20,6 +21,7 @@ final class SessionStateManager {
     var decryptOutputText = ""
     var decryptInputMode: InputMode = .text
     var decryptSelectedFile: URL?
+    var decryptSelectedFiles: [URL] = []
     var decryptOutputLocation: URL?
     var decryptAutoDetectKey = true
     var decryptSelectedKey: PGPKeyModel?
@@ -53,6 +55,7 @@ final class SessionStateManager {
         encryptSignerKey = nil
         encryptInputMode = .text
         encryptSelectedFile = nil
+        encryptSelectedFiles = []
         encryptOutputLocation = nil
         encryptArmorOutput = true
         encryptionProgress = 0.0
@@ -62,6 +65,7 @@ final class SessionStateManager {
         decryptOutputText = ""
         decryptInputMode = .text
         decryptSelectedFile = nil
+        decryptSelectedFiles = []
         decryptOutputLocation = nil
         decryptAutoDetectKey = true
         decryptSelectedKey = nil

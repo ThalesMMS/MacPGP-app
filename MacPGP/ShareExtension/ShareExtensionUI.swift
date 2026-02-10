@@ -1,8 +1,139 @@
 import SwiftUI
 
-struct RecipientPickerView: View {
-    @Environment(KeyringService.self) private var keyringService
-    @Environment(TrustService.self) private var trustService
+/// Main SwiftUI view for the Share Extension
+struct ShareExtensionView: View {
+    @Environment(ExtensionKeyringService.self) private var keyringService
+
+    let fileURLs: [URL]
+    let onEncrypt: (Set<PGPKeyModel>) -> Void
+    let onCancel: () -> Void
+
+    @State private var selectedRecipients: Set<PGPKeyModel> = []
+    @State private var isEncrypting = false
+
+    var body: some View {
+        VStack(spacing: 20) {
+            // Header
+            VStack(spacing: 8) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.blue)
+
+                Text("Encrypt Files")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text("Select recipients to encrypt the shared files")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top)
+
+            Divider()
+
+            // Files section
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Files to Encrypt")
+                    .font(.headline)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(fileURLs, id: \.self) { url in
+                            FileRow(url: url)
+                        }
+                    }
+                }
+                .frame(maxHeight: 100)
+            }
+
+            Divider()
+
+            // Recipient picker section
+            RecipientPicker(selectedRecipients: $selectedRecipients)
+
+            Spacer()
+
+            Divider()
+
+            // Action buttons
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    onCancel()
+                }
+                .keyboardShortcut(.cancelAction)
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button("Encrypt") {
+                    isEncrypting = true
+                    onEncrypt(selectedRecipients)
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedRecipients.isEmpty || isEncrypting)
+            }
+            .padding(.bottom)
+        }
+        .padding()
+        .frame(width: 480, height: 600)
+    }
+}
+
+/// Row displaying a single file to be encrypted
+struct FileRow: View {
+    let url: URL
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: fileIcon)
+                .foregroundStyle(.secondary)
+
+            Text(url.lastPathComponent)
+                .font(.body)
+                .lineLimit(1)
+
+            Spacer()
+
+            if let fileSize = fileSize {
+                Text(fileSize)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+    }
+
+    private var fileIcon: String {
+        let pathExtension = url.pathExtension.lowercased()
+        switch pathExtension {
+        case "txt", "md":
+            return "doc.text"
+        case "pdf":
+            return "doc.fill"
+        case "jpg", "jpeg", "png", "gif":
+            return "photo"
+        case "zip", "tar", "gz":
+            return "doc.zipper"
+        default:
+            return "doc"
+        }
+    }
+
+    private var fileSize: String? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attributes[.size] as? UInt64 else {
+            return nil
+        }
+
+        return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+    }
+}
+
+/// Recipient picker component for the share extension
+struct RecipientPicker: View {
+    @Environment(ExtensionKeyringService.self) private var keyringService
     @Binding var selectedRecipients: Set<PGPKeyModel>
     @State private var searchText = ""
 
@@ -27,8 +158,7 @@ struct RecipientPickerView: View {
                         ForEach(filteredKeys) { key in
                             RecipientRow(
                                 key: key,
-                                isSelected: selectedRecipients.contains(key),
-                                trustWarning: trustService.getTrustWarning(for: key)
+                                isSelected: selectedRecipients.contains(key)
                             ) {
                                 toggleSelection(key)
                             }
@@ -52,46 +182,6 @@ struct RecipientPickerView: View {
                         }
                     }
                 }
-
-                // Show trust warnings for selected recipients
-                if !untrustedRecipients.isEmpty {
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
-                            Text("Trust Warnings")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-
-                        ForEach(untrustedRecipients) { key in
-                            if let warning = trustService.getTrustWarning(for: key) {
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "exclamationmark.circle.fill")
-                                        .font(.caption)
-                                        .foregroundStyle(.orange)
-                                        .padding(.top, 2)
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(key.displayName)
-                                            .font(.caption)
-                                            .fontWeight(.medium)
-                                        Text(warning)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.orange.opacity(0.1))
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                            }
-                        }
-                    }
-                    .padding(.top, 4)
-                }
             }
         }
     }
@@ -111,12 +201,6 @@ struct RecipientPickerView: View {
         }
     }
 
-    private var untrustedRecipients: [PGPKeyModel] {
-        Array(selectedRecipients).filter { key in
-            trustService.getTrustWarning(for: key) != nil
-        }
-    }
-
     private func toggleSelection(_ key: PGPKeyModel) {
         if selectedRecipients.contains(key) {
             selectedRecipients.remove(key)
@@ -126,10 +210,10 @@ struct RecipientPickerView: View {
     }
 }
 
+/// Row for displaying a single recipient in the picker
 struct RecipientRow: View {
     let key: PGPKeyModel
     let isSelected: Bool
-    let trustWarning: String?
     let action: () -> Void
 
     var body: some View {
@@ -139,21 +223,8 @@ struct RecipientRow: View {
                     .foregroundStyle(isSelected ? .blue : .secondary)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(key.displayName)
-                            .font(.body)
-
-                        if key.trustLevel != .unknown {
-                            Text(key.trustLevel.displayName)
-                                .font(.caption2)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(trustLevelColor(for: key.trustLevel).opacity(0.2))
-                                .foregroundStyle(trustLevelColor(for: key.trustLevel))
-                                .clipShape(Capsule())
-                        }
-                    }
-
+                    Text(key.displayName)
+                        .font(.body)
                     if let email = key.email {
                         Text(email)
                             .font(.caption)
@@ -162,12 +233,6 @@ struct RecipientRow: View {
                 }
 
                 Spacer()
-
-                if trustWarning != nil {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
 
                 Text(String(key.shortKeyID.suffix(8)))
                     .font(.caption)
@@ -181,18 +246,9 @@ struct RecipientRow: View {
         }
         .buttonStyle(.plain)
     }
-
-    private func trustLevelColor(for level: TrustLevel) -> Color {
-        switch level {
-        case .unknown: return .gray
-        case .never: return .red
-        case .marginal: return .orange
-        case .full: return .green
-        case .ultimate: return .purple
-        }
-    }
 }
 
+/// Chip view for a selected recipient
 struct SelectedRecipientChip: View {
     let key: PGPKeyModel
     let onRemove: () -> Void
@@ -216,6 +272,7 @@ struct SelectedRecipientChip: View {
     }
 }
 
+/// Flow layout for arranging chips horizontally with wrapping
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 
@@ -262,12 +319,13 @@ struct FlowLayout: Layout {
 }
 
 #Preview {
-    let keyringService = KeyringService()
-    let trustService = TrustService(keyringService: keyringService)
-
-    return RecipientPickerView(selectedRecipients: .constant([]))
-        .environment(keyringService)
-        .environment(trustService)
-        .padding()
-        .frame(width: 400)
+    ShareExtensionView(
+        fileURLs: [
+            URL(fileURLWithPath: "/tmp/document.pdf"),
+            URL(fileURLWithPath: "/tmp/image.jpg")
+        ],
+        onEncrypt: { _ in },
+        onCancel: { }
+    )
+    .environment(ExtensionKeyringService())
 }

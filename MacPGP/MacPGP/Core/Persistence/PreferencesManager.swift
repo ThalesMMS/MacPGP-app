@@ -17,6 +17,9 @@ final class PreferencesManager {
         static let confirmBeforeDelete = "confirmBeforeDelete"
         static let autoSaveKeyring = "autoSaveKeyring"
         static let armorOutput = "armorOutput"
+        static let lastBackupDate = "lastBackupDate"
+        static let backupReminderEnabled = "backupReminderEnabled"
+        static let backupReminderIntervalDays = "backupReminderIntervalDays"
     }
 
     var defaultKeyAlgorithm: KeyAlgorithm {
@@ -89,6 +92,26 @@ final class PreferencesManager {
             return defaults.bool(forKey: Keys.armorOutput)
         }
         set { defaults.set(newValue, forKey: Keys.armorOutput) }
+    }
+
+    var lastBackupDate: Date? {
+        get { defaults.object(forKey: Keys.lastBackupDate) as? Date }
+        set { defaults.set(newValue, forKey: Keys.lastBackupDate) }
+    }
+
+    var backupReminderEnabled: Bool {
+        get {
+            if defaults.object(forKey: Keys.backupReminderEnabled) == nil {
+                return true
+            }
+            return defaults.bool(forKey: Keys.backupReminderEnabled)
+        }
+        set { defaults.set(newValue, forKey: Keys.backupReminderEnabled) }
+    }
+
+    var backupReminderIntervalDays: Int {
+        get { defaults.integer(forKey: Keys.backupReminderIntervalDays).nonZeroOr(30) }
+        set { defaults.set(newValue, forKey: Keys.backupReminderIntervalDays) }
     }
 
     private init() {}

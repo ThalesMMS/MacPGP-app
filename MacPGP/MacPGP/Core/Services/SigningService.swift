@@ -51,6 +51,14 @@ final class SigningService {
             throw OperationError.noSecretKey
         }
 
+        // Validate signing key is not expired or revoked
+        if key.isRevoked {
+            throw OperationError.keyRevoked
+        }
+        if key.isExpired {
+            throw OperationError.keyExpired
+        }
+
         do {
             var signedData = try ObjectivePGP.sign(
                 data,

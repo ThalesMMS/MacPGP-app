@@ -20,7 +20,7 @@ final class KeyringService {
 
         do {
             rawKeys = try persistence.loadKeys()
-            keys = rawKeys.map { PGPKeyModel(from: $0) }
+            reloadKeysWithVerificationStatus()
         } catch {
             lastError = .persistenceError(underlying: error)
             keys = []
@@ -44,7 +44,7 @@ final class KeyringService {
             rawKeys.append(key)
         }
 
-        keys = rawKeys.map { PGPKeyModel(from: $0) }
+        reloadKeysWithVerificationStatus()
 
         if PreferencesManager.shared.autoSaveKeyring {
             try saveKeys()
@@ -107,7 +107,14 @@ final class KeyringService {
 
     func deleteKey(_ keyModel: PGPKeyModel) throws {
         persistence.deleteKey(withFingerprint: keyModel.fingerprint, from: &rawKeys)
-        keys = rawKeys.map { PGPKeyModel(from: $0) }
+
+        // Remove verification status
+        try? persistence.removeVerificationStatus(forFingerprint: keyModel.fingerprint)
+
+        // Remove trust level
+        try? persistence.removeTrustLevel(forFingerprint: keyModel.fingerprint)
+
+        reloadKeysWithVerificationStatus()
 
         try KeychainManager.shared.deletePassphrase(forKeyID: keyModel.fingerprint)
 
@@ -133,7 +140,11 @@ final class KeyringService {
     }
 
     func publicKeys() -> [PGPKeyModel] {
-        keys.filter { !$0.isExpired }
+        keys.filter { !$0.isExpired && !$0.isRevoked }
+    }
+
+    func validKeysForEncryption() -> [PGPKeyModel] {
+        keys.filter { !$0.isExpired && !$0.isRevoked }
     }
 
     func search(_ query: String) -> [PGPKeyModel] {
@@ -145,6 +156,68 @@ final class KeyringService {
             key.email?.lowercased().contains(lowercasedQuery) == true ||
             key.shortKeyID.lowercased().contains(lowercasedQuery) ||
             key.fingerprint.lowercased().contains(lowercasedQuery)
+        }
+    }
+
+    // MARK: - Verification Status
+
+    func markKeyAsVerified(_ keyModel: PGPKeyModel, method: FingerprintVerificationMethod) throws {
+        try persistence.updateVerificationStatus(
+            forFingerprint: keyModel.fingerprint,
+            isVerified: true,
+            verificationDate: Date(),
+            verificationMethod: method.rawValue
+        )
+
+        reloadKeysWithVerificationStatus()
+    }
+
+    func clearVerificationStatus(_ keyModel: PGPKeyModel) throws {
+        try persistence.removeVerificationStatus(forFingerprint: keyModel.fingerprint)
+        reloadKeysWithVerificationStatus()
+    }
+
+    // MARK: - Trust Level
+
+    func updateTrustLevel(_ keyModel: PGPKeyModel, trustLevel: TrustLevel, notes: String? = nil) throws {
+        try persistence.updateTrustLevel(
+            forFingerprint: keyModel.fingerprint,
+            trustLevel: trustLevel,
+            notes: notes
+        )
+
+        reloadKeysWithVerificationStatus()
+    }
+
+    func clearTrustLevel(_ keyModel: PGPKeyModel) throws {
+        try persistence.removeTrustLevel(forFingerprint: keyModel.fingerprint)
+        reloadKeysWithVerificationStatus()
+    }
+
+    private func reloadKeysWithVerificationStatus() {
+        let metadata = persistence.loadMetadata()
+
+        keys = rawKeys.map { key in
+            let fingerprint = key.publicKey?.fingerprint.description() ?? ""
+
+            // Load verification status
+            let verification = metadata.verifications[fingerprint]
+            let isVerified = verification?.isVerified ?? false
+            let verificationDate = verification?.verificationDate
+            let verificationMethod = verification?.verificationMethod.flatMap {
+                FingerprintVerificationMethod(rawValue: $0)
+            }
+
+            // Load trust level
+            let trustLevel = metadata.trusts[fingerprint]?.trustLevel ?? .unknown
+
+            return PGPKeyModel(
+                from: key,
+                isVerified: isVerified,
+                verificationDate: verificationDate,
+                verificationMethod: verificationMethod,
+                trustLevel: trustLevel
+            )
         }
     }
 }

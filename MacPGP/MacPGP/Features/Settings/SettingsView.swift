@@ -24,6 +24,11 @@ struct SettingsView: View {
                 .tabItem {
                     Label("Security", systemImage: "lock.shield")
                 }
+
+            backupSettings
+                .tabItem {
+                    Label("Backup", systemImage: "externaldrive")
+                }
         }
         .frame(width: 450, height: 350)
         .confirmationDialog(
@@ -162,6 +167,51 @@ struct SettingsView: View {
                         .font(.headline)
 
                     Text("Passphrases are stored securely in the macOS Keychain, protected by your login password and optionally Touch ID or Apple Watch unlock.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
+    private var backupSettings: some View {
+        Form {
+            Section("Backup Reminders") {
+                Toggle("Enable backup reminders", isOn: $preferences.backupReminderEnabled)
+
+                if preferences.backupReminderEnabled {
+                    Picker("Remind me every", selection: $preferences.backupReminderIntervalDays) {
+                        Text("7 days").tag(7)
+                        Text("14 days").tag(14)
+                        Text("30 days").tag(30)
+                        Text("60 days").tag(60)
+                        Text("90 days").tag(90)
+                    }
+                }
+            }
+
+            Section("Backup Status") {
+                HStack {
+                    Text("Last backup")
+                    Spacer()
+                    if let lastBackup = preferences.lastBackupDate {
+                        Text(lastBackup, style: .date)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Never")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Backup Note", systemImage: "info.circle")
+                        .font(.headline)
+
+                    Text("Regular backups protect your keys from data loss. Export your keys to a secure location and store them safely.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

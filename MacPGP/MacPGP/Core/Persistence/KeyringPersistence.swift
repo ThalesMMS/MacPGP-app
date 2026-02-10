@@ -1,6 +1,25 @@
 import Foundation
 import ObjectivePGP
 
+struct KeyVerificationMetadata: Codable {
+    let fingerprint: String
+    let isVerified: Bool
+    let verificationDate: Date?
+    let verificationMethod: String?
+}
+
+struct KeyTrustMetadata: Codable {
+    let fingerprint: String
+    let trustLevel: TrustLevel
+    let lastModified: Date
+    let notes: String?
+}
+
+struct KeyringMetadata: Codable {
+    var verifications: [String: KeyVerificationMetadata] = [:]
+    var trusts: [String: KeyTrustMetadata] = [:]
+}
+
 final class KeyringPersistence {
     private let fileManager = FileManager.default
 
@@ -16,6 +35,10 @@ final class KeyringPersistence {
 
     var secretKeyringPath: URL {
         keyringDirectory.appendingPathComponent("secring.gpg")
+    }
+
+    var metadataPath: URL {
+        keyringDirectory.appendingPathComponent("metadata.json")
     }
 
     init() {
@@ -143,5 +166,91 @@ final class KeyringPersistence {
             try fileManager.removeItem(at: keyringDirectory)
         }
         try fileManager.copyItem(at: url, to: keyringDirectory)
+    }
+
+    // MARK: - Verification Status Persistence
+
+    func loadMetadata() -> KeyringMetadata {
+        guard fileManager.fileExists(atPath: metadataPath.path) else {
+            return KeyringMetadata()
+        }
+
+        do {
+            let data = try Data(contentsOf: metadataPath)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return try decoder.decode(KeyringMetadata.self, from: data)
+        } catch {
+            return KeyringMetadata()
+        }
+    }
+
+    func saveMetadata(_ metadata: KeyringMetadata) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(metadata)
+        try data.write(to: metadataPath)
+    }
+
+    func getVerificationStatus(forFingerprint fingerprint: String) -> KeyVerificationMetadata? {
+        let metadata = loadMetadata()
+        return metadata.verifications[fingerprint]
+    }
+
+    func updateVerificationStatus(
+        forFingerprint fingerprint: String,
+        isVerified: Bool,
+        verificationDate: Date?,
+        verificationMethod: String?
+    ) throws {
+        var metadata = loadMetadata()
+
+        let verificationMetadata = KeyVerificationMetadata(
+            fingerprint: fingerprint,
+            isVerified: isVerified,
+            verificationDate: verificationDate,
+            verificationMethod: verificationMethod
+        )
+
+        metadata.verifications[fingerprint] = verificationMetadata
+        try saveMetadata(metadata)
+    }
+
+    func removeVerificationStatus(forFingerprint fingerprint: String) throws {
+        var metadata = loadMetadata()
+        metadata.verifications.removeValue(forKey: fingerprint)
+        try saveMetadata(metadata)
+    }
+
+    // MARK: - Trust Level Persistence
+
+    func getTrustLevel(forFingerprint fingerprint: String) -> KeyTrustMetadata? {
+        let metadata = loadMetadata()
+        return metadata.trusts[fingerprint]
+    }
+
+    func updateTrustLevel(
+        forFingerprint fingerprint: String,
+        trustLevel: TrustLevel,
+        notes: String?
+    ) throws {
+        var metadata = loadMetadata()
+
+        let trustMetadata = KeyTrustMetadata(
+            fingerprint: fingerprint,
+            trustLevel: trustLevel,
+            lastModified: Date(),
+            notes: notes
+        )
+
+        metadata.trusts[fingerprint] = trustMetadata
+        try saveMetadata(metadata)
+    }
+
+    func removeTrustLevel(forFingerprint fingerprint: String) throws {
+        var metadata = loadMetadata()
+        metadata.trusts.removeValue(forKey: fingerprint)
+        try saveMetadata(metadata)
     }
 }

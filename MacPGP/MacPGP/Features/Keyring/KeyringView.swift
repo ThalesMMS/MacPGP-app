@@ -7,6 +7,10 @@ struct KeyringView: View {
     @State private var showingExportSheet = false
     @State private var exportData: Data?
     @State private var exportFileName: String = ""
+    @State private var showingBackupWizard = false
+    @State private var showingRestoreWizard = false
+    @State private var showingPaperKey = false
+    @State private var paperKeyContext: PGPKeyModel?
 
     var body: some View {
         Group {
@@ -69,6 +73,23 @@ struct KeyringView: View {
                 viewModel.alertMessage = "Export failed: \(error.localizedDescription)"
                 viewModel.showingAlert = true
             }
+        }
+        .sheet(isPresented: $showingBackupWizard) {
+            BackupWizardView()
+        }
+        .sheet(isPresented: $showingRestoreWizard) {
+            RestoreWizardView()
+        }
+        .sheet(isPresented: $showingPaperKey) {
+            if let key = paperKeyContext {
+                PaperKeyView(key: key)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showBackupWizard)) { _ in
+            showingBackupWizard = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showRestoreWizard)) { _ in
+            showingRestoreWizard = true
         }
     }
 
@@ -161,6 +182,23 @@ struct KeyringView: View {
             Button("Export Secret Key...") {
                 exportKey(key, includeSecret: true, viewModel: viewModel)
             }
+        }
+
+        Divider()
+
+        Button("Backup Keys...") {
+            showingBackupWizard = true
+        }
+
+        if key.isSecretKey {
+            Button("Paper Backup...") {
+                paperKeyContext = key
+                showingPaperKey = true
+            }
+        }
+
+        Button("Restore Keys...") {
+            showingRestoreWizard = true
         }
 
         Divider()
