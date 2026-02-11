@@ -79,7 +79,7 @@ struct ContentView: View {
         case .webOfTrust:
             WebOfTrustView()
         case .keyring, nil:
-            Text("Select an item")
+            Text(String(localized: "contentview.select_item", comment: "Placeholder text when no sidebar item is selected"))
                 .foregroundStyle(.secondary)
         }
     }
@@ -90,9 +90,9 @@ struct ContentView: View {
             KeyDetailsView(key: key)
         } else {
             ContentUnavailableView(
-                "No Key Selected",
+                String(localized: "contentview.no_key_selected", comment: "Title shown when no PGP key is selected"),
                 systemImage: "key",
-                description: Text("Select a key to view its details")
+                description: Text(String(localized: "contentview.select_key_description", comment: "Description prompting user to select a key"))
             )
         }
     }
@@ -151,8 +151,8 @@ struct ContentView: View {
         guard let clipboardText = NSPasteboard.general.string(forType: .string),
               !clipboardText.isEmpty else {
             notificationService.showError(
-                title: "Clipboard Empty",
-                message: "No text found in clipboard"
+                title: String(localized: "error.clipboard_empty", comment: "Error title when clipboard has no content"),
+                message: String(localized: "error.no_text_in_clipboard", comment: "Error message when clipboard has no text")
             )
             return
         }
@@ -160,8 +160,8 @@ struct ContentView: View {
         // Check if recipients are selected
         guard !sessionState.encryptSelectedRecipients.isEmpty else {
             notificationService.showError(
-                title: "No Recipients",
-                message: "Please select recipients in the Encrypt view first"
+                title: String(localized: "error.no_recipients", comment: "Error title when no encryption recipients are selected"),
+                message: String(localized: "error.select_recipients_first", comment: "Error message prompting user to select recipients")
             )
             return
         }
@@ -174,8 +174,8 @@ struct ContentView: View {
             passphrase = try? KeychainManager.shared.retrievePassphrase(forKeyID: signerKey.shortKeyID)
             if passphrase == nil {
                 notificationService.showError(
-                    title: "Passphrase Required",
-                    message: "Please enter passphrase in the Encrypt view for signing key"
+                    title: String(localized: "error.passphrase_required", comment: "Error title when passphrase is required for signing"),
+                    message: String(localized: "error.enter_passphrase_for_signing", comment: "Error message prompting user to enter passphrase in Encrypt view")
                 )
                 return
             }
@@ -197,14 +197,14 @@ struct ContentView: View {
                     NSPasteboard.general.setString(encrypted, forType: .string)
 
                     notificationService.showSuccess(
-                        title: "Encryption Successful",
-                        message: "Clipboard contents have been encrypted"
+                        title: String(localized: "success.encryption_successful", comment: "Success title when clipboard encryption completes"),
+                        message: String(localized: "success.clipboard_encrypted", comment: "Success message confirming clipboard contents were encrypted")
                     )
                 }
             } catch {
                 await MainActor.run {
                     notificationService.showError(
-                        title: "Encryption Failed",
+                        title: String(localized: "error.encryption_failed", comment: "Error title when encryption operation fails"),
                         message: error.localizedDescription
                     )
                 }
@@ -217,8 +217,8 @@ struct ContentView: View {
         guard let clipboardText = NSPasteboard.general.string(forType: .string),
               !clipboardText.isEmpty else {
             notificationService.showError(
-                title: "Clipboard Empty",
-                message: "No text found in clipboard"
+                title: String(localized: "error.clipboard_empty", comment: "Error title when clipboard has no content"),
+                message: String(localized: "error.no_text_in_clipboard", comment: "Error message when clipboard has no text")
             )
             return
         }
@@ -226,8 +226,8 @@ struct ContentView: View {
         // Check if secret keys are available
         guard !keyringService.secretKeys().isEmpty else {
             notificationService.showError(
-                title: "No Secret Keys",
-                message: "No secret keys available for decryption"
+                title: String(localized: "error.no_secret_keys", comment: "Error title when no secret keys are available"),
+                message: String(localized: "error.no_secret_keys_for_decryption", comment: "Error message when no secret keys available for decryption")
             )
             return
         }
@@ -259,7 +259,7 @@ struct ContentView: View {
                 }
 
                 guard let result = decrypted else {
-                    throw OperationError.unknownError(message: "No valid passphrase found in keychain. Please decrypt manually in the Decrypt view.")
+                    throw OperationError.unknownError(message: String(localized: "error.no_valid_passphrase", comment: "Error message when no valid passphrase found in keychain for decryption"))
                 }
 
                 await MainActor.run {
@@ -267,14 +267,14 @@ struct ContentView: View {
                     NSPasteboard.general.setString(result, forType: .string)
 
                     notificationService.showSuccess(
-                        title: "Decryption Successful",
-                        message: "Clipboard contents have been decrypted"
+                        title: String(localized: "success.decryption_successful", comment: "Success title when clipboard decryption completes"),
+                        message: String(localized: "success.clipboard_decrypted", comment: "Success message confirming clipboard contents were decrypted")
                     )
                 }
             } catch {
                 await MainActor.run {
                     notificationService.showError(
-                        title: "Decryption Failed",
+                        title: String(localized: "error.decryption_failed", comment: "Error title when decryption operation fails"),
                         message: error.localizedDescription
                     )
                 }

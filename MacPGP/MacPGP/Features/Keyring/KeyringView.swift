@@ -2,6 +2,7 @@ import SwiftUI
 
 struct KeyringView: View {
     @Environment(KeyringService.self) private var keyringService
+    @Environment(KeyServerService.self) private var keyServerService
     @Binding var selectedKey: PGPKeyModel?
     @State private var viewModel: KeyringViewModel?
     @State private var showingExportSheet = false
@@ -11,6 +12,9 @@ struct KeyringView: View {
     @State private var showingRestoreWizard = false
     @State private var showingPaperKey = false
     @State private var paperKeyContext: PGPKeyModel?
+    @State private var showingKeyserverSearch = false
+    @State private var isUploading = false
+    @State private var isRefreshing = false
 
     var body: some View {
         Group {
@@ -85,6 +89,9 @@ struct KeyringView: View {
                 PaperKeyView(key: key)
             }
         }
+        .sheet(isPresented: $showingKeyserverSearch) {
+            KeyServerSearchView()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .showBackupWizard)) { _ in
             showingBackupWizard = true
         }
@@ -106,6 +113,11 @@ struct KeyringView: View {
             .pickerStyle(.menu)
             .labelsHidden()
             .frame(width: 120)
+
+            Button(action: { showingKeyserverSearch = true }) {
+                Label("Search Keyserver", systemImage: "magnifyingglass")
+            }
+            .buttonStyle(.borderless)
 
             Spacer()
 
@@ -186,6 +198,18 @@ struct KeyringView: View {
 
         Divider()
 
+        Button("Upload to Keyserver...") {
+            uploadKey(key, viewModel: viewModel)
+        }
+        .disabled(isUploading)
+
+        Button("Refresh from Keyserver") {
+            refreshKey(key, viewModel: viewModel)
+        }
+        .disabled(isRefreshing)
+
+        Divider()
+
         Button("Backup Keys...") {
             showingBackupWizard = true
         }
@@ -219,6 +243,66 @@ struct KeyringView: View {
             viewModel.showingAlert = true
         }
     }
+
+    private func uploadKey(_ key: PGPKeyModel, viewModel: KeyringViewModel) {
+        Task {
+            isUploading = true
+            defer { isUploading = false }
+
+            do {
+                // Always upload public key only (never upload secret keys)
+                let publicKeyData = try viewModel.exportKey(key, includeSecret: false)
+
+                // Use default keyserver (keys.openpgp.org)
+                let defaultServer = KeyServerConfig.keysOpenpgp
+
+                try await keyServerService.uploadKey(publicKeyData, to: defaultServer)
+
+                // Show success message
+                await MainActor.run {
+                    viewModel.alertMessage = "Key uploaded successfully to \(defaultServer.name)"
+                    viewModel.showingAlert = true
+                }
+            } catch {
+                // Show error message
+                await MainActor.run {
+                    viewModel.alertMessage = "Upload failed: \(error.localizedDescription)"
+                    viewModel.showingAlert = true
+                }
+            }
+        }
+    }
+
+    private func refreshKey(_ key: PGPKeyModel, viewModel: KeyringViewModel) {
+        Task {
+            isRefreshing = true
+            defer { isRefreshing = false }
+
+            do {
+                // Use default keyserver (keys.openpgp.org)
+                let defaultServer = KeyServerConfig.keysOpenpgp
+
+                let keyData = try await keyServerService.refreshKey(fingerprint: key.fingerprint, from: defaultServer)
+
+                // Import the refreshed key
+                _ = try await MainActor.run {
+                    try keyringService.importKey(from: keyData)
+                }
+
+                // Show success message
+                await MainActor.run {
+                    viewModel.alertMessage = "Key refreshed successfully from \(defaultServer.name)"
+                    viewModel.showingAlert = true
+                }
+            } catch {
+                // Show error message
+                await MainActor.run {
+                    viewModel.alertMessage = "Refresh failed: \(error.localizedDescription)"
+                    viewModel.showingAlert = true
+                }
+            }
+        }
+    }
 }
 
 struct PGPKeyDocument: FileDocument {
@@ -244,4 +328,5 @@ import UniformTypeIdentifiers
 #Preview {
     KeyringView(selectedKey: .constant(nil))
         .environment(KeyringService())
+        .environment(KeyServerService())
 }

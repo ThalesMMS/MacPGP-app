@@ -1,0 +1,461 @@
+/*
+ * Localizable.strings
+ * MacPGP
+ *
+ * French (Français) localization strings
+ * This file contains all user-facing strings for the MacPGP application.
+ */
+
+/* MARK: - Menu Items & App Commands */
+"menu.generate_key" = "Générer une nouvelle clé...";
+"menu.import_key" = "Importer une clé...";
+"menu.search_keyserver" = "Rechercher sur le serveur de clés...";
+"menu.backup_keys" = "Sauvegarder les clés...";
+"menu.restore_keys" = "Restaurer les clés...";
+"menu.encrypt_clipboard" = "Chiffrer le presse-papiers";
+"menu.decrypt_clipboard" = "Déchiffrer le presse-papiers";
+
+/* MARK: - Sidebar Navigation */
+"sidebar.macpgp" = "MacPGP";
+"sidebar.keys" = "Clés";
+"sidebar.operations" = "Opérations";
+"sidebar.keyring" = "Trousseau";
+"sidebar.keyring_description" = "Gérer vos clés PGP";
+"sidebar.web_of_trust" = "Toile de confiance";
+"sidebar.web_of_trust_description" = "Visualiser les relations de confiance";
+"sidebar.encrypt" = "Chiffrer";
+"sidebar.encrypt_description" = "Chiffrer des messages ou des fichiers";
+"sidebar.decrypt" = "Déchiffrer";
+"sidebar.decrypt_description" = "Déchiffrer des messages ou des fichiers";
+"sidebar.sign" = "Signer";
+"sidebar.sign_description" = "Signer des messages ou des fichiers";
+"sidebar.verify" = "Vérifier";
+"sidebar.verify_description" = "Vérifier les signatures";
+
+/* MARK: - Content View */
+"content.select_item" = "Sélectionner un élément";
+"content.detail" = "Détail";
+"content.no_key_selected" = "Aucune clé sélectionnée";
+"content.select_key_details" = "Sélectionnez une clé pour voir ses détails";
+"content.clipboard_empty" = "Presse-papiers vide";
+"content.clipboard_no_text" = "Aucun texte trouvé dans le presse-papiers";
+"content.no_recipients" = "Aucun destinataire";
+"content.select_recipients_first" = "Veuillez d'abord sélectionner des destinataires dans la vue Chiffrer";
+"content.passphrase_required" = "Phrase secrète requise";
+"content.enter_passphrase_signing" = "Veuillez entrer la phrase secrète dans la vue Chiffrer pour la clé de signature";
+"content.encryption_successful" = "Chiffrement réussi";
+"content.clipboard_encrypted" = "Le contenu du presse-papiers a été chiffré";
+"content.encryption_failed" = "Échec du chiffrement";
+"content.no_secret_keys" = "Aucune clé secrète";
+"content.no_secret_keys_decryption" = "Aucune clé secrète disponible pour le déchiffrement";
+"content.decryption_successful" = "Déchiffrement réussi";
+"content.clipboard_decrypted" = "Le contenu du presse-papiers a été déchiffré";
+"content.decryption_failed" = "Échec du déchiffrement";
+
+/* MARK: - Keyring View */
+"keyring.title" = "Trousseau";
+"keyring.search_placeholder" = "Rechercher des clés...";
+"keyring.delete_key" = "Supprimer la clé";
+"keyring.delete_confirmation" = "Êtes-vous sûr de vouloir supprimer \"%@\" ? Cette action est irréversible.";
+"keyring.no_keys" = "Aucune clé";
+"keyring.no_keys_message" = "Générez une nouvelle clé ou importez des clés existantes pour commencer.";
+"keyring.no_search_results" = "Aucune clé ne correspond à votre recherche.";
+"keyring.generate_new_key" = "Générer une nouvelle clé";
+"keyring.import_key" = "Importer une clé";
+"keyring.copy_key_id" = "Copier l'ID de clé";
+"keyring.copy_fingerprint" = "Copier l'empreinte";
+"keyring.export_public_key" = "Exporter la clé publique...";
+"keyring.export_secret_key" = "Exporter la clé secrète...";
+"keyring.upload_to_keyserver" = "Envoyer vers le serveur de clés...";
+"keyring.refresh_from_keyserver" = "Actualiser depuis le serveur de clés";
+"keyring.backup_keys" = "Sauvegarder les clés...";
+"keyring.paper_backup" = "Sauvegarde papier...";
+"keyring.restore_keys" = "Restaurer les clés...";
+"keyring.filter" = "Filtrer";
+"keyring.search_keyserver" = "Rechercher sur le serveur de clés";
+"keyring.sort" = "Trier";
+"keyring.keys_selected" = "%d clé(s) sélectionnée(s)";
+
+/* MARK: - Key Status */
+"key.expired" = "Expirée";
+"key.revoked" = "Révoquée";
+"key.verified" = "Vérifiée";
+"key.secret_key" = "Clé secrète";
+"key.public_key" = "Clé publique";
+"key.your_key" = "Votre clé";
+
+/* MARK: - Key Generation */
+"keygen.title" = "Générer une nouvelle clé";
+"keygen.identity" = "Identité";
+"keygen.full_name" = "Nom complet";
+"keygen.email_address" = "Adresse e-mail";
+"keygen.comment_optional" = "Commentaire (optionnel)";
+"keygen.key_settings" = "Paramètres de clé";
+"keygen.algorithm" = "Algorithme";
+"keygen.key_size" = "Taille de clé";
+"keygen.never_expires" = "N'expire jamais";
+"keygen.expires_in" = "Expire dans";
+"keygen.expiry_6_months" = "6 mois";
+"keygen.expiry_1_year" = "1 an";
+"keygen.expiry_2_years" = "2 ans";
+"keygen.expiry_5_years" = "5 ans";
+"keygen.passphrase" = "Phrase secrète";
+"keygen.confirm_passphrase" = "Confirmer la phrase secrète";
+"keygen.passphrases_no_match" = "Les phrases secrètes ne correspondent pas";
+"keygen.store_in_keychain" = "Enregistrer la phrase secrète dans le trousseau";
+"keygen.cancel" = "Annuler";
+"keygen.generate" = "Générer";
+"keygen.generating" = "Génération de la clé...";
+"keygen.please_wait" = "Cela peut prendre un instant";
+"keygen.done" = "Terminé";
+
+/* MARK: - Encryption View */
+"encrypt.title" = "Chiffrer";
+"encrypt.text" = "Texte";
+"encrypt.file" = "Fichier";
+"encrypt.mode" = "Mode";
+"encrypt.armor" = "Armure";
+"encrypt.from_clipboard" = "Chiffrer depuis le presse-papiers";
+"encrypt.button" = "Chiffrer";
+"encrypt.passphrase_required" = "Phrase secrète requise";
+"encrypt.enter_passphrase_signing" = "Entrez la phrase secrète pour la clé de signature";
+"encrypt.sign_with_optional" = "Signer avec (optionnel)";
+"encrypt.dont_sign" = "Ne pas signer";
+"encrypt.message" = "Message";
+"encrypt.files" = "Fichiers";
+"encrypt.remove" = "Supprimer";
+"encrypt.select_file" = "Sélectionner un fichier...";
+"encrypt.select_files" = "Sélectionner des fichiers...";
+"encrypt.error" = "Erreur";
+"encrypt.error_occurred" = "Une erreur s'est produite";
+
+/* MARK: - Recipients */
+"recipients.title" = "Destinataires";
+"recipients.no_keys" = "Aucune clé disponible";
+"recipients.import_first" = "Importez d'abord les clés publiques des destinataires";
+"recipients.search_placeholder" = "Rechercher des destinataires...";
+"recipients.selected" = "Sélectionné";
+"recipients.trust_warnings" = "Avertissements de confiance";
+
+/* MARK: - Decryption View */
+"decrypt.title" = "Déchiffrer";
+"decrypt.from_clipboard" = "Déchiffrer depuis le presse-papiers";
+"decrypt.text" = "Texte";
+"decrypt.file" = "Fichier";
+"decrypt.mode" = "Mode";
+"decrypt.passphrase_required" = "Phrase secrète requise";
+"decrypt.enter_passphrase_key" = "Entrez la phrase secrète pour %@";
+"decrypt.enter_passphrase" = "Entrez la phrase secrète pour déchiffrer";
+"decrypt.decryption_key" = "Clé de déchiffrement";
+"decrypt.auto_detect" = "Détection automatique";
+"decrypt.select_key" = "Sélectionner une clé";
+"decrypt.select_key_placeholder" = "Sélectionnez une clé...";
+"decrypt.error" = "Erreur";
+"decrypt.error_occurred" = "Une erreur s'est produite";
+
+/* MARK: - Signing View */
+"sign.title" = "Signer";
+"sign.text" = "Texte";
+"sign.file" = "Fichier";
+"sign.mode" = "Mode";
+"sign.cleartext" = "Texte clair";
+"sign.detached" = "Détachée";
+"sign.armor" = "Armure";
+"sign.button" = "Signer";
+"sign.passphrase_required" = "Phrase secrète requise";
+"sign.enter_passphrase_key" = "Entrez la phrase secrète pour %@";
+"sign.enter_passphrase" = "Entrez la phrase secrète pour signer";
+"sign.signing_key" = "Clé de signature";
+"sign.no_secret_keys" = "Aucune clé secrète disponible pour la signature";
+"sign.select_key_placeholder" = "Sélectionnez une clé...";
+"sign.message_to_sign" = "Message à signer";
+"sign.paste" = "Coller";
+"sign.error" = "Erreur";
+"sign.error_occurred" = "Une erreur s'est produite";
+
+/* MARK: - Verification View */
+"verify.title" = "Vérifier";
+"verify.text" = "Texte";
+"verify.file" = "Fichier";
+"verify.mode" = "Mode";
+"verify.signature" = "Signature";
+"verify.inline" = "Intégrée";
+"verify.detached" = "Détachée";
+"verify.button" = "Vérifier";
+"verify.signed_message" = "Message signé";
+"verify.original_message" = "Message original";
+"verify.paste" = "Coller";
+"verify.detached_signature" = "Signature détachée";
+"verify.signed_file" = "Fichier signé";
+"verify.original_file" = "Fichier original";
+"verify.remove" = "Supprimer";
+"verify.error" = "Erreur";
+"verify.error_occurred" = "Une erreur s'est produite";
+
+/* MARK: - Key Details View */
+"keydetails.key_id" = "ID de clé";
+"keydetails.algorithm" = "Algorithme";
+"keydetails.created" = "Créée";
+"keydetails.expires" = "Expire";
+"keydetails.never" = "Jamais";
+"keydetails.user_ids" = "ID utilisateur";
+"keydetails.set_trust_level" = "Définir le niveau de confiance";
+"keydetails.verify_fingerprint" = "Vérifier l'empreinte";
+"keydetails.extend_expiration" = "Prolonger l'expiration";
+"keydetails.revocation" = "Révocation";
+"keydetails.export" = "Exporter";
+"keydetails.export_public_key" = "Exporter la clé publique...";
+"keydetails.export_secret_key" = "Exporter la clé secrète...";
+"keydetails.delete" = "Supprimer";
+"keydetails.delete_key" = "Supprimer la clé";
+"keydetails.delete_confirmation" = "Êtes-vous sûr de vouloir supprimer \"%@\" ? Cette action est irréversible.";
+"keydetails.trust_path" = "Chemin de confiance";
+"keydetails.key_revoked" = "Cette clé a été révoquée";
+"keydetails.key_revoked_message" = "Les clés révoquées ne peuvent pas être utilisées pour le chiffrement ou la signature. Cette clé ne doit pas être utilisée.";
+"keydetails.key_expired" = "Cette clé a expiré";
+"keydetails.key_expired_message" = "Les clés expirées ne peuvent pas être utilisées pour le chiffrement ou la signature.";
+"keydetails.target" = "Cible";
+"keydetails.certifies" = "certifie";
+"keydetails.more_trust_paths" = "%d chemin(s) de confiance supplémentaire(s)";
+"keydetails.no_trust_path" = "Aucun chemin de confiance trouvé depuis vos clés de confiance";
+
+/* MARK: - Trust Level Picker */
+"trust.key_information" = "Informations sur la clé";
+"trust.current_trust" = "Confiance actuelle : %@";
+"trust.trust_level" = "Niveau de confiance";
+"trust.select_trust_message" = "Sélectionnez le niveau de confiance que vous accordez à cette clé pour certifier d'autres clés :";
+"trust.what_this_means" = "Ce que cela signifie";
+"trust.can_certify" = "Peut certifier d'autres clés";
+"trust.ultimate_warning" = "Avertissement de confiance absolue";
+"trust.ultimate_warning_message" = "La confiance absolue ne doit être attribuée qu'à vos propres clés. Ce niveau indique une confiance totale dans la capacité de la clé à certifier d'autres clés.";
+"trust.set_trust_level" = "Définir le niveau de confiance";
+"trust.cancel" = "Annuler";
+"trust.done" = "Terminé";
+
+/* MARK: - Extend Expiration */
+"extend.key_information" = "Informations sur la clé";
+"extend.new_expiration_date" = "Nouvelle date d'expiration";
+"extend.select_date" = "Sélectionner une date";
+"extend.preset" = "Prédéfini";
+"extend.authentication" = "Authentification";
+"extend.passphrase_required" = "Votre phrase secrète est requise pour modifier la clé";
+"extend.title" = "Prolonger l'expiration de la clé";
+"extend.cancel" = "Annuler";
+"extend.extend" = "Prolonger";
+"extend.current_expiration" = "Expiration actuelle :";
+
+/* MARK: - Revocation Management */
+"revocation.key_information" = "Informations sur la clé";
+"revocation.already_revoked" = "Cette clé est déjà révoquée";
+"revocation.generate_certificate" = "Générer un certificat de révocation";
+"revocation.generate_certificate_message" = "Générez un certificat de révocation pour révoquer cette clé ultérieurement.";
+"revocation.reason" = "Raison de la révocation";
+"revocation.generate_button" = "Générer le certificat";
+"revocation.import_apply" = "Importer et appliquer le certificat de révocation";
+"revocation.import_apply_message" = "Importez un certificat de révocation pour révoquer définitivement cette clé.";
+"revocation.choose_file" = "Choisir un fichier...";
+"revocation.apply_revocation" = "Appliquer la révocation";
+"revocation.title" = "Gestion de la révocation";
+"revocation.close" = "Fermer";
+
+/* MARK: - Backup Wizard */
+"backup.title" = "Sauvegarder les clés";
+"backup.select_keys_message" = "Sélectionnez les clés que vous souhaitez sauvegarder";
+"backup.select_all" = "Tout sélectionner";
+"backup.deselect_all" = "Tout désélectionner";
+"backup.keys_selected" = "%d clé(s) sélectionnée(s)";
+"backup.no_secret_keys" = "Aucune clé secrète";
+"backup.no_secret_keys_message" = "Vous avez besoin d'au moins une clé secrète pour créer une sauvegarde";
+"backup.paper_backup_hint" = "Sauvegarde papier...";
+"backup.paper_backup_message" = "Pour une sauvegarde imprimable d'une seule clé, faites un clic droit et choisissez \"Sauvegarde papier...\"";
+"backup.encryption" = "Chiffrement";
+"backup.encryption_message" = "Une phrase secrète forte protégera votre sauvegarde si elle tombe entre de mauvaises mains.";
+"backup.passphrase" = "Phrase secrète";
+"backup.passphrase_reminder" = "Assurez-vous de mémoriser cette phrase secrète. Vous en aurez besoin pour restaurer cette sauvegarde.";
+"backup.backup_information" = "Informations de sauvegarde";
+"backup.ready_to_export" = "Prêt à exporter";
+"backup.ready_to_export_message" = "Cliquez sur 'Choisir l'emplacement' pour enregistrer votre fichier de sauvegarde";
+"backup.complete" = "Sauvegarde terminée";
+"backup.choose_location" = "Choisir l'emplacement...";
+"backup.select_keys" = "Sélectionner les clés";
+"backup.back" = "Retour";
+"backup.next" = "Suivant";
+
+/* MARK: - Restore Wizard */
+"restore.title" = "Restaurer la sauvegarde";
+"restore.select_file" = "Sélectionner le fichier de sauvegarde";
+"restore.select_file_message" = "Choisissez un fichier de sauvegarde MacPGP pour restaurer vos clés";
+"restore.choose_file" = "Choisir un fichier...";
+"restore.next" = "Suivant";
+"restore.select" = "Sélectionner";
+"restore.decrypt" = "Déchiffrer";
+"restore.validate" = "Valider";
+"restore.confirm" = "Confirmer";
+"restore.passphrase" = "Phrase secrète";
+"restore.decrypt_button" = "Déchiffrer";
+"restore.back" = "Retour";
+"restore.continue" = "Continuer";
+"restore.import_keys" = "Importer les clés";
+"restore.done" = "Terminé";
+
+/* MARK: - Key Server Search */
+"keyserver.search_title" = "Rechercher sur le serveur de clés";
+"keyserver.close" = "Fermer";
+"keyserver.search_placeholder" = "Entrez une adresse e-mail ou un ID de clé";
+"keyserver.search_button" = "Rechercher";
+"keyserver.server" = "Serveur :";
+"keyserver.searching" = "Recherche sur le serveur de clés...";
+"keyserver.search_message" = "Rechercher des clés";
+"keyserver.search_help" = "Entrez une adresse e-mail ou un ID de clé pour rechercher des clés publiques sur %@.";
+"keyserver.no_keys_found" = "Aucune clé trouvée";
+"keyserver.no_keys_message" = "Aucune clé correspondant à \"%@\" n'a été trouvée sur %@.";
+"keyserver.try_different_server" = "Essayer un autre serveur";
+"keyserver.keys_found" = "%d clé(s) trouvée(s)";
+"keyserver.error" = "Erreur";
+"keyserver.cancel" = "Annuler";
+"keyserver.import" = "Importer";
+
+/* MARK: - Settings View */
+"settings.general" = "Général";
+"settings.display" = "Affichage";
+"settings.show_key_id" = "Afficher l'ID de clé dans la liste";
+"settings.confirm_delete" = "Confirmer avant de supprimer les clés";
+"settings.output" = "Sortie";
+"settings.ascii_armor_default" = "Sortie avec armure ASCII par défaut";
+"settings.storage" = "Stockage";
+"settings.auto_save" = "Enregistrer automatiquement les modifications du trousseau";
+"settings.keyring_location" = "Emplacement du trousseau";
+"settings.reset_defaults" = "Réinitialiser aux valeurs par défaut";
+"settings.reset_settings" = "Réinitialiser les paramètres";
+"settings.reset_confirmation" = "Ceci réinitialisera tous les paramètres à leurs valeurs par défaut.";
+"settings.keys" = "Clés";
+"settings.default_keygen" = "Paramètres de génération de clé par défaut";
+"settings.algorithm" = "Algorithme";
+"settings.key_size" = "Taille de clé";
+"settings.expiration" = "Expiration";
+"settings.expiry_6_months" = "6 mois";
+"settings.expiry_1_year" = "1 an";
+"settings.expiry_2_years" = "2 ans";
+"settings.expiry_5_years" = "5 ans";
+"settings.never" = "Jamais";
+"settings.security" = "Sécurité";
+"settings.passphrase_storage" = "Stockage de la phrase secrète";
+"settings.remember_passphrases" = "Mémoriser les phrases secrètes dans le trousseau";
+"settings.clear_after" = "Effacer après";
+"settings.clear_5_min" = "5 minutes";
+"settings.clear_10_min" = "10 minutes";
+"settings.clear_30_min" = "30 minutes";
+"settings.clear_1_hour" = "1 heure";
+"settings.keychain" = "Trousseau";
+"settings.stored_passphrases" = "Phrases secrètes enregistrées";
+"settings.clear_keychain_message" = "Effacer toutes les phrases secrètes enregistrées du trousseau macOS";
+"settings.clear_keychain" = "Effacer le trousseau";
+"settings.clear_keychain_title" = "Effacer le trousseau";
+"settings.clear_keychain_confirmation" = "Ceci supprimera toutes les phrases secrètes enregistrées du trousseau. Vous devrez les saisir à nouveau lors de l'utilisation de vos clés.";
+"settings.security_note" = "Note de sécurité";
+"settings.security_note_message" = "Les phrases secrètes sont stockées en toute sécurité dans le trousseau macOS, protégées par votre mot de passe de connexion et éventuellement par Touch ID ou le déverrouillage Apple Watch.";
+"settings.backup" = "Sauvegarde";
+"settings.backup_reminders" = "Rappels de sauvegarde";
+"settings.enable_backup_reminders" = "Activer les rappels de sauvegarde";
+"settings.remind_every" = "Me rappeler tous les";
+"settings.remind_7_days" = "7 jours";
+"settings.remind_14_days" = "14 jours";
+"settings.remind_30_days" = "30 jours";
+"settings.remind_60_days" = "60 jours";
+"settings.remind_90_days" = "90 jours";
+"settings.backup_status" = "État de la sauvegarde";
+"settings.last_backup" = "Dernière sauvegarde";
+"settings.backup_never" = "Jamais";
+"settings.backup_note" = "Note sur la sauvegarde";
+"settings.backup_note_message" = "Des sauvegardes régulières protègent vos clés contre la perte de données. Exportez vos clés vers un emplacement sécurisé et conservez-les en lieu sûr.";
+"settings.keyserver" = "Serveur de clés";
+
+/* MARK: - Keyserver Settings */
+"keyserver_settings.default_keyserver" = "Serveur de clés par défaut";
+"keyserver_settings.server" = "Serveur";
+"keyserver_settings.network_settings" = "Paramètres réseau";
+"keyserver_settings.timeout" = "Délai d'expiration";
+"keyserver_settings.timeout_15s" = "15 secondes";
+"keyserver_settings.timeout_30s" = "30 secondes";
+"keyserver_settings.timeout_60s" = "60 secondes";
+"keyserver_settings.timeout_90s" = "90 secondes";
+"keyserver_settings.key_management" = "Gestion des clés";
+"keyserver_settings.auto_refresh" = "Actualiser automatiquement les clés depuis le serveur";
+"keyserver_settings.auto_refresh_info" = "L'actualisation automatique vérifie les mises à jour des clés";
+"keyserver_settings.auto_refresh_message" = "Les clés seront actualisées périodiquement pour obtenir le statut de révocation et les nouvelles signatures";
+"keyserver_settings.server_information" = "Informations sur le serveur";
+"keyserver_settings.about_keyservers" = "À propos des serveurs de clés";
+"keyserver_settings.about_message" = "Les serveurs de clés publics vous permettent de partager votre clé publique et de découvrir les clés d'autres utilisateurs. Le serveur sélectionné sera utilisé pour les opérations de recherche, d'envoi et d'actualisation.";
+"keyserver_settings.connection_status" = "État de la connexion";
+
+/* MARK: - Filter & Sort */
+"filter.all_keys" = "Toutes les clés";
+"filter.secret_keys" = "Clés secrètes";
+"filter.public_keys" = "Clés publiques";
+"filter.expired" = "Expirées";
+"filter.revoked" = "Révoquées";
+"sort.name" = "Nom";
+"sort.date" = "Date";
+"sort.key_id" = "ID de clé";
+
+/* MARK: - Web of Trust */
+"wot.no_keys" = "Aucune clé";
+"wot.no_keys_message" = "Générez ou importez des clés pour construire votre toile de confiance.";
+"wot.selected" = "Sélectionné : %@";
+"wot.trust_level" = "Niveau de confiance : %@";
+"wot.secret_key" = "Clé secrète";
+"wot.view_details" = "Voir les détails";
+"wot.deselect" = "Désélectionner";
+"wot.legend" = "Légende de la toile de confiance";
+"wot.trust_levels" = "Niveaux de confiance";
+"wot.graph_elements" = "Éléments du graphe";
+"wot.node" = "Clé (nœud)";
+"wot.edge" = "Signature (lien)";
+"wot.secret_key_node" = "Clé secrète";
+"wot.close" = "Fermer";
+"wot.error" = "Erreur";
+"wot.generate_new_key" = "Générer une nouvelle clé";
+"wot.import_key" = "Importer une clé";
+
+/* MARK: - Common Actions */
+"common.cancel" = "Annuler";
+"common.ok" = "OK";
+"common.done" = "Terminé";
+"common.close" = "Fermer";
+"common.save" = "Enregistrer";
+"common.delete" = "Supprimer";
+"common.export" = "Exporter";
+"common.import" = "Importer";
+"common.back" = "Retour";
+"common.next" = "Suivant";
+"common.continue" = "Continuer";
+"common.error" = "Erreur";
+"common.success" = "Succès";
+"common.warning" = "Avertissement";
+
+/* MARK: - Error Messages */
+"error.generic" = "Une erreur s'est produite";
+"error.export_failed" = "Échec de l'exportation : %@";
+"error.import_failed" = "Échec de l'importation : %@";
+"error.upload_failed" = "Échec de l'envoi : %@";
+"error.refresh_failed" = "Échec de l'actualisation : %@";
+"error.delete_failed" = "Échec de la suppression de la clé : %@";
+"error.encryption_failed" = "Échec du chiffrement : %@";
+"error.decryption_failed" = "Échec du déchiffrement : %@";
+"error.signing_failed" = "Échec de la signature : %@";
+"error.verification_failed" = "Échec de la vérification : %@";
+
+/* MARK: - Success Messages */
+"success.key_uploaded" = "Clé envoyée avec succès vers %@";
+"success.key_refreshed" = "Clé actualisée avec succès depuis %@";
+"success.key_generated" = "Clé générée avec succès";
+"success.key_imported" = "Clé importée avec succès";
+"success.key_exported" = "Clé exportée avec succès";
+"success.key_deleted" = "Clé supprimée avec succès";
+
+/* MARK: - Shared Components */
+"qr.unable_to_generate" = "Impossible de générer le code QR";
+"qr.preview" = "Aperçu du code QR";
+"qr.test_fingerprint" = "Empreinte de test";
+
+/* End of Localizable.strings */

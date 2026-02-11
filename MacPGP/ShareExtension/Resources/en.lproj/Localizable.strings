@@ -1,0 +1,9 @@
+/*
+ * Localizable.strings
+ * ShareExtension
+ *
+ * English (Base) localization strings
+ * This file contains all user-facing strings for the Share Extension.
+ */
+
+/* Base localization file - strings will be populated during string extraction phase */

@@ -39,12 +39,14 @@ struct MacPGPApp: App {
     @State private var keyringService = KeyringService()
     @State private var sessionState = SessionStateManager()
     @State private var trustService: TrustService
+    @State private var keyServerService = KeyServerService()
 
     init() {
         let keyring = KeyringService()
         _keyringService = State(initialValue: keyring)
         _sessionState = State(initialValue: SessionStateManager())
         _trustService = State(initialValue: TrustService(keyringService: keyring))
+        _keyServerService = State(initialValue: KeyServerService())
     }
 
     var body: some Scene {
@@ -53,41 +55,47 @@ struct MacPGPApp: App {
                 .environment(keyringService)
                 .environment(sessionState)
                 .environment(trustService)
+                .environment(keyServerService)
                 .frame(minWidth: 1024, minHeight: 768)
         }
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("Generate New Key...") {
+                Button(String(localized: "menu.generate_key", comment: "Menu item to generate a new PGP key")) {
                     NotificationCenter.default.post(name: .showKeyGeneration, object: nil)
                 }
                 .keyboardShortcut("n", modifiers: [.command])
 
-                Button("Import Key...") {
+                Button(String(localized: "menu.import_key", comment: "Menu item to import a PGP key")) {
                     NotificationCenter.default.post(name: .importKey, object: nil)
                 }
                 .keyboardShortcut("i", modifiers: [.command])
 
+                Button(String(localized: "menu.search_key_server", comment: "Menu item to search for keys on a key server")) {
+                    NotificationCenter.default.post(name: .showKeyServerSearch, object: nil)
+                }
+                .keyboardShortcut("k", modifiers: [.command])
+
                 Divider()
 
-                Button("Backup Keys...") {
+                Button(String(localized: "menu.backup_keys", comment: "Menu item to backup PGP keys")) {
                     NotificationCenter.default.post(name: .showBackupWizard, object: nil)
                 }
                 .keyboardShortcut("b", modifiers: [.command, .shift])
 
-                Button("Restore Keys...") {
+                Button(String(localized: "menu.restore_keys", comment: "Menu item to restore backed up PGP keys")) {
                     NotificationCenter.default.post(name: .showRestoreWizard, object: nil)
                 }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
             }
 
             CommandGroup(after: .textEditing) {
-                Button("Encrypt Clipboard") {
+                Button(String(localized: "menu.encrypt_clipboard", comment: "Menu item to encrypt clipboard contents")) {
                     NotificationCenter.default.post(name: .encryptClipboard, object: nil)
                 }
                 .keyboardShortcut("e", modifiers: [.command, .shift])
 
-                Button("Decrypt Clipboard") {
+                Button(String(localized: "menu.decrypt_clipboard", comment: "Menu item to decrypt clipboard contents")) {
                     NotificationCenter.default.post(name: .decryptClipboard, object: nil)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .shift])
@@ -97,6 +105,7 @@ struct MacPGPApp: App {
         Settings {
             SettingsView()
                 .environment(keyringService)
+                .environment(keyServerService)
         }
     }
 }
@@ -104,6 +113,7 @@ struct MacPGPApp: App {
 extension Notification.Name {
     static let showKeyGeneration = Notification.Name("showKeyGeneration")
     static let importKey = Notification.Name("importKey")
+    static let showKeyServerSearch = Notification.Name("showKeyServerSearch")
     static let encryptFiles = ExtensionCommunicationService.encryptFilesNotification
     static let decryptFiles = ExtensionCommunicationService.decryptFilesNotification
     static let encryptClipboard = Notification.Name("encryptClipboard")
