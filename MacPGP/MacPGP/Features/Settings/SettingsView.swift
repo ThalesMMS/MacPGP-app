@@ -35,7 +35,7 @@ struct SettingsView: View {
                     Label(String(localized: "settings.tab.keyserver", comment: "Keyserver settings tab label"), systemImage: "server.rack")
                 }
         }
-        .frame(width: 450, height: 350)
+        .frame(width: 500, height: 420)
         .confirmationDialog(
             String(localized: "settings.reset_dialog.title", comment: "Title for reset settings confirmation dialog"),
             isPresented: $showingResetConfirmation

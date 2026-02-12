@@ -105,30 +105,30 @@ struct KeyringView: View {
         @Bindable var vm = viewModel
 
         HStack {
-            Picker("Filter", selection: $vm.filterType) {
+            Picker(String(localized: "keyring.toolbar.filter", defaultValue: "Filter", comment: "Filter picker label"), selection: $vm.filterType) {
                 ForEach(KeyFilterType.allCases) { filter in
-                    Text(filter.rawValue).tag(filter)
+                    Text(filter.displayName).tag(filter)
                 }
             }
             .pickerStyle(.menu)
             .labelsHidden()
-            .frame(width: 120)
+            .frame(width: 130)
 
             Button(action: { showingKeyserverSearch = true }) {
-                Label("Search Keyserver", systemImage: "magnifyingglass")
+                Label(String(localized: "keyring.toolbar.search_keyserver", defaultValue: "Search Keyserver", comment: "Button to search key server"), systemImage: "magnifyingglass")
             }
             .buttonStyle(.borderless)
 
             Spacer()
 
-            Picker("Sort", selection: $vm.sortOrder) {
+            Picker(String(localized: "keyring.toolbar.sort", defaultValue: "Sort", comment: "Sort picker label"), selection: $vm.sortOrder) {
                 ForEach(KeySortOrder.allCases) { order in
-                    Text(order.rawValue).tag(order)
+                    Text(order.displayName).tag(order)
                 }
             }
             .pickerStyle(.menu)
             .labelsHidden()
-            .frame(width: 80)
+            .frame(width: 90)
         }
         .padding(.horizontal)
         .padding(.vertical, 8)

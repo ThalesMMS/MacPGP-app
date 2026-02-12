@@ -73,19 +73,37 @@ final class KeyringViewModel {
 }
 
 enum KeySortOrder: String, CaseIterable, Identifiable {
-    case name = "Name"
-    case date = "Date"
-    case keyID = "Key ID"
+    case name
+    case date
+    case keyID
 
     var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .name: return String(localized: "keyring.sort.name", defaultValue: "Name", comment: "Sort keys by name")
+        case .date: return String(localized: "keyring.sort.date", defaultValue: "Date", comment: "Sort keys by date")
+        case .keyID: return String(localized: "keyring.sort.key_id", defaultValue: "Key ID", comment: "Sort keys by key ID")
+        }
+    }
 }
 
 enum KeyFilterType: String, CaseIterable, Identifiable {
-    case all = "All Keys"
-    case secret = "Secret Keys"
-    case `public` = "Public Keys"
-    case expired = "Expired"
-    case revoked = "Revoked"
+    case all
+    case secret
+    case `public`
+    case expired
+    case revoked
 
     var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .all: return String(localized: "keyring.filter.all", defaultValue: "All Keys", comment: "Filter to show all keys")
+        case .secret: return String(localized: "keyring.filter.secret", defaultValue: "Secret Keys", comment: "Filter to show secret keys only")
+        case .public: return String(localized: "keyring.filter.public", defaultValue: "Public Keys", comment: "Filter to show public keys only")
+        case .expired: return String(localized: "keyring.filter.expired", defaultValue: "Expired", comment: "Filter to show expired keys only")
+        case .revoked: return String(localized: "keyring.filter.revoked", defaultValue: "Revoked", comment: "Filter to show revoked keys only")
+        }
+    }
 }

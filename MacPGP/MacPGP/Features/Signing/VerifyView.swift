@@ -52,26 +52,34 @@ struct VerifyView: View {
 
     private var inputPane: some View {
         VStack(alignment: .leading, spacing: 16) {
-            switch sessionState.verifyInputMode {
-            case .text:
-                textInputSection
-                if sessionState.verifySignatureMode == .detached {
-                    Divider()
-                    detachedSignatureSection
-                }
-            case .file:
-                fileInputSection
-                if sessionState.verifySignatureMode == .detached {
-                    Divider()
-                    signatureFileSection
+            Group {
+                switch sessionState.verifyInputMode {
+                case .text:
+                    VStack(alignment: .leading, spacing: 16) {
+                        textInputSection
+                        if sessionState.verifySignatureMode == .detached {
+                            Divider()
+                            detachedSignatureSection
+                        }
+                    }
+                case .file:
+                    VStack(alignment: .leading, spacing: 16) {
+                        fileInputSection
+                        if sessionState.verifySignatureMode == .detached {
+                            Divider()
+                            signatureFileSection
+                        }
+                    }
                 }
             }
+            .layoutPriority(1)
 
             Spacer(minLength: 0)
         }
         .padding()
         .frame(minWidth: 300, idealWidth: 400, maxWidth: 500)
     }
+
 
     private var textInputSection: some View {
         @Bindable var state = sessionState

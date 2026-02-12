@@ -160,10 +160,14 @@ struct TrustGraphView: View {
 
     private func drawEdges(context: GraphicsContext, size: CGSize) {
         for edge in edges {
-            guard let fromPos = nodePositions[edge.from],
-                  let toPos = nodePositions[edge.to] else {
+            guard let fromNorm = nodePositions[edge.from],
+                  let toNorm = nodePositions[edge.to] else {
                 continue
             }
+
+            // Convert normalized positions to actual pixel coordinates
+            let fromPos = CGPoint(x: fromNorm.x * size.width, y: fromNorm.y * size.height)
+            let toPos = CGPoint(x: toNorm.x * size.width, y: toNorm.y * size.height)
 
             // Draw edge as a line with an arrow
             var path = Path()
@@ -206,7 +210,10 @@ struct TrustGraphView: View {
 
     private func drawNodes(context: GraphicsContext, size: CGSize) {
         for node in nodes {
-            guard let position = nodePositions[node.id] else { continue }
+            guard let normPos = nodePositions[node.id] else { continue }
+
+            // Convert normalized position to actual pixel coordinates
+            let position = CGPoint(x: normPos.x * size.width, y: normPos.y * size.height)
 
             let isSelected = selectedNode?.id == node.id
             let isHovered = hoveredNode?.id == node.id
@@ -274,7 +281,7 @@ struct TrustGraphView: View {
                 if isSelected {
                     Text(node.trustLevel.displayName)
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 6)

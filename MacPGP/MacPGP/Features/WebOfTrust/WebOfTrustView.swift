@@ -79,11 +79,19 @@ class WebOfTrustViewModel {
 }
 
 enum TrustFilterType: String, CaseIterable, Identifiable {
-    case all = "All Keys"
-    case trustedOnly = "Trusted Only"
-    case secretKeysOnly = "Secret Keys"
+    case all
+    case trustedOnly
+    case secretKeysOnly
 
     var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .all: return String(localized: "trust.filter.all", defaultValue: "All Keys", comment: "Filter to show all keys in trust graph")
+        case .trustedOnly: return String(localized: "trust.filter.trusted_only", defaultValue: "Trusted Only", comment: "Filter to show trusted keys only in trust graph")
+        case .secretKeysOnly: return String(localized: "trust.filter.secret_keys", defaultValue: "Secret Keys", comment: "Filter to show secret keys only in trust graph")
+        }
+    }
 }
 
 struct WebOfTrustView: View {
@@ -144,7 +152,7 @@ struct WebOfTrustView: View {
         HStack {
             Picker("Filter", selection: $vm.filterType) {
                 ForEach(TrustFilterType.allCases) { filter in
-                    Text(filter.rawValue).tag(filter)
+                    Text(filter.displayName).tag(filter)
                 }
             }
             .pickerStyle(.segmented)
@@ -212,12 +220,12 @@ struct WebOfTrustView: View {
                                 .font(.headline)
                             Text("Trust Level: \(selectedNode.trustLevel.displayName)")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
 
                             if selectedNode.key.isSecretKey {
                                 HStack(spacing: 4) {
                                     Image(systemName: "key.fill")
-                                        .foregroundColor(.purple)
+                                        .foregroundStyle(.purple)
                                     Text("Secret Key")
                                 }
                                 .font(.caption)
@@ -276,7 +284,7 @@ struct WebOfTrustView: View {
                                 .font(.subheadline)
                             Text(level.description)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -290,19 +298,19 @@ struct WebOfTrustView: View {
 
                 HStack {
                     Image(systemName: "circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundStyle(.blue)
                     Text("Key (node)")
                 }
 
                 HStack {
                     Image(systemName: "arrow.right")
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                     Text("Signature (edge)")
                 }
 
                 HStack {
                     Image(systemName: "key.fill")
-                        .foregroundColor(.purple)
+                        .foregroundStyle(.purple)
                     Text("Secret key")
                 }
             }

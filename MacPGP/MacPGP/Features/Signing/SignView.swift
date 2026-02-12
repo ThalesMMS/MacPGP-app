@@ -81,6 +81,7 @@ struct SignView: View {
                     fileInputSection
                 }
             }
+            .layoutPriority(1)
 
             Spacer(minLength: 0)
         }

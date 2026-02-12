@@ -89,6 +89,7 @@ struct DecryptView: View {
                     fileInputSection
                 }
             }
+            .layoutPriority(1)
 
             Spacer(minLength: 0)
         }
