@@ -445,6 +445,94 @@
 "error.signing_failed" = "Assinatura falhou: %@";
 "error.verification_failed" = "Verificação falhou: %@";
 
+/* MARK: - OperationError Descriptions */
+"error.key_not_found.description" = "A chave \"%@\" não foi encontrada no seu chaveiro";
+"error.invalid_passphrase.description" = "A senha está incorreta";
+"error.passphrase_required.description" = "Uma senha é necessária para desbloquear esta chave";
+"error.encryption_failed.description_with_details" = "Falha ao criptografar dados com a chave pública do destinatário. Detalhes: %@";
+"error.encryption_failed.description" = "Falha ao criptografar dados com a chave pública do destinatário.";
+"error.decryption_failed.description_with_details" = "Falha ao descriptografar dados com a chave privada. Detalhes: %@";
+"error.decryption_failed.description" = "Falha ao descriptografar dados. Certifique-se de que a chave privada correta esteja disponível.";
+"error.signing_failed.description_with_details" = "Falha ao criar assinatura digital com a chave privada. Detalhes: %@";
+"error.signing_failed.description" = "Falha ao criar assinatura digital com a chave privada.";
+"error.verification_failed.description_with_details" = "Não foi possível verificar a assinatura. Detalhes: %@";
+"error.verification_failed.description" = "Não foi possível verificar a assinatura. Os dados ou a assinatura podem estar corrompidos.";
+"error.key_generation_failed.description_with_details" = "Falha ao gerar uma nova chave. Detalhes: %@";
+"error.key_generation_failed.description" = "Falha ao gerar uma nova chave. Tente com parâmetros diferentes.";
+"error.key_import_failed.description_with_details" = "Falha ao importar a chave. Detalhes: %@";
+"error.key_import_failed.description" = "Falha ao importar a chave. Os dados podem não conter uma chave PGP válida.";
+"error.key_export_failed.description_with_details" = "Falha ao exportar a chave. Detalhes: %@";
+"error.key_export_failed.description" = "Falha ao exportar a chave.";
+"error.keychain_error.description_with_details" = "Falha no acesso às Chaves ao gerenciar senhas. Detalhes: %@";
+"error.keychain_error.description" = "Falha no acesso às Chaves ao gerenciar senhas.";
+"error.persistence_error.description_with_details" = "Falha ao salvar ou carregar dados do armazenamento. Detalhes: %@";
+"error.persistence_error.description" = "Falha ao salvar ou carregar dados do armazenamento.";
+"error.invalid_key_data.description" = "Os dados de chave fornecidos são inválidos ou estão corrompidos.";
+"error.key_expired.description" = "Esta chave expirou e não pode ser usada.";
+"error.key_revoked.description" = "Esta chave foi revogada e não deve ser usada.";
+"error.no_public_key.description" = "Nenhuma chave pública disponível para esta operação.";
+"error.no_secret_key.description" = "Nenhuma chave privada disponível para esta operação.";
+"error.recipient_key_missing.description" = "A chave pública do destinatário está faltando no seu chaveiro.";
+"error.signer_key_missing.description" = "Nenhuma chave privada disponível para assinar a mensagem.";
+"error.file_access_error.description" = "Não foi possível acessar o arquivo em: %@";
+"error.unknown_error.description" = "Ocorreu um erro inesperado: %@";
+
+/* MARK: - OperationError Recovery Suggestions */
+"error.key_not_found.recovery" = "Importe a chave de um arquivo ou gere um novo par de chaves.";
+"error.invalid_passphrase.recovery" = "Verifique sua senha e tente novamente. Se estiver armazenada nas Chaves, tente removê-la e inserir novamente.";
+"error.passphrase_required.recovery" = "Digite a senha para esta chave, ou armazene-a nas Chaves para recuperação automática.";
+"error.encryption_failed.recovery" = "Verifique se a chave do destinatário não está expirada ou revogada. Tente reimportar a chave.";
+"error.decryption_failed.recovery" = "Certifique-se de ter a chave privada correta e verifique se a senha está correta.";
+"error.signing_failed.recovery" = "Verifique se sua chave privada está acessível e a senha está correta.";
+"error.verification_failed.recovery" = "Importe a chave pública do assinante para verificar a assinatura.";
+"error.key_generation_failed.recovery" = "Tente novamente com configurações diferentes. Tamanhos comuns de chave são 2048 ou 4096 bits.";
+"error.key_import_failed.recovery" = "Certifique-se de que os dados contêm um bloco de chave PGP válido começando com BEGIN PGP.";
+"error.key_export_failed.recovery" = "Verifique as permissões de arquivo e o espaço disponível em disco.";
+"error.keychain_error.recovery" = "Verifique as permissões de acesso às Chaves em Configurações do Sistema > Privacidade e Segurança.";
+"error.persistence_error.recovery" = "Verifique o espaço disponível em disco e as permissões de arquivo.";
+"error.invalid_key_data.recovery" = "Certifique-se de que os dados contêm um bloco de chave PGP válido começando com BEGIN PGP.";
+"error.key_expired.recovery" = "Gere um novo par de chaves ou estenda a data de expiração da chave existente.";
+"error.key_revoked.recovery" = "Entre em contato com o proprietário da chave para obter uma chave substituta.";
+"error.no_public_key.recovery" = "Importe ou pesquise a chave pública em um servidor de chaves.";
+"error.no_secret_key.recovery" = "Gere um novo par de chaves que inclua uma chave privada.";
+"error.recipient_key_missing.recovery" = "Pesquise e importe a chave pública do destinatário de um servidor de chaves.";
+"error.signer_key_missing.recovery" = "Gere um par de chaves para assinar mensagens.";
+"error.file_access_error.recovery" = "Verifique as permissões de arquivo em Configurações do Sistema > Privacidade e Segurança.";
+"error.unknown_error.recovery" = "Tente a operação novamente. Se o problema persistir, reinicie o aplicativo.";
+
+/* MARK: - OperationError Failure Reasons */
+"error.key_not_found.reason" = "A chave \"%@\" não foi encontrada no chaveiro local.";
+"error.invalid_passphrase.reason" = "A senha digitada não corresponde à senha da chave.";
+"error.passphrase_required.reason" = "A chave privada está criptografada e requer uma senha para desbloquear.";
+"error.encryption_failed.reason_with_details" = "A criptografia falhou: %@";
+"error.encryption_failed.reason" = "A operação de criptografia não pôde ser concluída.";
+"error.decryption_failed.reason_with_details" = "A descriptografia falhou: %@";
+"error.decryption_failed.reason" = "Os dados não puderam ser descriptografados. A chave privada ou a senha podem estar incorretas.";
+"error.signing_failed.reason_with_details" = "A operação de assinatura falhou: %@";
+"error.signing_failed.reason" = "A operação de assinatura não pôde ser concluída.";
+"error.verification_failed.reason_with_details" = "A verificação falhou: %@";
+"error.verification_failed.reason" = "A assinatura não pôde ser verificada.";
+"error.key_generation_failed.reason_with_details" = "A geração de chave falhou: %@";
+"error.key_generation_failed.reason" = "A geração de chave falhou devido a parâmetros inválidos.";
+"error.key_import_failed.reason_with_details" = "A importação de chave falhou: %@";
+"error.key_import_failed.reason" = "Os dados não puderam ser analisados como uma chave PGP válida.";
+"error.key_export_failed.reason_with_details" = "A exportação de chave falhou: %@";
+"error.key_export_failed.reason" = "A chave não pôde ser exportada.";
+"error.keychain_error.reason_with_details" = "A operação das Chaves falhou: %@";
+"error.keychain_error.reason" = "As Chaves do macOS negaram a solicitação.";
+"error.persistence_error.reason_with_details" = "A operação de armazenamento falhou: %@";
+"error.persistence_error.reason" = "O aplicativo não conseguiu ler ou gravar em seu local de armazenamento.";
+"error.invalid_key_data.reason" = "Os dados não estão em um formato PGP reconhecido.";
+"error.key_expired.reason" = "A chave passou da sua data de expiração.";
+"error.key_revoked.reason" = "Um certificado de revogação foi aplicado a esta chave.";
+"error.no_public_key.reason" = "Nenhuma chave pública encontrada para a identidade solicitada.";
+"error.no_secret_key.reason" = "Nenhuma chave privada encontrada no chaveiro.";
+"error.recipient_key_missing.reason" = "O destinatário não possui uma chave pública no seu chaveiro.";
+"error.signer_key_missing.reason" = "Nenhuma chave privada capaz de assinar foi encontrada.";
+"error.file_access_error.reason" = "O arquivo em %@ pode não existir ou você pode não ter permissão para acessá-lo.";
+"error.unknown_error.reason" = "%@";
+
+
 /* MARK: - Success Messages */
 "success.key_uploaded" = "Chave enviada com sucesso para %@";
 "success.key_refreshed" = "Chave atualizada com sucesso de %@";

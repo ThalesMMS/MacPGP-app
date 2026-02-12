@@ -445,6 +445,93 @@
 "error.signing_failed" = "Firma fallida: %@";
 "error.verification_failed" = "Verificación fallida: %@";
 
+/* MARK: - OperationError Descriptions */
+"error.key_not_found.description" = "La clave \"%@\" no se encontró en su llavero";
+"error.invalid_passphrase.description" = "La contraseña es incorrecta";
+"error.passphrase_required.description" = "Se requiere una contraseña para desbloquear esta clave";
+"error.encryption_failed.description_with_details" = "Error al cifrar datos con la clave pública del destinatario. Detalles: %@";
+"error.encryption_failed.description" = "Error al cifrar datos con la clave pública del destinatario.";
+"error.decryption_failed.description_with_details" = "Error al descifrar datos con la clave privada. Detalles: %@";
+"error.decryption_failed.description" = "Error al descifrar datos. Asegúrese de que la clave privada correcta esté disponible.";
+"error.signing_failed.description_with_details" = "Error al crear firma digital con la clave privada. Detalles: %@";
+"error.signing_failed.description" = "Error al crear firma digital con la clave privada.";
+"error.verification_failed.description_with_details" = "No se pudo verificar la firma. Detalles: %@";
+"error.verification_failed.description" = "No se pudo verificar la firma. Los datos o la firma pueden estar corruptos.";
+"error.key_generation_failed.description_with_details" = "Error al generar una nueva clave. Detalles: %@";
+"error.key_generation_failed.description" = "Error al generar una nueva clave. Intente con parámetros diferentes.";
+"error.key_import_failed.description_with_details" = "Error al importar la clave. Detalles: %@";
+"error.key_import_failed.description" = "Error al importar la clave. Los datos pueden no contener una clave PGP válida.";
+"error.key_export_failed.description_with_details" = "Error al exportar la clave. Detalles: %@";
+"error.key_export_failed.description" = "Error al exportar la clave.";
+"error.keychain_error.description_with_details" = "Error de acceso al Llavero al gestionar contraseñas. Detalles: %@";
+"error.keychain_error.description" = "Error de acceso al Llavero al gestionar contraseñas.";
+"error.persistence_error.description_with_details" = "Error al guardar o cargar datos del almacenamiento. Detalles: %@";
+"error.persistence_error.description" = "Error al guardar o cargar datos del almacenamiento.";
+"error.invalid_key_data.description" = "Los datos de clave proporcionados son inválidos o están corruptos.";
+"error.key_expired.description" = "Esta clave ha expirado y no se puede usar.";
+"error.key_revoked.description" = "Esta clave ha sido revocada y no debe usarse.";
+"error.no_public_key.description" = "No hay clave pública disponible para esta operación.";
+"error.no_secret_key.description" = "No hay clave privada disponible para esta operación.";
+"error.recipient_key_missing.description" = "La clave pública del destinatario falta en su llavero.";
+"error.signer_key_missing.description" = "No hay clave privada disponible para firmar el mensaje.";
+"error.file_access_error.description" = "No se puede acceder al archivo en: %@";
+"error.unknown_error.description" = "Ocurrió un error inesperado: %@";
+
+/* MARK: - OperationError Recovery Suggestions */
+"error.key_not_found.recovery" = "Importe la clave desde un archivo o genere un nuevo par de claves.";
+"error.invalid_passphrase.recovery" = "Verifique su contraseña e intente de nuevo. Si está almacenada en el Llavero, intente eliminarla y volver a ingresarla.";
+"error.passphrase_required.recovery" = "Ingrese la contraseña para esta clave, o almacénela en el Llavero para recuperación automática.";
+"error.encryption_failed.recovery" = "Verifique que la clave del destinatario no esté expirada o revocada. Intente reimportar la clave.";
+"error.decryption_failed.recovery" = "Asegúrese de tener la clave privada correcta y verifique que la contraseña sea correcta.";
+"error.signing_failed.recovery" = "Verifique que su clave privada esté accesible y la contraseña sea correcta.";
+"error.verification_failed.recovery" = "Importe la clave pública del firmante para verificar la firma.";
+"error.key_generation_failed.recovery" = "Intente de nuevo con configuraciones diferentes. Tamaños comunes de clave son 2048 o 4096 bits.";
+"error.key_import_failed.recovery" = "Asegúrese de que los datos contengan un bloque de clave PGP válido que comience con BEGIN PGP.";
+"error.key_export_failed.recovery" = "Verifique los permisos de archivo y el espacio disponible en disco.";
+"error.keychain_error.recovery" = "Verifique los permisos de acceso al Llavero en Configuración del Sistema > Privacidad y Seguridad.";
+"error.persistence_error.recovery" = "Verifique el espacio disponible en disco y los permisos de archivo.";
+"error.invalid_key_data.recovery" = "Asegúrese de que los datos contengan un bloque de clave PGP válido que comience con BEGIN PGP.";
+"error.key_expired.recovery" = "Genere un nuevo par de claves o extienda la fecha de expiración de la clave existente.";
+"error.key_revoked.recovery" = "Contacte al propietario de la clave para obtener una clave de reemplazo.";
+"error.no_public_key.recovery" = "Importe o busque la clave pública desde un servidor de claves.";
+"error.no_secret_key.recovery" = "Genere un nuevo par de claves que incluya una clave privada.";
+"error.recipient_key_missing.recovery" = "Busque e importe la clave pública del destinatario desde un servidor de claves.";
+"error.signer_key_missing.recovery" = "Genere un par de claves para firmar mensajes.";
+"error.file_access_error.recovery" = "Verifique los permisos de archivo en Configuración del Sistema > Privacidad y Seguridad.";
+"error.unknown_error.recovery" = "Intente la operación de nuevo. Si el problema persiste, reinicie la aplicación.";
+
+/* MARK: - OperationError Failure Reasons */
+"error.key_not_found.reason" = "La clave \"%@\" no se encontró en el llavero local.";
+"error.invalid_passphrase.reason" = "La contraseña ingresada no coincide con la contraseña de la clave.";
+"error.passphrase_required.reason" = "La clave privada está cifrada y requiere una contraseña para desbloquear.";
+"error.encryption_failed.reason_with_details" = "El cifrado falló: %@";
+"error.encryption_failed.reason" = "La operación de cifrado no pudo completarse.";
+"error.decryption_failed.reason_with_details" = "El descifrado falló: %@";
+"error.decryption_failed.reason" = "Los datos no pudieron descifrarse. La clave privada o la contraseña pueden ser incorrectas.";
+"error.signing_failed.reason_with_details" = "La operación de firma falló: %@";
+"error.signing_failed.reason" = "La operación de firma no pudo completarse.";
+"error.verification_failed.reason_with_details" = "La verificación falló: %@";
+"error.verification_failed.reason" = "La firma no pudo ser verificada.";
+"error.key_generation_failed.reason_with_details" = "La generación de clave falló: %@";
+"error.key_generation_failed.reason" = "La generación de clave falló debido a parámetros inválidos.";
+"error.key_import_failed.reason_with_details" = "La importación de clave falló: %@";
+"error.key_import_failed.reason" = "Los datos no pudieron ser analizados como una clave PGP válida.";
+"error.key_export_failed.reason_with_details" = "La exportación de clave falló: %@";
+"error.key_export_failed.reason" = "La clave no pudo ser exportada.";
+"error.keychain_error.reason_with_details" = "La operación del Llavero falló: %@";
+"error.keychain_error.reason" = "El Llavero de macOS denegó la solicitud.";
+"error.persistence_error.reason_with_details" = "La operación de almacenamiento falló: %@";
+"error.persistence_error.reason" = "La aplicación no pudo leer o escribir en su ubicación de almacenamiento.";
+"error.invalid_key_data.reason" = "Los datos no están en un formato PGP reconocido.";
+"error.key_expired.reason" = "La clave ha pasado su fecha de expiración.";
+"error.key_revoked.reason" = "Se ha aplicado un certificado de revocación a esta clave.";
+"error.no_public_key.reason" = "No se encontró clave pública para la identidad solicitada.";
+"error.no_secret_key.reason" = "No se encontró clave privada en el llavero.";
+"error.recipient_key_missing.reason" = "El destinatario no tiene una clave pública en su llavero.";
+"error.signer_key_missing.reason" = "No se encontró una clave privada capaz de firmar.";
+"error.file_access_error.reason" = "El archivo en %@ puede no existir o no tener permiso para acceder a él.";
+"error.unknown_error.reason" = "%@";
+
 /* MARK: - Success Messages */
 "success.key_uploaded" = "Clave subida exitosamente a %@";
 "success.key_refreshed" = "Clave actualizada exitosamente desde %@";

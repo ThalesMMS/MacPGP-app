@@ -445,6 +445,94 @@
 "error.signing_failed" = "Échec de la signature : %@";
 "error.verification_failed" = "Échec de la vérification : %@";
 
+/* MARK: - OperationError Descriptions */
+"error.key_not_found.description" = "La clé «%@» est introuvable dans votre trousseau";
+"error.invalid_passphrase.description" = "Le mot de passe est incorrect";
+"error.passphrase_required.description" = "Un mot de passe est requis pour déverrouiller cette clé";
+"error.encryption_failed.description_with_details" = "Échec du chiffrement avec la clé publique du destinataire. Détails : %@";
+"error.encryption_failed.description" = "Échec du chiffrement avec la clé publique du destinataire.";
+"error.decryption_failed.description_with_details" = "Échec du déchiffrement avec la clé privée. Détails : %@";
+"error.decryption_failed.description" = "Échec du déchiffrement. Vérifiez que la bonne clé privée est disponible.";
+"error.signing_failed.description_with_details" = "Échec de la création de signature numérique avec la clé privée. Détails : %@";
+"error.signing_failed.description" = "Échec de la création de signature numérique avec la clé privée.";
+"error.verification_failed.description_with_details" = "Impossible de vérifier la signature. Détails : %@";
+"error.verification_failed.description" = "Impossible de vérifier la signature. Les données ou la signature peuvent être corrompues.";
+"error.key_generation_failed.description_with_details" = "Échec de la génération de clé. Détails : %@";
+"error.key_generation_failed.description" = "Échec de la génération de clé. Essayez avec des paramètres différents.";
+"error.key_import_failed.description_with_details" = "Échec de l'importation de la clé. Détails : %@";
+"error.key_import_failed.description" = "Échec de l'importation de la clé. Les données ne contiennent peut-être pas une clé PGP valide.";
+"error.key_export_failed.description_with_details" = "Échec de l'exportation de la clé. Détails : %@";
+"error.key_export_failed.description" = "Échec de l'exportation de la clé.";
+"error.keychain_error.description_with_details" = "Échec d'accès au Trousseau lors de la gestion des mots de passe. Détails : %@";
+"error.keychain_error.description" = "Échec d'accès au Trousseau lors de la gestion des mots de passe.";
+"error.persistence_error.description_with_details" = "Échec de la sauvegarde ou du chargement des données. Détails : %@";
+"error.persistence_error.description" = "Échec de la sauvegarde ou du chargement des données.";
+"error.invalid_key_data.description" = "Les données de clé fournies sont invalides ou corrompues.";
+"error.key_expired.description" = "Cette clé a expiré et ne peut plus être utilisée.";
+"error.key_revoked.description" = "Cette clé a été révoquée et ne devrait pas être utilisée.";
+"error.no_public_key.description" = "Aucune clé publique n'est disponible pour cette opération.";
+"error.no_secret_key.description" = "Aucune clé privée n'est disponible pour cette opération.";
+"error.recipient_key_missing.description" = "La clé publique du destinataire est manquante dans votre trousseau.";
+"error.signer_key_missing.description" = "Aucune clé privée n'est disponible pour signer le message.";
+"error.file_access_error.description" = "Impossible d'accéder au fichier : %@";
+"error.unknown_error.description" = "Une erreur inattendue s'est produite : %@";
+
+/* MARK: - OperationError Recovery Suggestions */
+"error.key_not_found.recovery" = "Importez la clé depuis un fichier ou générez une nouvelle paire de clés.";
+"error.invalid_passphrase.recovery" = "Vérifiez votre mot de passe et réessayez. S'il est stocké dans le Trousseau, essayez de le supprimer et de le ressaisir.";
+"error.passphrase_required.recovery" = "Entrez le mot de passe pour cette clé, ou stockez-le dans le Trousseau pour une récupération automatique.";
+"error.encryption_failed.recovery" = "Vérifiez que la clé du destinataire n'est pas expirée ou révoquée. Essayez de réimporter la clé.";
+"error.decryption_failed.recovery" = "Assurez-vous d'avoir la bonne clé privée et vérifiez que le mot de passe est correct.";
+"error.signing_failed.recovery" = "Vérifiez que votre clé privée est accessible et que le mot de passe est correct.";
+"error.verification_failed.recovery" = "Importez la clé publique du signataire pour vérifier la signature.";
+"error.key_generation_failed.recovery" = "Réessayez avec des paramètres différents. Les tailles courantes sont 2048 ou 4096 bits.";
+"error.key_import_failed.recovery" = "Assurez-vous que les données contiennent un bloc de clé PGP valide commençant par BEGIN PGP.";
+"error.key_export_failed.recovery" = "Vérifiez les permissions de fichier et l'espace disque disponible.";
+"error.keychain_error.recovery" = "Vérifiez les permissions d'accès au Trousseau dans Réglages Système > Confidentialité et Sécurité.";
+"error.persistence_error.recovery" = "Vérifiez l'espace disque disponible et les permissions de fichier.";
+"error.invalid_key_data.recovery" = "Assurez-vous que les données contiennent un bloc de clé PGP valide commençant par BEGIN PGP.";
+"error.key_expired.recovery" = "Générez une nouvelle paire de clés ou prolongez la date d'expiration de la clé existante.";
+"error.key_revoked.recovery" = "Contactez le propriétaire de la clé pour obtenir une clé de remplacement.";
+"error.no_public_key.recovery" = "Importez ou recherchez la clé publique depuis un serveur de clés.";
+"error.no_secret_key.recovery" = "Générez une nouvelle paire de clés incluant une clé privée.";
+"error.recipient_key_missing.recovery" = "Recherchez et importez la clé publique du destinataire depuis un serveur de clés.";
+"error.signer_key_missing.recovery" = "Générez une paire de clés pour signer des messages.";
+"error.file_access_error.recovery" = "Vérifiez les permissions de fichier dans Réglages Système > Confidentialité et Sécurité.";
+"error.unknown_error.recovery" = "Réessayez l'opération. Si le problème persiste, redémarrez l'application.";
+
+/* MARK: - OperationError Failure Reasons */
+"error.key_not_found.reason" = "La clé «%@» est introuvable dans le trousseau local.";
+"error.invalid_passphrase.reason" = "Le mot de passe saisi ne correspond pas au mot de passe de la clé.";
+"error.passphrase_required.reason" = "La clé privée est chiffrée et nécessite un mot de passe pour le déverrouillage.";
+"error.encryption_failed.reason_with_details" = "Le chiffrement a échoué : %@";
+"error.encryption_failed.reason" = "L'opération de chiffrement n'a pas pu être complétée.";
+"error.decryption_failed.reason_with_details" = "Le déchiffrement a échoué : %@";
+"error.decryption_failed.reason" = "Les données n'ont pas pu être déchiffrées. La clé privée ou le mot de passe est peut-être incorrect.";
+"error.signing_failed.reason_with_details" = "L'opération de signature a échoué : %@";
+"error.signing_failed.reason" = "L'opération de signature n'a pas pu être complétée.";
+"error.verification_failed.reason_with_details" = "La vérification a échoué : %@";
+"error.verification_failed.reason" = "La signature n'a pas pu être vérifiée.";
+"error.key_generation_failed.reason_with_details" = "La génération de clé a échoué : %@";
+"error.key_generation_failed.reason" = "La génération de clé a échoué en raison de paramètres invalides.";
+"error.key_import_failed.reason_with_details" = "L'importation de clé a échoué : %@";
+"error.key_import_failed.reason" = "Les données n'ont pas pu être analysées comme une clé PGP valide.";
+"error.key_export_failed.reason_with_details" = "L'exportation de clé a échoué : %@";
+"error.key_export_failed.reason" = "La clé n'a pas pu être exportée.";
+"error.keychain_error.reason_with_details" = "L'opération du Trousseau a échoué : %@";
+"error.keychain_error.reason" = "Le Trousseau macOS a refusé la requête.";
+"error.persistence_error.reason_with_details" = "L'opération de stockage a échoué : %@";
+"error.persistence_error.reason" = "L'application n'a pas pu lire ou écrire dans son emplacement de stockage.";
+"error.invalid_key_data.reason" = "Les données ne sont pas dans un format PGP reconnu.";
+"error.key_expired.reason" = "La clé a dépassé sa date d'expiration.";
+"error.key_revoked.reason" = "Un certificat de révocation a été appliqué à cette clé.";
+"error.no_public_key.reason" = "Aucune clé publique trouvée pour l'identité demandée.";
+"error.no_secret_key.reason" = "Aucune clé privée trouvée dans le trousseau.";
+"error.recipient_key_missing.reason" = "Le destinataire n'a pas de clé publique dans votre trousseau.";
+"error.signer_key_missing.reason" = "Aucune clé privée capable de signer n'a été trouvée.";
+"error.file_access_error.reason" = "Le fichier à %@ n'existe peut-être pas ou vous n'avez pas la permission d'y accéder.";
+"error.unknown_error.reason" = "%@";
+
+
 /* MARK: - Success Messages */
 "success.key_uploaded" = "Clé envoyée avec succès vers %@";
 "success.key_refreshed" = "Clé actualisée avec succès depuis %@";

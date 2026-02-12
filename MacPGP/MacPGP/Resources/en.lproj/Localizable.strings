@@ -445,6 +445,93 @@
 "error.signing_failed" = "Signing failed: %@";
 "error.verification_failed" = "Verification failed: %@";
 
+/* MARK: - OperationError Descriptions */
+"error.key_not_found.description" = "Key \"%@\" was not found in your keyring";
+"error.invalid_passphrase.description" = "The passphrase is incorrect";
+"error.passphrase_required.description" = "A passphrase is required to unlock this key";
+"error.encryption_failed.description_with_details" = "Failed to encrypt data with the recipient's public key. Details: %@";
+"error.encryption_failed.description" = "Failed to encrypt data with the recipient's public key.";
+"error.decryption_failed.description_with_details" = "Failed to decrypt data with the private key. Details: %@";
+"error.decryption_failed.description" = "Failed to decrypt data. Make sure the correct private key is available.";
+"error.signing_failed.description_with_details" = "Failed to create a digital signature using the private key. Details: %@";
+"error.signing_failed.description" = "Failed to create a digital signature using the private key.";
+"error.verification_failed.description_with_details" = "Could not verify the signature. Details: %@";
+"error.verification_failed.description" = "Could not verify the signature. The data or signature may be corrupted.";
+"error.key_generation_failed.description_with_details" = "Failed to generate a new key. Details: %@";
+"error.key_generation_failed.description" = "Failed to generate a new key. Please try different parameters.";
+"error.key_import_failed.description_with_details" = "Failed to import the key. Details: %@";
+"error.key_import_failed.description" = "Failed to import the key. The data may not contain a valid PGP key.";
+"error.key_export_failed.description_with_details" = "Failed to export the key. Details: %@";
+"error.key_export_failed.description" = "Failed to export the key.";
+"error.keychain_error.description_with_details" = "Keychain access failed while managing passphrase storage. Details: %@";
+"error.keychain_error.description" = "Keychain access failed while managing passphrase storage.";
+"error.persistence_error.description_with_details" = "Failed to save or load data from storage. Details: %@";
+"error.persistence_error.description" = "Failed to save or load data from storage.";
+"error.invalid_key_data.description" = "The provided key data is invalid or corrupted.";
+"error.key_expired.description" = "This key has expired and cannot be used.";
+"error.key_revoked.description" = "This key has been revoked and should not be used.";
+"error.no_public_key.description" = "No public key is available for this operation.";
+"error.no_secret_key.description" = "No private key is available for this operation.";
+"error.recipient_key_missing.description" = "The recipient's public key is missing from your keyring.";
+"error.signer_key_missing.description" = "No private key is available to sign the message.";
+"error.file_access_error.description" = "Unable to access the file at: %@";
+"error.unknown_error.description" = "An unexpected error occurred: %@";
+
+/* MARK: - OperationError Recovery Suggestions */
+"error.key_not_found.recovery" = "Import the key from a file or generate a new key pair.";
+"error.invalid_passphrase.recovery" = "Double-check your passphrase and try again. If stored in Keychain, try removing and re-entering it.";
+"error.passphrase_required.recovery" = "Enter the passphrase for this key, or store it in the Keychain for automatic retrieval.";
+"error.encryption_failed.recovery" = "Check that the recipient's key is not expired or revoked. Try to reimport the key.";
+"error.decryption_failed.recovery" = "Ensure you have the correct private key and verify the passphrase is correct.";
+"error.signing_failed.recovery" = "Verify that your private key is accessible and the passphrase is correct.";
+"error.verification_failed.recovery" = "Import the signer's public key to verify the signature.";
+"error.key_generation_failed.recovery" = "Try again with different settings. Common key sizes are 2048 or 4096 bits.";
+"error.key_import_failed.recovery" = "Ensure the data contains a valid PGP key block starting with BEGIN PGP.";
+"error.key_export_failed.recovery" = "Check file permissions and available disk space.";
+"error.keychain_error.recovery" = "Check Keychain access permissions in System Settings > Privacy & Security.";
+"error.persistence_error.recovery" = "Check available disk space and file permissions.";
+"error.invalid_key_data.recovery" = "Make sure the data contains a valid PGP key block starting with BEGIN PGP.";
+"error.key_expired.recovery" = "Generate a new key pair or extend the expiration date of the existing key.";
+"error.key_revoked.recovery" = "Contact the key owner for a replacement key.";
+"error.no_public_key.recovery" = "Import or Search for the public key from a keyserver.";
+"error.no_secret_key.recovery" = "Generate a new key pair that includes a private key.";
+"error.recipient_key_missing.recovery" = "Search for and Import the recipient's public key from a keyserver.";
+"error.signer_key_missing.recovery" = "Generate a key pair to sign messages.";
+"error.file_access_error.recovery" = "Check file permission settings in System Settings > Privacy & Security.";
+"error.unknown_error.recovery" = "Try the operation again. If the problem persists, restart the application.";
+
+/* MARK: - OperationError Failure Reasons */
+"error.key_not_found.reason" = "The key \"%@\" was not found in the local keyring.";
+"error.invalid_passphrase.reason" = "The entered passphrase does not match the key's passphrase.";
+"error.passphrase_required.reason" = "The private key is encrypted and requires a passphrase to unlock.";
+"error.encryption_failed.reason_with_details" = "The encryption failed: %@";
+"error.encryption_failed.reason" = "The encryption operation could not be completed.";
+"error.decryption_failed.reason_with_details" = "The decryption failed: %@";
+"error.decryption_failed.reason" = "The data could not be decrypted. The private key or passphrase may be incorrect.";
+"error.signing_failed.reason_with_details" = "The signing operation failed: %@";
+"error.signing_failed.reason" = "The signing operation could not be completed.";
+"error.verification_failed.reason_with_details" = "The verification failed: %@";
+"error.verification_failed.reason" = "The signature could not be verified.";
+"error.key_generation_failed.reason_with_details" = "Key generation failed: %@";
+"error.key_generation_failed.reason" = "Key generation failed due to invalid parameters.";
+"error.key_import_failed.reason_with_details" = "Key import failed: %@";
+"error.key_import_failed.reason" = "The data could not be parsed as a valid PGP key.";
+"error.key_export_failed.reason_with_details" = "Key export failed: %@";
+"error.key_export_failed.reason" = "The key could not be exported.";
+"error.keychain_error.reason_with_details" = "Keychain operation failed: %@";
+"error.keychain_error.reason" = "macOS Keychain denied the request.";
+"error.persistence_error.reason_with_details" = "Storage operation failed: %@";
+"error.persistence_error.reason" = "The application could not read or write to its storage location.";
+"error.invalid_key_data.reason" = "The data is not in a recognized PGP format.";
+"error.key_expired.reason" = "The key has passed its expiration date.";
+"error.key_revoked.reason" = "A revocation certificate has been applied to this key.";
+"error.no_public_key.reason" = "No public key was found for the requested identity.";
+"error.no_secret_key.reason" = "No private key was found in the keyring.";
+"error.recipient_key_missing.reason" = "The recipient does not have a public key in your keyring.";
+"error.signer_key_missing.reason" = "No signing-capable private key was found.";
+"error.file_access_error.reason" = "The file at %@ may not exist or you may not have permission to access it.";
+"error.unknown_error.reason" = "%@";
+
 /* MARK: - Success Messages */
 "success.key_uploaded" = "Key uploaded successfully to %@";
 "success.key_refreshed" = "Key refreshed successfully from %@";

@@ -445,6 +445,94 @@
 "error.signing_failed" = "Signierung fehlgeschlagen: %@";
 "error.verification_failed" = "Verifizierung fehlgeschlagen: %@";
 
+/* MARK: - OperationError Descriptions */
+"error.key_not_found.description" = "Der Schlüssel \"%@\" wurde in Ihrem Schlüsselbund nicht gefunden";
+"error.invalid_passphrase.description" = "Das Passwort ist falsch";
+"error.passphrase_required.description" = "Ein Passwort ist erforderlich, um diesen Schlüssel zu entsperren";
+"error.encryption_failed.description_with_details" = "Verschlüsselung mit dem öffentlichen Schlüssel des Empfängers fehlgeschlagen. Details: %@";
+"error.encryption_failed.description" = "Verschlüsselung mit dem öffentlichen Schlüssel des Empfängers fehlgeschlagen.";
+"error.decryption_failed.description_with_details" = "Entschlüsselung mit dem privaten Schlüssel fehlgeschlagen. Details: %@";
+"error.decryption_failed.description" = "Entschlüsselung fehlgeschlagen. Stellen Sie sicher, dass der richtige private Schlüssel verfügbar ist.";
+"error.signing_failed.description_with_details" = "Erstellung der digitalen Signatur mit dem privaten Schlüssel fehlgeschlagen. Details: %@";
+"error.signing_failed.description" = "Erstellung der digitalen Signatur mit dem privaten Schlüssel fehlgeschlagen.";
+"error.verification_failed.description_with_details" = "Signatur konnte nicht verifiziert werden. Details: %@";
+"error.verification_failed.description" = "Signatur konnte nicht verifiziert werden. Die Daten oder die Signatur könnten beschädigt sein.";
+"error.key_generation_failed.description_with_details" = "Schlüsselgenerierung fehlgeschlagen. Details: %@";
+"error.key_generation_failed.description" = "Schlüsselgenerierung fehlgeschlagen. Bitte versuchen Sie andere Parameter.";
+"error.key_import_failed.description_with_details" = "Schlüsselimport fehlgeschlagen. Details: %@";
+"error.key_import_failed.description" = "Schlüsselimport fehlgeschlagen. Die Daten enthalten möglicherweise keinen gültigen PGP-Schlüssel.";
+"error.key_export_failed.description_with_details" = "Schlüsselexport fehlgeschlagen. Details: %@";
+"error.key_export_failed.description" = "Schlüsselexport fehlgeschlagen.";
+"error.keychain_error.description_with_details" = "Schlüsselbund-Zugriff bei der Passwortverwaltung fehlgeschlagen. Details: %@";
+"error.keychain_error.description" = "Schlüsselbund-Zugriff bei der Passwortverwaltung fehlgeschlagen.";
+"error.persistence_error.description_with_details" = "Speichern oder Laden von Daten fehlgeschlagen. Details: %@";
+"error.persistence_error.description" = "Speichern oder Laden von Daten fehlgeschlagen.";
+"error.invalid_key_data.description" = "Die bereitgestellten Schlüsseldaten sind ungültig oder beschädigt.";
+"error.key_expired.description" = "Dieser Schlüssel ist abgelaufen und kann nicht verwendet werden.";
+"error.key_revoked.description" = "Dieser Schlüssel wurde widerrufen und sollte nicht verwendet werden.";
+"error.no_public_key.description" = "Kein öffentlicher Schlüssel für diese Operation verfügbar.";
+"error.no_secret_key.description" = "Kein privater Schlüssel für diese Operation verfügbar.";
+"error.recipient_key_missing.description" = "Der öffentliche Schlüssel des Empfängers fehlt in Ihrem Schlüsselbund.";
+"error.signer_key_missing.description" = "Kein privater Schlüssel zum Signieren der Nachricht verfügbar.";
+"error.file_access_error.description" = "Zugriff auf die Datei nicht möglich: %@";
+"error.unknown_error.description" = "Ein unerwarteter Fehler ist aufgetreten: %@";
+
+/* MARK: - OperationError Recovery Suggestions */
+"error.key_not_found.recovery" = "Importieren Sie den Schlüssel aus einer Datei oder generieren Sie ein neues Schlüsselpaar.";
+"error.invalid_passphrase.recovery" = "Überprüfen Sie Ihr Passwort und versuchen Sie es erneut. Wenn es im Schlüsselbund gespeichert ist, versuchen Sie es zu entfernen und erneut einzugeben.";
+"error.passphrase_required.recovery" = "Geben Sie das Passwort für diesen Schlüssel ein oder speichern Sie es im Schlüsselbund für automatischen Abruf.";
+"error.encryption_failed.recovery" = "Prüfen Sie, ob der Schlüssel des Empfängers nicht abgelaufen oder widerrufen ist. Versuchen Sie den Schlüssel erneut zu importieren.";
+"error.decryption_failed.recovery" = "Stellen Sie sicher, dass Sie den richtigen privaten Schlüssel haben und überprüfen Sie das Passwort.";
+"error.signing_failed.recovery" = "Überprüfen Sie, ob Ihr privater Schlüssel zugänglich ist und das Passwort korrekt ist.";
+"error.verification_failed.recovery" = "Importieren Sie den öffentlichen Schlüssel des Unterzeichners, um die Signatur zu verifizieren.";
+"error.key_generation_failed.recovery" = "Versuchen Sie es erneut mit anderen Einstellungen. Gängige Schlüsselgrößen sind 2048 oder 4096 Bits.";
+"error.key_import_failed.recovery" = "Stellen Sie sicher, dass die Daten einen gültigen PGP-Schlüsselblock enthalten, der mit BEGIN PGP beginnt.";
+"error.key_export_failed.recovery" = "Überprüfen Sie die Dateiberechtigungen und den verfügbaren Speicherplatz.";
+"error.keychain_error.recovery" = "Überprüfen Sie die Schlüsselbund-Zugriffsberechtigungen in Systemeinstellungen > Datenschutz & Sicherheit.";
+"error.persistence_error.recovery" = "Überprüfen Sie den verfügbaren Speicherplatz und die Dateiberechtigungen.";
+"error.invalid_key_data.recovery" = "Stellen Sie sicher, dass die Daten einen gültigen PGP-Schlüsselblock enthalten, der mit BEGIN PGP beginnt.";
+"error.key_expired.recovery" = "Generieren Sie ein neues Schlüsselpaar oder verlängern Sie das Ablaufdatum des bestehenden Schlüssels.";
+"error.key_revoked.recovery" = "Kontaktieren Sie den Schlüsselinhaber für einen Ersatzschlüssel.";
+"error.no_public_key.recovery" = "Importieren oder suchen Sie den öffentlichen Schlüssel von einem Schlüsselserver.";
+"error.no_secret_key.recovery" = "Generieren Sie ein neues Schlüsselpaar, das einen privaten Schlüssel enthält.";
+"error.recipient_key_missing.recovery" = "Suchen und importieren Sie den öffentlichen Schlüssel des Empfängers von einem Schlüsselserver.";
+"error.signer_key_missing.recovery" = "Generieren Sie ein Schlüsselpaar zum Signieren von Nachrichten.";
+"error.file_access_error.recovery" = "Überprüfen Sie die Dateiberechtigungen in Systemeinstellungen > Datenschutz & Sicherheit.";
+"error.unknown_error.recovery" = "Versuchen Sie die Operation erneut. Wenn das Problem weiterhin besteht, starten Sie die Anwendung neu.";
+
+/* MARK: - OperationError Failure Reasons */
+"error.key_not_found.reason" = "Der Schlüssel \"%@\" wurde im lokalen Schlüsselbund nicht gefunden.";
+"error.invalid_passphrase.reason" = "Das eingegebene Passwort stimmt nicht mit dem Schlüsselpasswort überein.";
+"error.passphrase_required.reason" = "Der private Schlüssel ist verschlüsselt und benötigt ein Passwort zum Entsperren.";
+"error.encryption_failed.reason_with_details" = "Die Verschlüsselung ist fehlgeschlagen: %@";
+"error.encryption_failed.reason" = "Der Verschlüsselungsvorgang konnte nicht abgeschlossen werden.";
+"error.decryption_failed.reason_with_details" = "Die Entschlüsselung ist fehlgeschlagen: %@";
+"error.decryption_failed.reason" = "Die Daten konnten nicht entschlüsselt werden. Der private Schlüssel oder das Passwort ist möglicherweise falsch.";
+"error.signing_failed.reason_with_details" = "Der Signiervorgang ist fehlgeschlagen: %@";
+"error.signing_failed.reason" = "Der Signiervorgang konnte nicht abgeschlossen werden.";
+"error.verification_failed.reason_with_details" = "Die Verifizierung ist fehlgeschlagen: %@";
+"error.verification_failed.reason" = "Die Signatur konnte nicht verifiziert werden.";
+"error.key_generation_failed.reason_with_details" = "Die Schlüsselgenerierung ist fehlgeschlagen: %@";
+"error.key_generation_failed.reason" = "Die Schlüsselgenerierung ist aufgrund ungültiger Parameter fehlgeschlagen.";
+"error.key_import_failed.reason_with_details" = "Der Schlüsselimport ist fehlgeschlagen: %@";
+"error.key_import_failed.reason" = "Die Daten konnten nicht als gültiger PGP-Schlüssel analysiert werden.";
+"error.key_export_failed.reason_with_details" = "Der Schlüsselexport ist fehlgeschlagen: %@";
+"error.key_export_failed.reason" = "Der Schlüssel konnte nicht exportiert werden.";
+"error.keychain_error.reason_with_details" = "Der Schlüsselbund-Vorgang ist fehlgeschlagen: %@";
+"error.keychain_error.reason" = "Der macOS-Schlüsselbund hat die Anfrage verweigert.";
+"error.persistence_error.reason_with_details" = "Der Speichervorgang ist fehlgeschlagen: %@";
+"error.persistence_error.reason" = "Die Anwendung konnte nicht an ihrem Speicherort lesen oder schreiben.";
+"error.invalid_key_data.reason" = "Die Daten sind nicht in einem erkannten PGP-Format.";
+"error.key_expired.reason" = "Der Schlüssel hat sein Ablaufdatum überschritten.";
+"error.key_revoked.reason" = "Ein Widerrufszertifikat wurde auf diesen Schlüssel angewendet.";
+"error.no_public_key.reason" = "Kein öffentlicher Schlüssel für die angeforderte Identität gefunden.";
+"error.no_secret_key.reason" = "Kein privater Schlüssel im Schlüsselbund gefunden.";
+"error.recipient_key_missing.reason" = "Der Empfänger hat keinen öffentlichen Schlüssel in Ihrem Schlüsselbund.";
+"error.signer_key_missing.reason" = "Kein signierfähiger privater Schlüssel gefunden.";
+"error.file_access_error.reason" = "Die Datei unter %@ existiert möglicherweise nicht oder Sie haben keine Zugriffsberechtigung.";
+"error.unknown_error.reason" = "%@";
+
+
 /* MARK: - Success Messages */
 "success.key_uploaded" = "Schlüssel erfolgreich auf %@ hochgeladen";
 "success.key_refreshed" = "Schlüssel erfolgreich von %@ aktualisiert";

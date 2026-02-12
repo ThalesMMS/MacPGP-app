@@ -445,6 +445,93 @@
 "error.signing_failed" = "签名失败：%@";
 "error.verification_failed" = "验证失败：%@";
 
+/* MARK: - OperationError Descriptions */
+"error.key_not_found.description" = "在您的密钥环中未找到密钥\"%@\"";
+"error.invalid_passphrase.description" = "密码不正确";
+"error.passphrase_required.description" = "需要密码来解锁此密钥";
+"error.encryption_failed.description_with_details" = "使用收件人公钥加密数据失败。详情：%@";
+"error.encryption_failed.description" = "使用收件人公钥加密数据失败。";
+"error.decryption_failed.description_with_details" = "使用私钥解密数据失败。详情：%@";
+"error.decryption_failed.description" = "解密数据失败。请确保正确的私钥可用。";
+"error.signing_failed.description_with_details" = "使用私钥创建数字签名失败。详情：%@";
+"error.signing_failed.description" = "使用私钥创建数字签名失败。";
+"error.verification_failed.description_with_details" = "无法验证签名。详情：%@";
+"error.verification_failed.description" = "无法验证签名。数据或签名可能已损坏。";
+"error.key_generation_failed.description_with_details" = "生成新密钥失败。详情：%@";
+"error.key_generation_failed.description" = "生成新密钥失败。请尝试不同的参数。";
+"error.key_import_failed.description_with_details" = "导入密钥失败。详情：%@";
+"error.key_import_failed.description" = "导入密钥失败。数据可能不包含有效的PGP密钥。";
+"error.key_export_failed.description_with_details" = "导出密钥失败。详情：%@";
+"error.key_export_failed.description" = "导出密钥失败。";
+"error.keychain_error.description_with_details" = "管理密码时钥匙串访问失败。详情：%@";
+"error.keychain_error.description" = "管理密码时钥匙串访问失败。";
+"error.persistence_error.description_with_details" = "从存储中保存或加载数据失败。详情：%@";
+"error.persistence_error.description" = "从存储中保存或加载数据失败。";
+"error.invalid_key_data.description" = "提供的密钥数据无效或已损坏。";
+"error.key_expired.description" = "此密钥已过期，无法使用。";
+"error.key_revoked.description" = "此密钥已被撤销，不应使用。";
+"error.no_public_key.description" = "此操作没有可用的公钥。";
+"error.no_secret_key.description" = "此操作没有可用的私钥。";
+"error.recipient_key_missing.description" = "收件人的公钥在您的密钥环中缺失。";
+"error.signer_key_missing.description" = "没有可用的私钥来签署消息。";
+"error.file_access_error.description" = "无法访问文件：%@";
+"error.unknown_error.description" = "发生意外错误：%@";
+
+/* MARK: - OperationError Recovery Suggestions */
+"error.key_not_found.recovery" = "从文件导入密钥或生成新的密钥对。";
+"error.invalid_passphrase.recovery" = "请仔细检查您的密码并重试。如果存储在钥匙串中，请尝试删除并重新输入。";
+"error.passphrase_required.recovery" = "输入此密钥的密码，或将其存储在钥匙串中以自动获取。";
+"error.encryption_failed.recovery" = "检查收件人的密钥是否未过期或被撤销。尝试重新导入密钥。";
+"error.decryption_failed.recovery" = "确保您拥有正确的私钥并验证密码是否正确。";
+"error.signing_failed.recovery" = "验证您的私钥是否可访问以及密码是否正确。";
+"error.verification_failed.recovery" = "导入签名者的公钥以验证签名。";
+"error.key_generation_failed.recovery" = "使用不同的设置重试。常见的密钥大小为2048或4096位。";
+"error.key_import_failed.recovery" = "确保数据包含以BEGIN PGP开头的有效PGP密钥块。";
+"error.key_export_failed.recovery" = "检查文件权限和可用磁盘空间。";
+"error.keychain_error.recovery" = "在系统设置 > 隐私与安全中检查钥匙串访问权限。";
+"error.persistence_error.recovery" = "检查可用磁盘空间和文件权限。";
+"error.invalid_key_data.recovery" = "确保数据包含以BEGIN PGP开头的有效PGP密钥块。";
+"error.key_expired.recovery" = "生成新的密钥对或延长现有密钥的到期日期。";
+"error.key_revoked.recovery" = "联系密钥所有者获取替换密钥。";
+"error.no_public_key.recovery" = "从密钥服务器导入或搜索公钥。";
+"error.no_secret_key.recovery" = "生成包含私钥的新密钥对。";
+"error.recipient_key_missing.recovery" = "从密钥服务器搜索并导入收件人的公钥。";
+"error.signer_key_missing.recovery" = "生成密钥对以签署消息。";
+"error.file_access_error.recovery" = "在系统设置 > 隐私与安全中检查文件权限设置。";
+"error.unknown_error.recovery" = "重试操作。如果问题持续存在，请重新启动应用程序。";
+
+/* MARK: - OperationError Failure Reasons */
+"error.key_not_found.reason" = "在本地密钥环中未找到密钥\"%@\"。";
+"error.invalid_passphrase.reason" = "输入的密码与密钥的密码不匹配。";
+"error.passphrase_required.reason" = "私钥已加密，需要密码才能解锁。";
+"error.encryption_failed.reason_with_details" = "加密失败：%@";
+"error.encryption_failed.reason" = "加密操作无法完成。";
+"error.decryption_failed.reason_with_details" = "解密失败：%@";
+"error.decryption_failed.reason" = "数据无法解密。私钥或密码可能不正确。";
+"error.signing_failed.reason_with_details" = "签名操作失败：%@";
+"error.signing_failed.reason" = "签名操作无法完成。";
+"error.verification_failed.reason_with_details" = "验证失败：%@";
+"error.verification_failed.reason" = "无法验证签名。";
+"error.key_generation_failed.reason_with_details" = "密钥生成失败：%@";
+"error.key_generation_failed.reason" = "由于参数无效，密钥生成失败。";
+"error.key_import_failed.reason_with_details" = "密钥导入失败：%@";
+"error.key_import_failed.reason" = "数据无法被解析为有效的PGP密钥。";
+"error.key_export_failed.reason_with_details" = "密钥导出失败：%@";
+"error.key_export_failed.reason" = "密钥无法导出。";
+"error.keychain_error.reason_with_details" = "钥匙串操作失败：%@";
+"error.keychain_error.reason" = "macOS钥匙串拒绝了请求。";
+"error.persistence_error.reason_with_details" = "存储操作失败：%@";
+"error.persistence_error.reason" = "应用程序无法读取或写入其存储位置。";
+"error.invalid_key_data.reason" = "数据不是可识别的PGP格式。";
+"error.key_expired.reason" = "密钥已超过其到期日期。";
+"error.key_revoked.reason" = "此密钥已应用撤销证书。";
+"error.no_public_key.reason" = "未找到所请求身份的公钥。";
+"error.no_secret_key.reason" = "密钥环中未找到私钥。";
+"error.recipient_key_missing.reason" = "收件人在您的密钥环中没有公钥。";
+"error.signer_key_missing.reason" = "未找到具有签名能力的私钥。";
+"error.file_access_error.reason" = "%@ 处的文件可能不存在或您可能没有访问权限。";
+"error.unknown_error.reason" = "%@";
+
 /* MARK: - Success Messages */
 "success.key_uploaded" = "密钥已成功上传到 %@";
 "success.key_refreshed" = "密钥已成功从 %@ 刷新";
