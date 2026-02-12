@@ -1,5 +1,7 @@
 # MacPGP
 
+![UI Screenshot](screenshot.png)
+
 A native macOS application for PGP encryption, decryption, signing, and key management built with SwiftUI.
 
 ## Features
