@@ -1,0 +1,24 @@
+name: macOS build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build MacPGP
+        run: |
+          xcodebuild build \
+            -project MacPGP/MacPGP.xcodeproj \
+            -scheme MacPGP \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO
