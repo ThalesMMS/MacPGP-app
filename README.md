@@ -42,12 +42,18 @@ After first launch, enable the extensions in System Settings → Privacy & Secur
 - macOS 15.0+
 - Xcode 16.0+
 
+## Release status
+
+This repository does not publish GitHub releases yet.
+Until the first tagged release is cut, MacPGP should be treated as a source-build project.
+Release prep lives in [CHANGELOG.md](CHANGELOG.md) and [RELEASING.md](RELEASING.md), and the first public tag should stay a prerelease if signing/notarization or final smoke testing is still incomplete.
+
 ## Installation
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/thalesmms/MacPGP.git
-   cd MacPGP
+   git clone https://github.com/ThalesMMS/MacPGP-app.git
+   cd MacPGP-app
    ```
 
 2. Open the Xcode project:
