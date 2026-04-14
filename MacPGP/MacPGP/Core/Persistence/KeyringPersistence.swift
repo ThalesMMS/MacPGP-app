@@ -54,25 +54,56 @@ final class KeyringPersistence {
     }
 
     func loadKeys() throws -> [Key] {
-        var keys: [Key] = []
-
+        let publicKeys: [Key]
         if fileManager.fileExists(atPath: publicKeyringPath.path) {
-            let publicKeys = try ObjectivePGP.readKeys(fromPath: publicKeyringPath.path)
-            keys.append(contentsOf: publicKeys)
+            publicKeys = try ObjectivePGP.readKeys(fromPath: publicKeyringPath.path)
+        } else {
+            publicKeys = []
         }
 
+        let secretKeys: [Key]
         if fileManager.fileExists(atPath: secretKeyringPath.path) {
-            let secretKeys = try ObjectivePGP.readKeys(fromPath: secretKeyringPath.path)
-            for secretKey in secretKeys {
-                if let index = keys.firstIndex(where: { $0.publicKey?.fingerprint == secretKey.publicKey?.fingerprint }) {
-                    keys[index] = secretKey
-                } else {
-                    keys.append(secretKey)
-                }
+            secretKeys = try ObjectivePGP.readKeys(fromPath: secretKeyringPath.path)
+        } else {
+            secretKeys = []
+        }
+
+        return mergeKeys(publicKeys: publicKeys, secretKeys: secretKeys)
+    }
+
+    private func mergeKeys(publicKeys: [Key], secretKeys: [Key]) -> [Key] {
+        guard !secretKeys.isEmpty else { return publicKeys }
+
+        var mergedKeys = publicKeys
+        var indexByFingerprint: [String: Int] = [:]
+        indexByFingerprint.reserveCapacity(publicKeys.count + secretKeys.count)
+
+        for (index, key) in publicKeys.enumerated() {
+            if let fingerprint = key.publicKey?.fingerprint.description(),
+               indexByFingerprint[fingerprint] == nil {
+                indexByFingerprint[fingerprint] = index
             }
         }
 
-        return keys
+        for secretKey in secretKeys {
+            guard let fingerprint = secretKey.publicKey?.fingerprint.description() else {
+                if let existingIndex = mergedKeys.firstIndex(where: { $0.publicKey?.fingerprint == nil }) {
+                    mergedKeys[existingIndex] = secretKey
+                } else {
+                    mergedKeys.append(secretKey)
+                }
+                continue
+            }
+
+            if let existingIndex = indexByFingerprint[fingerprint] {
+                mergedKeys[existingIndex] = secretKey
+            } else {
+                indexByFingerprint[fingerprint] = mergedKeys.count
+                mergedKeys.append(secretKey)
+            }
+        }
+
+        return mergedKeys
     }
 
     func saveKeys(_ keys: [Key]) throws {

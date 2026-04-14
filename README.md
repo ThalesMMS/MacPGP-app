@@ -1,8 +1,12 @@
 # MacPGP
 
+![Platform: macOS 15+](https://img.shields.io/badge/platform-macOS%2015%2B-blue)
+![UI: SwiftUI](https://img.shields.io/badge/UI-SwiftUI-orange)
+![License: BSD 3-Clause](https://img.shields.io/badge/license-BSD%203--Clause-lightgrey)
+
 ![UI Screenshot](screenshot.png)
 
-A native macOS application for PGP encryption, decryption, signing, and key management built with SwiftUI.
+MacPGP is a native macOS OpenPGP app built with SwiftUI for PGP key management, message and file encryption/decryption, digital signing, signature verification, and Finder-integrated workflows such as file badges, Quick Look previews, and custom thumbnails.
 
 ## Features
 
