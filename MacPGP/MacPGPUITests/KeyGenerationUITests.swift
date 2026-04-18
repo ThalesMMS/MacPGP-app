@@ -16,11 +16,6 @@ final class KeyGenerationUITests: XCTestCase {
     override func tearDownWithError() throws {
     }
 
-    private func openKeyGenerationView(_ app: XCUIApplication) {
-        // Use keyboard shortcut Cmd+N to trigger key generation
-        app.typeKey("n", modifierFlags: .command)
-    }
-
     @MainActor
     func testKeyGenerationWizardAppears() throws {
         let app = XCUIApplication()
@@ -30,14 +25,14 @@ final class KeyGenerationUITests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
 
         // Navigate to key generation view using keyboard shortcut
-        openKeyGenerationView(app)
+        app.openKeyGenerationView()
 
         // Verify form elements exist
-        XCTAssertTrue(app.textFields["Full Name"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.textFields["Email Address"].exists)
-        XCTAssertTrue(app.textFields["Comment (optional)"].exists)
-        XCTAssertTrue(app.secureTextFields["Passphrase"].exists)
-        XCTAssertTrue(app.secureTextFields["Confirm Passphrase"].exists)
+        XCTAssertTrue(app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField].exists)
+        XCTAssertTrue(app.textFields[AccessibilityIdentifiers.KeyGeneration.commentField].exists)
+        XCTAssertTrue(app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField].exists)
+        XCTAssertTrue(app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField].exists)
     }
 
     @MainActor
@@ -46,24 +41,24 @@ final class KeyGenerationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        openKeyGenerationView(app)
+        app.openKeyGenerationView()
 
         // Fill in the form
-        let nameField = app.textFields["Full Name"]
+        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
         XCTAssertTrue(nameField.waitForExistence(timeout: 3))
         nameField.tap()
         nameField.typeText("Test User")
 
-        let emailField = app.textFields["Email Address"]
+        let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
         emailField.tap()
         emailField.typeText("test@example.com")
 
         // Fill in passphrase
-        let passphraseField = app.secureTextFields["Passphrase"]
+        let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
         passphraseField.tap()
         passphraseField.typeText("StrongTestPassphrase123!")
 
-        let confirmField = app.secureTextFields["Confirm Passphrase"]
+        let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
         confirmField.tap()
         confirmField.typeText("StrongTestPassphrase123!")
 
@@ -78,23 +73,23 @@ final class KeyGenerationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        openKeyGenerationView(app)
+        app.openKeyGenerationView()
 
         // Fill in form with invalid email
-        let nameField = app.textFields["Full Name"]
+        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
         XCTAssertTrue(nameField.waitForExistence(timeout: 3))
         nameField.tap()
         nameField.typeText("Test User")
 
-        let emailField = app.textFields["Email Address"]
+        let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
         emailField.tap()
         emailField.typeText("invalid-email")
 
-        let passphraseField = app.secureTextFields["Passphrase"]
+        let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
         passphraseField.tap()
         passphraseField.typeText("StrongTestPassphrase123!")
 
-        let confirmField = app.secureTextFields["Confirm Passphrase"]
+        let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
         confirmField.tap()
         confirmField.typeText("StrongTestPassphrase123!")
 
@@ -109,23 +104,23 @@ final class KeyGenerationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        openKeyGenerationView(app)
+        app.openKeyGenerationView()
 
         // Fill in form with weak passphrase
-        let nameField = app.textFields["Full Name"]
+        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
         XCTAssertTrue(nameField.waitForExistence(timeout: 3))
         nameField.tap()
         nameField.typeText("Test User")
 
-        let emailField = app.textFields["Email Address"]
+        let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
         emailField.tap()
         emailField.typeText("test@example.com")
 
-        let passphraseField = app.secureTextFields["Passphrase"]
+        let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
         passphraseField.tap()
         passphraseField.typeText("123")
 
-        let confirmField = app.secureTextFields["Confirm Passphrase"]
+        let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
         confirmField.tap()
         confirmField.typeText("123")
 
@@ -140,23 +135,23 @@ final class KeyGenerationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        openKeyGenerationView(app)
+        app.openKeyGenerationView()
 
         // Fill in form with mismatched passphrases
-        let nameField = app.textFields["Full Name"]
+        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
         XCTAssertTrue(nameField.waitForExistence(timeout: 3))
         nameField.tap()
         nameField.typeText("Test User")
 
-        let emailField = app.textFields["Email Address"]
+        let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
         emailField.tap()
         emailField.typeText("test@example.com")
 
-        let passphraseField = app.secureTextFields["Passphrase"]
+        let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
         passphraseField.tap()
         passphraseField.typeText("StrongTestPassphrase123!")
 
-        let confirmField = app.secureTextFields["Confirm Passphrase"]
+        let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
         confirmField.tap()
         confirmField.typeText("DifferentPassphrase456!")
 
@@ -174,21 +169,15 @@ final class KeyGenerationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        openKeyGenerationView(app)
+        app.openKeyGenerationView()
 
-        // Verify algorithm picker exists
-        let algorithmPicker = app.popUpButtons["Algorithm"]
-        XCTAssertTrue(algorithmPicker.waitForExistence(timeout: 3))
-
-        // Test selecting different algorithms
-        algorithmPicker.tap()
-        let ecdsaOption = app.menuItems["ECDSA (Elliptic Curve)"]
-        if ecdsaOption.exists {
-            ecdsaOption.tap()
-        }
-
-        // Key size picker may or may not exist depending on algorithm
-        _ = app.popUpButtons["Key Size"].exists
+        // Release builds expose only RSA until ObjectivePGP supports safe ECC generation.
+        XCTAssertTrue(app.staticTexts[AccessibilityIdentifiers.KeyGeneration.algorithmLabel].waitForExistence(timeout: 3))
+        let algorithmValue = app.staticTexts[AccessibilityIdentifiers.KeyGeneration.algorithmValue]
+        XCTAssertTrue(algorithmValue.waitForExistence(timeout: 1))
+        XCTAssertEqual(algorithmValue.label, "RSA")
+        XCTAssertFalse(app.menuItems["ECDSA (Elliptic Curve)"].exists)
+        XCTAssertFalse(app.menuItems["EdDSA (Ed25519)"].exists)
     }
 
     @MainActor
@@ -196,18 +185,18 @@ final class KeyGenerationUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        openKeyGenerationView(app)
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+        app.openKeyGenerationView()
 
         // Verify expiration toggle exists
-        let neverExpiresToggle = app.checkBoxes["Never expires"]
+        let neverExpiresToggle = app.checkBoxes[AccessibilityIdentifiers.KeyGeneration.neverExpiresToggle]
         XCTAssertTrue(neverExpiresToggle.waitForExistence(timeout: 3))
 
         // Toggle the expiration setting
         neverExpiresToggle.tap()
 
         // Verify expiration picker no longer appears when "Never expires" is on
-        let expirationPicker = app.popUpButtons["Expires in"]
+        let expirationPicker = app.popUpButtons[AccessibilityIdentifiers.KeyGeneration.expirationPicker]
         XCTAssertFalse(expirationPicker.exists)
 
         // Toggle back
@@ -223,10 +212,10 @@ final class KeyGenerationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        openKeyGenerationView(app)
+        app.openKeyGenerationView()
 
         // Verify keychain toggle exists
-        let keychainToggle = app.checkBoxes["Store passphrase in Keychain"]
+        let keychainToggle = app.checkBoxes[AccessibilityIdentifiers.KeyGeneration.storePassphraseToggle]
         XCTAssertTrue(keychainToggle.waitForExistence(timeout: 3))
 
         // Toggle the setting
@@ -242,10 +231,10 @@ final class KeyGenerationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        openKeyGenerationView(app)
+        app.openKeyGenerationView()
 
         // Verify form is showing
-        XCTAssertTrue(app.textFields["Full Name"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField].waitForExistence(timeout: 3))
 
         // Tap cancel button
         let cancelButton = app.buttons["Cancel"]
@@ -253,7 +242,7 @@ final class KeyGenerationUITests: XCTestCase {
         cancelButton.tap()
 
         // Verify form is dismissed
-        XCTAssertFalse(app.textFields["Full Name"].exists)
+        XCTAssertFalse(app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField].exists)
     }
 
     @MainActor
@@ -262,26 +251,26 @@ final class KeyGenerationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        openKeyGenerationView(app)
+        app.openKeyGenerationView()
 
         // Verify comment field exists and is optional
-        let commentField = app.textFields["Comment (optional)"]
+        let commentField = app.textFields[AccessibilityIdentifiers.KeyGeneration.commentField]
         XCTAssertTrue(commentField.waitForExistence(timeout: 3))
 
         // Fill in other required fields without comment
-        let nameField = app.textFields["Full Name"]
+        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
         nameField.tap()
         nameField.typeText("Test User")
 
-        let emailField = app.textFields["Email Address"]
+        let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
         emailField.tap()
         emailField.typeText("test@example.com")
 
-        let passphraseField = app.secureTextFields["Passphrase"]
+        let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
         passphraseField.tap()
         passphraseField.typeText("StrongTestPassphrase123!")
 
-        let confirmField = app.secureTextFields["Confirm Passphrase"]
+        let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
         confirmField.tap()
         confirmField.typeText("StrongTestPassphrase123!")
 

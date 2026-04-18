@@ -76,8 +76,6 @@ struct ContentView: View {
             SignView()
         case .verify:
             VerifyView()
-        case .webOfTrust:
-            WebOfTrustView()
         case .keyring, nil:
             Text(String(localized: "contentview.select_item", comment: "Placeholder text when no sidebar item is selected"))
                 .foregroundStyle(.secondary)
@@ -87,7 +85,9 @@ struct ContentView: View {
     @ViewBuilder
     private var detailView: some View {
         if let key = selectedKey {
-            KeyDetailsView(key: key)
+            KeyDetailsView(key: key) { updatedKey in
+                selectedKey = updatedKey
+            }
         } else {
             ContentUnavailableView(
                 String(localized: "contentview.no_key_selected", comment: "Title shown when no PGP key is selected"),

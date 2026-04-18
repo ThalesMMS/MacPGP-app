@@ -14,6 +14,7 @@ final class SessionStateManager {
     var encryptSelectedFiles: [URL] = []
     var encryptOutputLocation: URL?
     var encryptArmorOutput = true
+    var encryptOutputFiles: [URL] = []
     var encryptionProgress: Double = 0.0
 
     // MARK: - Decrypt State
@@ -25,6 +26,7 @@ final class SessionStateManager {
     var decryptOutputLocation: URL?
     var decryptAutoDetectKey = true
     var decryptSelectedKey: PGPKeyModel?
+    var decryptOutputFiles: [URL] = []
     var decryptionProgress: Double = 0.0
 
     // MARK: - Sign State
@@ -36,6 +38,7 @@ final class SessionStateManager {
     var signDetachedSignature = false
     var signCleartextSignature = true
     var signArmorOutput = true
+    var signOutputFiles: [URL] = []
 
     // MARK: - Verify State
     var verifyInputText = ""
@@ -46,7 +49,9 @@ final class SessionStateManager {
     var verifySelectedFile: URL?
     var verifySelectedSignatureFile: URL?
 
-    // MARK: - Clear All
+    /// Resets all ephemeral encryption, decryption, signing, and verification UI state to their initial default values.
+    /// 
+    /// This clears input/output text, selected files/keys/recipients, output locations and file lists, modes, signature options, armor settings, and progress counters for the encrypt, decrypt, sign, and verify workflows.
     func clearAll() {
         // Encrypt
         encryptInputText = ""
@@ -58,6 +63,7 @@ final class SessionStateManager {
         encryptSelectedFiles = []
         encryptOutputLocation = nil
         encryptArmorOutput = true
+        encryptOutputFiles = []
         encryptionProgress = 0.0
 
         // Decrypt
@@ -69,6 +75,7 @@ final class SessionStateManager {
         decryptOutputLocation = nil
         decryptAutoDetectKey = true
         decryptSelectedKey = nil
+        decryptOutputFiles = []
         decryptionProgress = 0.0
 
         // Sign
@@ -80,6 +87,7 @@ final class SessionStateManager {
         signDetachedSignature = false
         signCleartextSignature = true
         signArmorOutput = true
+        signOutputFiles = []
 
         // Verify
         verifyInputText = ""

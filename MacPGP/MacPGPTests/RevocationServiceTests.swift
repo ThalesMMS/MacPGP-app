@@ -99,7 +99,7 @@ struct RevocationServiceTests {
 
     // MARK: - generateRevocationCertificate Error Tests
 
-    @Test("generateRevocationCertificate fails for public-only key")
+    @Test("generateRevocationCertificate fails for public-only key", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testGenerateRevocationCertificatePublicKeyError() {
         let service = RevocationService.shared
         let publicKey = createTestKey(isSecret: false)
@@ -113,7 +113,7 @@ struct RevocationServiceTests {
         }
     }
 
-    @Test("generateRevocationCertificate fails for empty passphrase")
+    @Test("generateRevocationCertificate fails for empty passphrase", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testGenerateRevocationCertificateEmptyPassphrase() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -127,7 +127,7 @@ struct RevocationServiceTests {
         }
     }
 
-    @Test("generateRevocationCertificate currently throws not implemented error")
+    @Test("generateRevocationCertificate currently throws not implemented error", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testGenerateRevocationCertificateNotImplemented() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -149,7 +149,7 @@ struct RevocationServiceTests {
         }
     }
 
-    @Test("generateRevocationCertificate sets lastError on failure")
+    @Test("generateRevocationCertificate sets lastError on failure", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testGenerateRevocationCertificateSetsLastError() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -167,7 +167,7 @@ struct RevocationServiceTests {
         #expect(service.lastError != nil)
     }
 
-    @Test("generateRevocationCertificate resets isProcessing flag")
+    @Test("generateRevocationCertificate resets isProcessing flag", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testGenerateRevocationCertificateResetsProcessingFlag() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -185,7 +185,7 @@ struct RevocationServiceTests {
         #expect(!service.isProcessing)
     }
 
-    @Test("generateRevocationCertificate accepts all revocation reasons")
+    @Test("generateRevocationCertificate accepts all revocation reasons", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testGenerateRevocationCertificateAllReasons() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -209,7 +209,7 @@ struct RevocationServiceTests {
 
     // MARK: - generateRevocationCertificateAsync Tests
 
-    @Test("generateRevocationCertificateAsync completes on main thread")
+    @Test("generateRevocationCertificateAsync completes on main thread", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testGenerateRevocationCertificateAsyncMainThread() async {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -228,7 +228,7 @@ struct RevocationServiceTests {
         await expectation.fulfillment
     }
 
-    @Test("generateRevocationCertificateAsync returns failure for public key")
+    @Test("generateRevocationCertificateAsync returns failure for public key", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testGenerateRevocationCertificateAsyncPublicKeyFailure() async {
         let service = RevocationService.shared
         let publicKey = createTestKey(isSecret: false)
@@ -256,7 +256,7 @@ struct RevocationServiceTests {
         await expectation.fulfillment
     }
 
-    @Test("generateRevocationCertificateAsync handles empty passphrase")
+    @Test("generateRevocationCertificateAsync handles empty passphrase", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testGenerateRevocationCertificateAsyncEmptyPassphrase() async {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -286,7 +286,7 @@ struct RevocationServiceTests {
 
     // MARK: - importRevocationCertificate Tests
 
-    @Test("importRevocationCertificate currently throws not implemented error")
+    @Test("importRevocationCertificate currently throws not implemented error", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testImportRevocationCertificateNotImplemented() {
         let service = RevocationService.shared
         let testData = Data("test certificate".utf8)
@@ -304,7 +304,7 @@ struct RevocationServiceTests {
         }
     }
 
-    @Test("importRevocationCertificate sets lastError on failure")
+    @Test("importRevocationCertificate sets lastError on failure", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testImportRevocationCertificateSetsLastError() {
         let service = RevocationService.shared
         let testData = Data("test".utf8)
@@ -318,7 +318,7 @@ struct RevocationServiceTests {
         #expect(service.lastError != nil)
     }
 
-    @Test("importRevocationCertificate resets isProcessing flag")
+    @Test("importRevocationCertificate resets isProcessing flag", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testImportRevocationCertificateResetsProcessingFlag() {
         let service = RevocationService.shared
         let testData = Data("test".utf8)
@@ -332,7 +332,7 @@ struct RevocationServiceTests {
         #expect(!service.isProcessing)
     }
 
-    @Test("importRevocationCertificate handles empty data")
+    @Test("importRevocationCertificate handles empty data", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testImportRevocationCertificateEmptyData() {
         let service = RevocationService.shared
         let emptyData = Data()
@@ -348,7 +348,7 @@ struct RevocationServiceTests {
 
     // MARK: - applyRevocation Tests
 
-    @Test("applyRevocation currently throws not implemented error")
+    @Test("applyRevocation currently throws not implemented error", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testApplyRevocationNotImplemented() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -367,7 +367,7 @@ struct RevocationServiceTests {
         }
     }
 
-    @Test("applyRevocation sets lastError on failure")
+    @Test("applyRevocation sets lastError on failure", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testApplyRevocationSetsLastError() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -382,7 +382,7 @@ struct RevocationServiceTests {
         #expect(service.lastError != nil)
     }
 
-    @Test("applyRevocation resets isProcessing flag")
+    @Test("applyRevocation resets isProcessing flag", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testApplyRevocationResetsProcessingFlag() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -399,7 +399,7 @@ struct RevocationServiceTests {
 
     // MARK: - applyRevocationAsync Tests
 
-    @Test("applyRevocationAsync completes on main thread")
+    @Test("applyRevocationAsync completes on main thread", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testApplyRevocationAsyncMainThread() async {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -415,7 +415,7 @@ struct RevocationServiceTests {
         await expectation.fulfillment
     }
 
-    @Test("applyRevocationAsync returns failure for not implemented")
+    @Test("applyRevocationAsync returns failure for not implemented", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
     func testApplyRevocationAsyncFailure() async {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)

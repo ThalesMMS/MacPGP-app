@@ -21,8 +21,6 @@
 "sidebar.operations" = "Opérations";
 "sidebar.keyring" = "Trousseau";
 "sidebar.keyring_description" = "Gérer vos clés PGP";
-"sidebar.web_of_trust" = "Toile de confiance";
-"sidebar.web_of_trust_description" = "Visualiser les relations de confiance";
 "sidebar.encrypt" = "Chiffrer";
 "sidebar.encrypt_description" = "Chiffrer des messages ou des fichiers";
 "sidebar.decrypt" = "Déchiffrer";
@@ -209,7 +207,6 @@
 "keydetails.delete" = "Supprimer";
 "keydetails.delete_key" = "Supprimer la clé";
 "keydetails.delete_confirmation" = "Êtes-vous sûr de vouloir supprimer \"%@\" ? Cette action est irréversible.";
-"keydetails.trust_path" = "Chemin de confiance";
 "keydetails.key_revoked" = "Cette clé a été révoquée";
 "keydetails.key_revoked_message" = "Les clés révoquées ne peuvent pas être utilisées pour le chiffrement ou la signature. Cette clé ne doit pas être utilisée.";
 "keydetails.key_expired" = "Cette clé a expiré";
@@ -382,7 +379,7 @@
 "keyserver_settings.key_management" = "Gestion des clés";
 "keyserver_settings.auto_refresh" = "Actualiser automatiquement les clés depuis le serveur";
 "keyserver_settings.auto_refresh_info" = "L'actualisation automatique vérifie les mises à jour des clés";
-"keyserver_settings.auto_refresh_message" = "Les clés seront actualisées périodiquement pour obtenir le statut de révocation et les nouvelles signatures";
+"keyserver_settings.auto_refresh_message" = "Les clés seront actualisées périodiquement pour obtenir les dernières mises à jour des serveurs de clés";
 "keyserver_settings.server_information" = "Informations sur le serveur";
 "keyserver_settings.about_keyservers" = "À propos des serveurs de clés";
 "keyserver_settings.about_message" = "Les serveurs de clés publics vous permettent de partager votre clé publique et de découvrir les clés d'autres utilisateurs. Le serveur sélectionné sera utilisé pour les opérations de recherche, d'envoi et d'actualisation.";
@@ -399,23 +396,6 @@
 "sort.key_id" = "ID de clé";
 
 /* MARK: - Web of Trust */
-"wot.no_keys" = "Aucune clé";
-"wot.no_keys_message" = "Générez ou importez des clés pour construire votre toile de confiance.";
-"wot.selected" = "Sélectionné : %@";
-"wot.trust_level" = "Niveau de confiance : %@";
-"wot.secret_key" = "Clé secrète";
-"wot.view_details" = "Voir les détails";
-"wot.deselect" = "Désélectionner";
-"wot.legend" = "Légende de la toile de confiance";
-"wot.trust_levels" = "Niveaux de confiance";
-"wot.graph_elements" = "Éléments du graphe";
-"wot.node" = "Clé (nœud)";
-"wot.edge" = "Signature (lien)";
-"wot.secret_key_node" = "Clé secrète";
-"wot.close" = "Fermer";
-"wot.error" = "Erreur";
-"wot.generate_new_key" = "Générer une nouvelle clé";
-"wot.import_key" = "Importer une clé";
 
 /* MARK: - Common Actions */
 "common.cancel" = "Annuler";

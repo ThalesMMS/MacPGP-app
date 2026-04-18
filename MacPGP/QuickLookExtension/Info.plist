@@ -28,7 +28,8 @@
 		<dict>
 			<key>QLSupportedContentTypes</key>
 			<array>
-				<string>public.data</string>
+				<string>com.macpgp.pgp-encrypted</string>
+				<string>com.macpgp.pgp-armored</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<true/>

@@ -12,6 +12,13 @@ import ObjectivePGP
 
 @Suite("KeyringService Tests")
 struct KeyringServiceTests {
+    @Test("Default test persistence uses a unique keyring directory per instance")
+    func testDefaultTestPersistenceUsesUniqueDirectoryPerInstance() {
+        let firstPersistence = KeyringPersistence()
+        let secondPersistence = KeyringPersistence()
+
+        #expect(firstPersistence.keyringDirectory != secondPersistence.keyringDirectory)
+    }
 
     // MARK: - Initialization and Load Tests
 
@@ -313,5 +320,199 @@ struct KeyringServiceTests {
         if let key = service.keys.first(where: { $0.email == "test-search@example.com" }) {
             try? service.deleteKey(key)
         }
+    }
+
+    // MARK: - updateTrustLevel In-Place Update Tests
+
+    @Test("updateTrustLevel updates key in-place without full reload")
+    func testUpdateTrustLevelUpdatesKeyInPlace() throws {
+        let service = KeyringService()
+
+        let keyGen = KeyGenerator()
+        keyGen.keyBitsLength = 2048
+        let rawKey = keyGen.generate(for: "trust-inplace@test.local", passphrase: "pass")
+        try service.addKey(rawKey)
+
+        guard let addedKey = service.keys.first(where: { $0.email == "trust-inplace@test.local" }) else {
+            Issue.record("Test key not found after add")
+            return
+        }
+
+        defer { try? service.deleteKey(addedKey) }
+
+        #expect(addedKey.trustLevel == .unknown)
+
+        try service.updateTrustLevel(addedKey, trustLevel: .full)
+
+        let updatedKey = service.keys.first(where: { $0.fingerprint == addedKey.fingerprint })
+        #expect(updatedKey?.trustLevel == .full)
+    }
+
+    @Test("updateTrustLevel sets the correct trust level on the key")
+    func testUpdateTrustLevelSetsCorrectLevel() throws {
+        let service = KeyringService()
+
+        let keyGen = KeyGenerator()
+        keyGen.keyBitsLength = 2048
+        let rawKey = keyGen.generate(for: "trust-level-set@test.local", passphrase: "pass")
+        try service.addKey(rawKey)
+
+        guard let addedKey = service.keys.first(where: { $0.email == "trust-level-set@test.local" }) else {
+            Issue.record("Test key not found after add")
+            return
+        }
+
+        defer { try? service.deleteKey(addedKey) }
+
+        let trustLevels: [TrustLevel] = [.never, .marginal, .full, .ultimate]
+        for level in trustLevels {
+            try service.updateTrustLevel(addedKey, trustLevel: level)
+            let result = service.keys.first(where: { $0.fingerprint == addedKey.fingerprint })
+            #expect(result?.trustLevel == level)
+        }
+    }
+
+    @Test("updateTrustLevel does not change count of keys in keyring")
+    func testUpdateTrustLevelPreservesKeyCount() throws {
+        let service = KeyringService()
+
+        let keyGen = KeyGenerator()
+        keyGen.keyBitsLength = 2048
+        let rawKey = keyGen.generate(for: "trust-count-preserve@test.local", passphrase: "pass")
+        try service.addKey(rawKey)
+
+        guard let addedKey = service.keys.first(where: { $0.email == "trust-count-preserve@test.local" }) else {
+            Issue.record("Test key not found after add")
+            return
+        }
+
+        defer { try? service.deleteKey(addedKey) }
+
+        let countBefore = service.keys.count
+        try service.updateTrustLevel(addedKey, trustLevel: .marginal)
+        #expect(service.keys.count == countBefore)
+    }
+
+    @Test("updateTrustLevel only modifies the targeted key")
+    func testUpdateTrustLevelOnlyModifiesTargetKey() throws {
+        let service = KeyringService()
+
+        let keyGen1 = KeyGenerator()
+        keyGen1.keyBitsLength = 2048
+        let rawKey1 = keyGen1.generate(for: "trust-target-1@test.local", passphrase: "pass")
+        try service.addKey(rawKey1)
+
+        let keyGen2 = KeyGenerator()
+        keyGen2.keyBitsLength = 2048
+        let rawKey2 = keyGen2.generate(for: "trust-target-2@test.local", passphrase: "pass")
+        try service.addKey(rawKey2)
+
+        guard let key1 = service.keys.first(where: { $0.email == "trust-target-1@test.local" }),
+              let key2 = service.keys.first(where: { $0.email == "trust-target-2@test.local" }) else {
+            Issue.record("Test keys not found")
+            return
+        }
+
+        defer {
+            if let k = service.keys.first(where: { $0.email == "trust-target-1@test.local" }) { try? service.deleteKey(k) }
+            if let k = service.keys.first(where: { $0.email == "trust-target-2@test.local" }) { try? service.deleteKey(k) }
+        }
+
+        try service.updateTrustLevel(key1, trustLevel: .full)
+
+        let updatedKey1 = service.keys.first(where: { $0.fingerprint == key1.fingerprint })
+        let updatedKey2 = service.keys.first(where: { $0.fingerprint == key2.fingerprint })
+
+        #expect(updatedKey1?.trustLevel == .full)
+        #expect(updatedKey2?.trustLevel == .unknown)
+    }
+
+    // MARK: - clearTrustLevel In-Place Update Tests
+
+    @Test("clearTrustLevel resets key trust level to unknown in-place")
+    func testClearTrustLevelResetsToUnknown() throws {
+        let service = KeyringService()
+
+        let keyGen = KeyGenerator()
+        keyGen.keyBitsLength = 2048
+        let rawKey = keyGen.generate(for: "trust-clear@test.local", passphrase: "pass")
+        try service.addKey(rawKey)
+
+        guard let addedKey = service.keys.first(where: { $0.email == "trust-clear@test.local" }) else {
+            Issue.record("Test key not found after add")
+            return
+        }
+
+        defer { try? service.deleteKey(addedKey) }
+
+        try service.updateTrustLevel(addedKey, trustLevel: .full)
+
+        let afterUpdate = service.keys.first(where: { $0.fingerprint == addedKey.fingerprint })
+        #expect(afterUpdate?.trustLevel == .full)
+
+        try service.clearTrustLevel(addedKey)
+
+        let afterClear = service.keys.first(where: { $0.fingerprint == addedKey.fingerprint })
+        #expect(afterClear?.trustLevel == .unknown)
+    }
+
+    @Test("clearTrustLevel does not change count of keys in keyring")
+    func testClearTrustLevelPreservesKeyCount() throws {
+        let service = KeyringService()
+
+        let keyGen = KeyGenerator()
+        keyGen.keyBitsLength = 2048
+        let rawKey = keyGen.generate(for: "trust-clear-count@test.local", passphrase: "pass")
+        try service.addKey(rawKey)
+
+        guard let addedKey = service.keys.first(where: { $0.email == "trust-clear-count@test.local" }) else {
+            Issue.record("Test key not found after add")
+            return
+        }
+
+        defer { try? service.deleteKey(addedKey) }
+
+        try service.updateTrustLevel(addedKey, trustLevel: .marginal)
+
+        let countBefore = service.keys.count
+        try service.clearTrustLevel(addedKey)
+        #expect(service.keys.count == countBefore)
+    }
+
+    @Test("clearTrustLevel only resets the targeted key")
+    func testClearTrustLevelOnlyResetsTargetKey() throws {
+        let service = KeyringService()
+
+        let keyGen1 = KeyGenerator()
+        keyGen1.keyBitsLength = 2048
+        let rawKey1 = keyGen1.generate(for: "trust-clear-t1@test.local", passphrase: "pass")
+        try service.addKey(rawKey1)
+
+        let keyGen2 = KeyGenerator()
+        keyGen2.keyBitsLength = 2048
+        let rawKey2 = keyGen2.generate(for: "trust-clear-t2@test.local", passphrase: "pass")
+        try service.addKey(rawKey2)
+
+        guard let key1 = service.keys.first(where: { $0.email == "trust-clear-t1@test.local" }),
+              let key2 = service.keys.first(where: { $0.email == "trust-clear-t2@test.local" }) else {
+            Issue.record("Test keys not found")
+            return
+        }
+
+        defer {
+            if let k = service.keys.first(where: { $0.email == "trust-clear-t1@test.local" }) { try? service.deleteKey(k) }
+            if let k = service.keys.first(where: { $0.email == "trust-clear-t2@test.local" }) { try? service.deleteKey(k) }
+        }
+
+        try service.updateTrustLevel(key1, trustLevel: .full)
+        try service.updateTrustLevel(key2, trustLevel: .marginal)
+
+        try service.clearTrustLevel(key1)
+
+        let clearedKey1 = service.keys.first(where: { $0.fingerprint == key1.fingerprint })
+        let unchangedKey2 = service.keys.first(where: { $0.fingerprint == key2.fingerprint })
+
+        #expect(clearedKey1?.trustLevel == .unknown)
+        #expect(unchangedKey2?.trustLevel == .marginal)
     }
 }

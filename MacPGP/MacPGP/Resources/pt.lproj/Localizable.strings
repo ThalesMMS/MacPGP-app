@@ -21,8 +21,6 @@
 "sidebar.operations" = "Operações";
 "sidebar.keyring" = "Chaveiro";
 "sidebar.keyring_description" = "Gerenciar suas chaves PGP";
-"sidebar.web_of_trust" = "Rede de Confiança";
-"sidebar.web_of_trust_description" = "Visualizar relacionamentos de confiança";
 "sidebar.encrypt" = "Criptografar";
 "sidebar.encrypt_description" = "Criptografar mensagens ou arquivos";
 "sidebar.decrypt" = "Descriptografar";
@@ -209,7 +207,6 @@
 "keydetails.delete" = "Excluir";
 "keydetails.delete_key" = "Excluir Chave";
 "keydetails.delete_confirmation" = "Tem certeza de que deseja excluir \"%@\"? Esta ação não pode ser desfeita.";
-"keydetails.trust_path" = "Caminho de Confiança";
 "keydetails.key_revoked" = "Esta chave foi revogada";
 "keydetails.key_revoked_message" = "Chaves revogadas não podem ser usadas para criptografia ou assinatura. Esta chave não deve ser confiável.";
 "keydetails.key_expired" = "Esta chave expirou";
@@ -382,7 +379,7 @@
 "keyserver_settings.key_management" = "Gerenciamento de Chaves";
 "keyserver_settings.auto_refresh" = "Atualizar automaticamente as chaves do servidor de chaves";
 "keyserver_settings.auto_refresh_info" = "A atualização automática verifica atualizações de chaves";
-"keyserver_settings.auto_refresh_message" = "As chaves serão atualizadas periodicamente para obter o status de revogação e novas assinaturas";
+"keyserver_settings.auto_refresh_message" = "As chaves serão atualizadas periodicamente para obter as atualizações mais recentes dos servidores de chaves";
 "keyserver_settings.server_information" = "Informações do Servidor";
 "keyserver_settings.about_keyservers" = "Sobre Servidores de Chaves";
 "keyserver_settings.about_message" = "Servidores públicos de chaves permitem que você compartilhe sua chave pública e descubra chaves de outros usuários. O servidor selecionado será usado para operações de pesquisa, envio e atualização.";
@@ -399,23 +396,6 @@
 "sort.key_id" = "ID da Chave";
 
 /* MARK: - Web of Trust */
-"wot.no_keys" = "Sem Chaves";
-"wot.no_keys_message" = "Gere ou importe chaves para construir sua rede de confiança.";
-"wot.selected" = "Selecionado: %@";
-"wot.trust_level" = "Nível de Confiança: %@";
-"wot.secret_key" = "Chave Secreta";
-"wot.view_details" = "Ver Detalhes";
-"wot.deselect" = "Desmarcar";
-"wot.legend" = "Legenda da Rede de Confiança";
-"wot.trust_levels" = "Níveis de Confiança";
-"wot.graph_elements" = "Elementos do Gráfico";
-"wot.node" = "Chave (nó)";
-"wot.edge" = "Assinatura (aresta)";
-"wot.secret_key_node" = "Chave secreta";
-"wot.close" = "Fechar";
-"wot.error" = "Erro";
-"wot.generate_new_key" = "Gerar Nova Chave";
-"wot.import_key" = "Importar Chave";
 
 /* MARK: - Common Actions */
 "common.cancel" = "Cancelar";

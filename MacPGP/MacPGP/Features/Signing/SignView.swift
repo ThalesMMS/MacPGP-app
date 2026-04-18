@@ -42,7 +42,7 @@ struct SignView: View {
                 } label: {
                     Label("Sign", systemImage: "signature")
                 }
-                .disabled(!canSign)
+                .disabled(!canSign || isProcessing)
             }
         }
         .alert("Passphrase Required", isPresented: $showingPassphrasePrompt) {
@@ -180,15 +180,24 @@ struct SignView: View {
     private var outputPane: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(sessionState.signDetachedSignature ? "Signature" : "Signed Message")
+                Text(outputTitle)
                     .font(.headline)
                 Spacer()
 
-                if !sessionState.signOutputText.isEmpty {
+                if !sessionState.signOutputFiles.isEmpty {
+                    Button {
+                        revealOutputFiles()
+                    } label: {
+                        Label("Reveal", systemImage: "folder")
+                    }
+                    .buttonStyle(.borderless)
+                }
+
+                if !sessionState.signOutputText.isEmpty || !sessionState.signOutputFiles.isEmpty {
                     Button {
                         copyOutput()
                     } label: {
-                        Label("Copy", systemImage: "doc.on.doc")
+                        Label(sessionState.signOutputFiles.isEmpty ? "Copy" : "Copy Path", systemImage: "doc.on.doc")
                     }
                     .buttonStyle(.borderless)
                 }
@@ -198,13 +207,15 @@ struct SignView: View {
                 Spacer()
                 ProgressView("Signing...")
                 Spacer()
-            } else if sessionState.signOutputText.isEmpty {
+            } else if sessionState.signOutputText.isEmpty && sessionState.signOutputFiles.isEmpty {
                 ContentUnavailableView(
                     "No Output",
                     systemImage: "signature",
-                    description: Text(sessionState.signDetachedSignature ? "Signature will appear here" : "Signed message will appear here")
+                    description: Text(outputPlaceholderDescription)
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !sessionState.signOutputFiles.isEmpty {
+                FileResultListView(files: sessionState.signOutputFiles, successTitle: fileResultTitle)
             } else {
                 ScrollView {
                     Text(sessionState.signOutputText)
@@ -228,7 +239,33 @@ struct SignView: View {
         )
     }
 
+    private var outputTitle: String {
+        if sessionState.signInputMode == .file {
+            return sessionState.signDetachedSignature ? "Signature File" : "Signed File"
+        }
+
+        return sessionState.signDetachedSignature ? "Signature" : "Signed Message"
+    }
+
+    private var outputPlaceholderDescription: String {
+        if sessionState.signInputMode == .file {
+            return sessionState.signDetachedSignature
+                ? "Signature file will appear here"
+                : "Signed file will appear here"
+        }
+
+        return sessionState.signDetachedSignature
+            ? "Signature will appear here"
+            : "Signed message will appear here"
+    }
+
+    private var fileResultTitle: String {
+        sessionState.signDetachedSignature ? "Signature Files" : "Signed Files"
+    }
+
     private func promptForPassphrase() {
+        guard !isProcessing else { return }
+
         guard sessionState.signSignerKey != nil else {
             errorMessage = "Please select a signing key"
             showingError = true
@@ -238,6 +275,8 @@ struct SignView: View {
     }
 
     private func sign() {
+        guard !isProcessing else { return }
+
         guard !passphrase.isEmpty else {
             errorMessage = "Passphrase is required"
             showingError = true
@@ -246,42 +285,63 @@ struct SignView: View {
 
         guard let key = sessionState.signSignerKey else { return }
 
+        let inputMode = sessionState.signInputMode
+        let inputText = sessionState.signInputText
+        let selectedFile = sessionState.signSelectedFile
+        let cleartextSignature = sessionState.signCleartextSignature
+        let detachedSignature = sessionState.signDetachedSignature
+        let armorOutput = sessionState.signArmorOutput
+        let enteredPassphrase = passphrase
+
+        if inputMode == .file && selectedFile == nil {
+            errorMessage = "Please select a file to sign"
+            showingError = true
+            return
+        }
+
         isProcessing = true
         errorMessage = nil
+        sessionState.signOutputText = ""
+        sessionState.signOutputFiles = []
 
         Task {
             do {
-                switch sessionState.signInputMode {
+                switch inputMode {
                 case .text:
-                    let signed = try signingService.sign(
-                        message: sessionState.signInputText,
+                    let signed = try await signingService.signAsync(
+                        message: inputText,
                         using: key,
-                        passphrase: passphrase,
-                        cleartext: sessionState.signCleartextSignature,
-                        detached: sessionState.signDetachedSignature,
-                        armored: sessionState.signArmorOutput
+                        passphrase: enteredPassphrase,
+                        cleartext: cleartextSignature,
+                        detached: detachedSignature,
+                        armored: armorOutput
                     )
 
                     await MainActor.run {
+                        sessionState.signOutputFiles = []
                         sessionState.signOutputText = signed
+                        passphrase = ""
                     }
 
                 case .file:
-                    guard let fileURL = sessionState.signSelectedFile else { return }
-                    let outputURL = try signingService.sign(
+                    guard let fileURL = selectedFile else {
+                        throw OperationError.signingFailed(underlying: nil)
+                    }
+
+                    let outputURL = try await signingService.signAsync(
                         file: fileURL,
                         using: key,
-                        passphrase: passphrase,
-                        detached: sessionState.signDetachedSignature,
-                        armored: sessionState.signArmorOutput
+                        passphrase: enteredPassphrase,
+                        detached: detachedSignature,
+                        armored: armorOutput
                     )
 
                     await MainActor.run {
-                        sessionState.signOutputText = "File signed successfully:\n\(outputURL.path)"
+                        sessionState.signOutputText = ""
+                        sessionState.signOutputFiles = [outputURL]
+                        passphrase = ""
                     }
                 }
-
-                passphrase = ""
             } catch {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
@@ -303,8 +363,19 @@ struct SignView: View {
 
     private func copyOutput() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(sessionState.signOutputText, forType: .string)
+        let content: String
+        if !sessionState.signOutputFiles.isEmpty {
+            content = sessionState.signOutputFiles.map(\.path).joined(separator: "\n")
+        } else {
+            content = sessionState.signOutputText
+        }
+        NSPasteboard.general.setString(content, forType: .string)
     }
+
+    private func revealOutputFiles() {
+        NSWorkspace.shared.activateFileViewerSelecting(sessionState.signOutputFiles)
+    }
+
 }
 
 #Preview {

@@ -5,6 +5,9 @@ class FinderSync: FIFinderSync {
 
     private let fileAnalyzer = PGPFileAnalyzer()
     private let encryptedBadgeIdentifier = "com.macpgp.finder.encrypted"
+    private let mainAppBundleIdentifier = "com.macpgp.MacPGP"
+    private let appGroupIdentifier = "group.com.macpgp.shared"
+    private let finderSyncErrorsKey = "com.macpgp.finderSync.errors"
 
     override init() {
         super.init()
@@ -112,24 +115,7 @@ class FinderSync: FIFinderSync {
             return
         }
 
-        // Launch the main application with the selected files
-        // The main app will handle the encryption workflow
-        let workspace = NSWorkspace.shared
-        let appBundleIdentifier = "com.macpgp.MacPGP"
-
-        // Try to open each selected file with the main application
-        for fileURL in selectedItems {
-            let configuration = NSWorkspace.OpenConfiguration()
-            workspace.open(
-                [fileURL],
-                withApplicationAt: URL(fileURLWithPath: "/Applications/MacPGP.app"),
-                configuration: configuration
-            ) { _, error in
-                if let error = error {
-                    NSLog("Failed to open file with MacPGP: \(error.localizedDescription)")
-                }
-            }
-        }
+        openFilesWithMainApp(selectedItems)
     }
 
     /// Handles the "Decrypt with MacPGP" menu action
@@ -149,23 +135,66 @@ class FinderSync: FIFinderSync {
             return
         }
 
-        // Launch the main application with the encrypted files
-        // The main app will handle the decryption workflow
-        let workspace = NSWorkspace.shared
-        let appBundleIdentifier = "com.macpgp.MacPGP"
+        openFilesWithMainApp(encryptedFiles)
+    }
 
-        // Try to open each encrypted file with the main application
-        for fileURL in encryptedFiles {
-            let configuration = NSWorkspace.OpenConfiguration()
-            workspace.open(
-                [fileURL],
-                withApplicationAt: URL(fileURLWithPath: "/Applications/MacPGP.app"),
-                configuration: configuration
-            ) { _, error in
-                if let error = error {
-                    NSLog("Failed to open file with MacPGP: \(error.localizedDescription)")
-                }
+    private func openFilesWithMainApp(_ fileURLs: [URL]) {
+        guard let mainAppURL = resolveMainAppURL() else {
+            forwardErrorToContainingApp(
+                title: "MacPGP app not found",
+                message: "Please reinstall MacPGP and try again."
+            )
+            return
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        NSWorkspace.shared.open(
+            fileURLs,
+            withApplicationAt: mainAppURL,
+            configuration: configuration
+        ) { [weak self] _, error in
+            if let error = error {
+                NSLog("Failed to open files with MacPGP: \(error.localizedDescription)")
+                self?.forwardErrorToContainingApp(
+                    title: "Could not open MacPGP",
+                    message: "Please open MacPGP and try again."
+                )
             }
         }
+    }
+
+    private func resolveMainAppURL() -> URL? {
+        let containingAppURL = Bundle.main.bundleURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+
+        if containingAppURL.pathExtension == "app",
+           FileManager.default.fileExists(atPath: containingAppURL.path),
+           Bundle(url: containingAppURL)?.bundleIdentifier == mainAppBundleIdentifier {
+            return containingAppURL
+        }
+
+        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: mainAppBundleIdentifier)
+    }
+
+    private func forwardErrorToContainingApp(title: String, message: String) {
+        NSLog("Finder Sync error: \(title) - \(message)")
+
+        guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {
+            NSLog("Failed to open app group defaults for Finder Sync error forwarding")
+            return
+        }
+
+        let payload: [String: Any] = [
+            "id": UUID().uuidString,
+            "title": title,
+            "message": message,
+            "createdAt": Date().timeIntervalSince1970
+        ]
+
+        var pendingErrors = defaults.array(forKey: finderSyncErrorsKey) as? [[String: Any]] ?? []
+        pendingErrors.append(payload)
+        defaults.set(Array(pendingErrors.suffix(20)), forKey: finderSyncErrorsKey)
     }
 }

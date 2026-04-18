@@ -12,12 +12,12 @@
 		<key>MacPGP.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>0</integer>
+			<integer>4</integer>
 		</dict>
 		<key>QuickLookExtension.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>0</integer>
+			<integer>2</integer>
 		</dict>
 		<key>ShareExtension.xcscheme_^#shared#^_</key>
 		<dict>
@@ -27,7 +27,35 @@
 		<key>ThumbnailExtension.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>2</integer>
+			<integer>0</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>12B2690F2F32F0C10015EBFF</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>12FS00032F32F40000000003</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>12QL00032F32F50000000003</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>12SE00032F32F80000000003</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>12TH00032F32F60000000003</key>
+		<dict>
+			<key>primary</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>

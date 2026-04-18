@@ -34,6 +34,9 @@ struct KeyGenerationView: View {
         .frame(width: 500, height: 600)
     }
 
+    /// Builds the grouped form UI for entering identity, key settings, and passphrase details used to generate a new cryptographic key.
+    /// - Parameter viewModel: The `KeyGenerationViewModel` bound to the form fields.
+    /// - Returns: A view containing the key generation form with identity fields, algorithm and expiry controls, passphrase inputs and strength indicator, error display, and toolbar actions for canceling or starting generation.
     @ViewBuilder
     private func formView(viewModel: KeyGenerationViewModel) -> some View {
         @Bindable var vm = viewModel
@@ -42,18 +45,26 @@ struct KeyGenerationView: View {
             Section("Identity") {
                 TextField("Full Name", text: $vm.name)
                     .textContentType(.name)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.fullNameField)
 
                 TextField("Email Address", text: $vm.email)
                     .textContentType(.emailAddress)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.emailField)
 
                 TextField("Comment (optional)", text: $vm.comment)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.commentField)
             }
 
             Section("Key Settings") {
-                Picker("Algorithm", selection: $vm.algorithm) {
-                    ForEach([KeyAlgorithm.rsa, .ecdsa, .eddsa]) { algo in
-                        Text(algo.displayName).tag(algo)
-                    }
+                // ObjectivePGP key generation is currently reliable only for RSA in the release build.
+                // ECDSA and EdDSA remain disabled until the library can generate them without crashes.
+                HStack {
+                    Text("Algorithm")
+                        .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.algorithmLabel)
+                    Spacer()
+                    Text(vm.algorithm.displayName)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.algorithmValue)
                 }
 
                 if viewModel.algorithm.supportedKeySizes.count > 1 {
@@ -62,9 +73,12 @@ struct KeyGenerationView: View {
                             Text("\(size) bits").tag(size)
                         }
                     }
+                    .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.keySizePicker)
                 }
 
                 Toggle("Never expires", isOn: $vm.neverExpires)
+                    .toggleStyle(.checkbox)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.neverExpiresToggle)
 
                 if !viewModel.neverExpires {
                     Picker("Expires in", selection: $vm.expirationMonths) {
@@ -73,13 +87,16 @@ struct KeyGenerationView: View {
                         Text("2 years").tag(24)
                         Text("5 years").tag(60)
                     }
+                    .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.expirationPicker)
                 }
             }
 
             Section("Passphrase") {
                 SecureField("Passphrase", text: $vm.passphrase)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.passphraseField)
 
                 SecureField("Confirm Passphrase", text: $vm.confirmPassphrase)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField)
 
                 if !viewModel.passphrase.isEmpty {
                     PassphraseStrengthView(strength: viewModel.passphraseStrength)
@@ -92,6 +109,8 @@ struct KeyGenerationView: View {
                 }
 
                 Toggle("Store passphrase in Keychain", isOn: $vm.storeInKeychain)
+                    .toggleStyle(.checkbox)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.storePassphraseToggle)
             }
 
             if let error = viewModel.errorMessage {

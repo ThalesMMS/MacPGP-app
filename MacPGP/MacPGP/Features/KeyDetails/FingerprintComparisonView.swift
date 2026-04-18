@@ -144,11 +144,11 @@ struct FingerprintComparisonView: View {
                 .foregroundStyle(.green)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Fingerprints Match!")
+                Text("Fingerprints Match")
                     .font(.headline)
                     .foregroundStyle(.green)
 
-                Text("The fingerprints are identical. This key can be trusted.")
+                Text("The fingerprints are identical. You have verified this key's fingerprint.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -203,11 +203,7 @@ struct FingerprintComparisonView: View {
     }
 
     private func normalizeFingerprint(_ fingerprint: String) -> String {
-        // Remove all whitespace, colons, and convert to uppercase
-        fingerprint
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: ":", with: "")
-            .uppercased()
+        fingerprint.normalizedFingerprint
     }
 
     private func checkFingerprints() {

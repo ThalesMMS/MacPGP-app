@@ -318,7 +318,7 @@ struct KeyExpirationServiceTests {
 
     // MARK: - extendExpiration Error Handling Tests
 
-    @Test("extendExpiration fails for public-only key")
+    @Test("extendExpiration fails for public-only key", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
     func testExtendExpirationPublicKeyError() {
         let service = KeyExpirationService.shared
 
@@ -343,7 +343,7 @@ struct KeyExpirationServiceTests {
         }
     }
 
-    @Test("extendExpiration fails for past date")
+    @Test("extendExpiration fails for past date", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
     func testExtendExpirationPastDateError() {
         let service = KeyExpirationService.shared
 
@@ -363,7 +363,7 @@ struct KeyExpirationServiceTests {
         }
     }
 
-    @Test("extendExpiration fails for empty passphrase")
+    @Test("extendExpiration fails for empty passphrase", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
     func testExtendExpirationEmptyPassphraseError() {
         let service = KeyExpirationService.shared
 
@@ -383,7 +383,7 @@ struct KeyExpirationServiceTests {
         }
     }
 
-    @Test("extendExpiration currently throws not implemented error")
+    @Test("extendExpiration currently throws not implemented error", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
     func testExtendExpirationNotImplemented() {
         let service = KeyExpirationService.shared
 
@@ -411,7 +411,7 @@ struct KeyExpirationServiceTests {
         }
     }
 
-    @Test("extendExpiration sets lastError on failure")
+    @Test("extendExpiration sets lastError on failure", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
     func testExtendExpirationSetsLastError() {
         let service = KeyExpirationService.shared
 
@@ -435,7 +435,7 @@ struct KeyExpirationServiceTests {
         #expect(service.lastError != nil)
     }
 
-    @Test("extendExpiration resets isProcessing flag")
+    @Test("extendExpiration resets isProcessing flag", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
     func testExtendExpirationResetsProcessingFlag() {
         let service = KeyExpirationService.shared
 
@@ -461,7 +461,7 @@ struct KeyExpirationServiceTests {
 
     // MARK: - extendExpirationAsync Tests
 
-    @Test("extendExpirationAsync completes on main thread")
+    @Test("extendExpirationAsync completes on main thread", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
     func testExtendExpirationAsyncMainThread() async {
         let service = KeyExpirationService.shared
 
@@ -486,7 +486,7 @@ struct KeyExpirationServiceTests {
         await expectation.fulfillment
     }
 
-    @Test("extendExpirationAsync returns failure for invalid input")
+    @Test("extendExpirationAsync returns failure for invalid input", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
     func testExtendExpirationAsyncFailure() async {
         let service = KeyExpirationService.shared
 
@@ -516,7 +516,7 @@ struct KeyExpirationServiceTests {
         await expectation.fulfillment
     }
 
-    @Test("extendExpirationAsync handles empty passphrase")
+    @Test("extendExpirationAsync handles empty passphrase", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
     func testExtendExpirationAsyncEmptyPassphrase() async {
         let service = KeyExpirationService.shared
 

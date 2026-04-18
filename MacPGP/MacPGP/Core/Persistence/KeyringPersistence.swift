@@ -20,10 +20,56 @@ struct KeyringMetadata: Codable {
     var trusts: [String: KeyTrustMetadata] = [:]
 }
 
-final class KeyringPersistence {
+protocol KeyringPersisting {
+    var shouldSyncSharedContainer: Bool { get }
+
+    func loadKeys() throws -> [Key]
+    func saveKeys(_ keys: [Key]) throws
+    func importKey(from url: URL) throws -> [Key]
+    func importKey(from data: Data) throws -> [Key]
+    func importKey(fromArmored string: String) throws -> [Key]
+    func exportKey(_ key: Key, armored: Bool) throws -> Data
+    func exportPublicKey(_ key: Key, armored: Bool) throws -> Data
+    func deleteKey(withFingerprint fingerprint: String, from keys: inout [Key])
+    func loadMetadata() -> KeyringMetadata
+    func updateVerificationStatus(
+        forFingerprint fingerprint: String,
+        isVerified: Bool,
+        verificationDate: Date?,
+        verificationMethod: String?
+    ) throws
+    func removeVerificationStatus(forFingerprint fingerprint: String) throws
+    func updateTrustLevel(
+        forFingerprint fingerprint: String,
+        trustLevel: TrustLevel,
+        notes: String?
+    ) throws
+    func removeTrustLevel(forFingerprint fingerprint: String) throws
+}
+
+final class KeyringPersistence: KeyringPersisting {
     private let fileManager = FileManager.default
+    private let directoryOverride: URL?
+    private let testDirectory: URL?
+
+    private static let isRunningTests =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+        ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil ||
+        NSClassFromString("XCTestCase") != nil
+
+    var shouldSyncSharedContainer: Bool {
+        directoryOverride == nil && !Self.isRunningTests
+    }
 
     var keyringDirectory: URL {
+        if let directoryOverride {
+            return directoryOverride
+        }
+
+        if let testDirectory {
+            return testDirectory
+        }
+
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let keyringDir = appSupport.appendingPathComponent("MacPGP/Keyring", isDirectory: true)
         return keyringDir
@@ -41,7 +87,20 @@ final class KeyringPersistence {
         keyringDirectory.appendingPathComponent("metadata.json")
     }
 
-    init() {
+    init(directoryOverride: URL? = nil) {
+        self.directoryOverride = directoryOverride
+        if directoryOverride == nil && Self.isRunningTests {
+            let sessionIdentifier = ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] ??
+                ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"]?
+                    .replacingOccurrences(of: "/", with: "-") ??
+                UUID().uuidString
+            self.testDirectory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("MacPGPTests-\(sessionIdentifier)", isDirectory: true)
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+                .appendingPathComponent("Keyring", isDirectory: true)
+        } else {
+            self.testDirectory = nil
+        }
         ensureDirectoryExists()
     }
 
@@ -135,6 +194,14 @@ final class KeyringPersistence {
             if fileManager.fileExists(atPath: secretKeyringPath.path) {
                 try fileManager.removeItem(at: secretKeyringPath)
             }
+        }
+
+        guard shouldSyncSharedContainer else { return }
+
+        do {
+            try SharedContainerSync.syncKeysToContainer(keys: keys)
+        } catch {
+            NSLog("[KeyringPersistence] Failed to sync keys to shared container: \(error.localizedDescription)")
         }
     }
 

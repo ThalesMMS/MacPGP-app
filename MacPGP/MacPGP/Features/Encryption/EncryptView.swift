@@ -202,11 +202,20 @@ struct EncryptView: View {
                     .font(.headline)
                 Spacer()
 
-                if !sessionState.encryptOutputText.isEmpty {
+                if !sessionState.encryptOutputFiles.isEmpty {
+                    Button {
+                        revealOutputFiles()
+                    } label: {
+                        Label(sessionState.encryptOutputFiles.count == 1 ? "Reveal" : "Reveal All", systemImage: "folder")
+                    }
+                    .buttonStyle(.borderless)
+                }
+
+                if !sessionState.encryptOutputText.isEmpty || !sessionState.encryptOutputFiles.isEmpty {
                     Button {
                         copyOutput()
                     } label: {
-                        Label("Copy", systemImage: "doc.on.doc")
+                        Label(sessionState.encryptOutputFiles.isEmpty ? "Copy" : "Copy Paths", systemImage: "doc.on.doc")
                     }
                     .buttonStyle(.borderless)
                 }
@@ -229,13 +238,15 @@ struct EncryptView: View {
                     }
                 }
                 Spacer()
-            } else if sessionState.encryptOutputText.isEmpty {
+            } else if sessionState.encryptOutputText.isEmpty && sessionState.encryptOutputFiles.isEmpty {
                 ContentUnavailableView(
                     "No Output",
                     systemImage: "lock.open",
-                    description: Text("Encrypted message will appear here")
+                    description: Text(sessionState.encryptInputMode == .file ? "Encrypted files will appear here" : "Encrypted message will appear here")
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !sessionState.encryptOutputFiles.isEmpty {
+                FileResultListView(files: sessionState.encryptOutputFiles, successTitle: "Encrypted Files")
             } else {
                 ScrollView {
                     Text(sessionState.encryptOutputText)
@@ -289,13 +300,14 @@ struct EncryptView: View {
                         armored: sessionState.encryptArmorOutput
                     )
                     await MainActor.run {
+                        sessionState.encryptOutputFiles = []
                         sessionState.encryptOutputText = encrypted
                     }
 
                 case .file:
                     guard !sessionState.encryptSelectedFiles.isEmpty else { return }
 
-                    var outputPaths: [String] = []
+                    var outputFiles: [URL] = []
                     let fileCount = sessionState.encryptSelectedFiles.count
 
                     for (index, fileURL) in sessionState.encryptSelectedFiles.enumerated() {
@@ -319,15 +331,12 @@ struct EncryptView: View {
                             }
                         )
 
-                        outputPaths.append(outputURL.path)
+                        outputFiles.append(outputURL)
                     }
 
                     await MainActor.run {
-                        if outputPaths.count == 1 {
-                            sessionState.encryptOutputText = "File encrypted successfully:\n\(outputPaths[0])"
-                        } else {
-                            sessionState.encryptOutputText = "Files encrypted successfully (\(outputPaths.count)):\n" + outputPaths.map { "• \($0)" }.joined(separator: "\n")
-                        }
+                        sessionState.encryptOutputText = ""
+                        sessionState.encryptOutputFiles = outputFiles
                     }
                 }
 
@@ -389,6 +398,7 @@ struct EncryptView: View {
                     )
 
                     // Update output pane to show what was encrypted
+                    sessionState.encryptOutputFiles = []
                     sessionState.encryptOutputText = encrypted
                 }
 
@@ -408,7 +418,17 @@ struct EncryptView: View {
 
     private func copyOutput() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(sessionState.encryptOutputText, forType: .string)
+        let content: String
+        if !sessionState.encryptOutputFiles.isEmpty {
+            content = sessionState.encryptOutputFiles.map(\.path).joined(separator: "\n")
+        } else {
+            content = sessionState.encryptOutputText
+        }
+        NSPasteboard.general.setString(content, forType: .string)
+    }
+
+    private func revealOutputFiles() {
+        NSWorkspace.shared.activateFileViewerSelecting(sessionState.encryptOutputFiles)
     }
 
     private func chooseOutputLocation() {

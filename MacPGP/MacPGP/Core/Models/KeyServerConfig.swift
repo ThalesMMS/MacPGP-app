@@ -119,6 +119,23 @@ extension KeyServerConfig {
         .mitKeyserver
     ]
 
+    static var enabledServers: [KeyServerConfig] {
+        enabledServers(using: PreferencesManager.shared)
+    }
+
+    static func enabledServers(using preferences: PreferencesManager) -> [KeyServerConfig] {
+        let enabledHostnames = Set(preferences.enabledKeyServers)
+        let servers = defaults.filter { enabledHostnames.contains($0.hostname) }
+        return servers.isEmpty ? defaults.filter(\.isEnabled) : servers
+    }
+
+    static func defaultServer(using preferences: PreferencesManager = .shared) -> KeyServerConfig {
+        let enabledServers = enabledServers(using: preferences)
+        return enabledServers.first(where: { $0.hostname == preferences.defaultKeyServer }) ??
+            enabledServers.first ??
+            .keysOpenpgp
+    }
+
     static var preview: KeyServerConfig {
         .keysOpenpgp
     }

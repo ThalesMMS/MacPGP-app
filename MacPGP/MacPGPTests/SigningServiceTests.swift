@@ -15,6 +15,14 @@ struct SigningServiceTests {
 
     // MARK: - Test Helpers
 
+    func makeIsolatedKeyring() -> KeyringService {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SigningServiceTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("Keyring", isDirectory: true)
+
+        return KeyringService(persistence: KeyringPersistence(directoryOverride: directory))
+    }
+
     func createTestKeyPair(email: String, passphrase: String) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
@@ -23,7 +31,7 @@ struct SigningServiceTests {
     }
 
     func setupTestEnvironment() -> (service: SigningService, keyring: KeyringService, signerKey: PGPKeyModel) {
-        let keyring = KeyringService()
+        let keyring = makeIsolatedKeyring()
 
         let signerKey = createTestKeyPair(email: "signer@test.local", passphrase: "signer-pass")
 
@@ -452,6 +460,19 @@ struct SigningServiceTests {
         let result = try service.verify(data: unsignedData)
 
         #expect(!result.isValid)
+        #expect(!result.isError)
+    }
+
+    @Test("Verify without keys returns verification error")
+    func testVerifyWithoutKeysReturnsErrorState() throws {
+        let keyring = makeIsolatedKeyring()
+        let service = SigningService(keyringService: keyring)
+
+        let result = try service.verify(data: Data("unsigned".utf8))
+
+        #expect(!result.isValid)
+        #expect(result.isError)
+        #expect(result.message == "No keys available for verification")
     }
 
     @Test("Verify invalid signature returns invalid")
@@ -775,5 +796,102 @@ struct SigningServiceTests {
         let verified = try service.verify(message: originalMessage, signature: signature)
 
         #expect(verified.isValid)
+    }
+
+    // MARK: - VerificationResult / VerificationOutcome
+
+    @Test("VerificationResult.valid has correct outcome, computed properties and copy")
+    func testVerificationResultValidFactory() {
+        let result = VerificationResult.valid(signer: nil, date: nil)
+
+        #expect(result.outcome == .valid)
+        #expect(result.isValid)
+        #expect(!result.isError)
+        #expect(result.title == "Signature Valid")
+        #expect(result.symbolName == "checkmark.seal.fill")
+        #expect(result.message == "Signature is valid")
+        #expect(result.signerKey == nil)
+        #expect(result.signatureDate == nil)
+        #expect(result.originalMessage == nil)
+    }
+
+    @Test("VerificationResult.valid preserves signer key and date")
+    func testVerificationResultValidWithSignerAndDate() {
+        let date = Date(timeIntervalSince1970: 1_000_000)
+        let result = VerificationResult.valid(signer: nil, date: date, originalMessage: "hello")
+
+        #expect(result.isValid)
+        #expect(result.signatureDate == date)
+        #expect(result.originalMessage == "hello")
+    }
+
+    @Test("VerificationResult.invalid has correct outcome, computed properties and copy")
+    func testVerificationResultInvalidFactory() {
+        let result = VerificationResult.invalid(reason: "Bad signature bytes")
+
+        #expect(result.outcome == .invalidSignature)
+        #expect(!result.isValid)
+        #expect(!result.isError)
+        #expect(result.title == "Signature Invalid")
+        #expect(result.symbolName == "xmark.seal.fill")
+        #expect(result.message == "Bad signature bytes")
+        #expect(result.signerKey == nil)
+        #expect(result.signatureDate == nil)
+    }
+
+    @Test("VerificationResult.verificationError has correct outcome, computed properties and copy")
+    func testVerificationResultVerificationErrorFactory() {
+        let result = VerificationResult.verificationError(reason: "No keys available for verification")
+
+        #expect(result.outcome == .error)
+        #expect(!result.isValid)
+        #expect(result.isError)
+        #expect(result.title == "Verification Error")
+        #expect(result.symbolName == "exclamationmark.triangle.fill")
+        #expect(result.message == "No keys available for verification")
+        #expect(result.signerKey == nil)
+        #expect(result.signatureDate == nil)
+    }
+
+    @Test("VerificationOutcome enum covers all three distinct cases")
+    func testVerificationOutcomeAllCases() {
+        let valid = VerificationResult.valid(signer: nil, date: nil)
+        let invalid = VerificationResult.invalid(reason: "bad")
+        let error = VerificationResult.verificationError(reason: "missing keys")
+
+        // Each has a distinct outcome
+        #expect(valid.outcome != invalid.outcome)
+        #expect(valid.outcome != error.outcome)
+        #expect(invalid.outcome != error.outcome)
+    }
+
+    @Test("isValid and isError are mutually exclusive for valid result")
+    func testValidResultIsNotAnError() {
+        let result = VerificationResult.valid(signer: nil, date: nil)
+        #expect(result.isValid && !result.isError)
+    }
+
+    @Test("isValid and isError are mutually exclusive for invalidSignature result")
+    func testInvalidSignatureResultIsNeitherValidNorError() {
+        let result = VerificationResult.invalid(reason: "reason")
+        #expect(!result.isValid && !result.isError)
+    }
+
+    @Test("isValid and isError are mutually exclusive for error result")
+    func testErrorResultIsNotValid() {
+        let result = VerificationResult.verificationError(reason: "reason")
+        #expect(!result.isValid && result.isError)
+    }
+
+    @Test("Verify with no keys in isolated keyring returns verificationError outcome")
+    func testVerifyWithNoKeysReturnsErrorOutcome() throws {
+        let keyring = makeIsolatedKeyring()
+        let service = SigningService(keyringService: keyring)
+
+        let result = try service.verify(message: "unsigned message")
+
+        #expect(result.outcome == .error)
+        #expect(result.isError)
+        #expect(!result.isValid)
     }
 }

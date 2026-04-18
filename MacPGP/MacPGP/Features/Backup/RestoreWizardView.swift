@@ -218,7 +218,17 @@ struct RestoreWizardView: View {
         }
     }
 
-    // MARK: - Passphrase View
+    /// Displays the passphrase entry screen used to decrypt an encrypted backup.
+    /// 
+    /// The view binds to the provided `BackupViewModel` for the passphrase, error, and processing state. It shows:
+    /// - a secure field bound to `viewModel.restorePassphrase`;
+    /// - any `viewModel.errorMessage` in a red section;
+    /// - a "Back" toolbar button that sets `currentStep` to `.fileSelection`;
+    /// - a "Decrypt" toolbar button that triggers decryption and is disabled when the passphrase is empty or `viewModel.isProcessing` is `true`;
+    /// - a full-screen processing overlay while `viewModel.isProcessing` is `true`.
+    /// - Parameters:
+    ///   - viewModel: The `BackupViewModel` providing bindings and state for passphrase entry and decryption.
+    /// - Returns: A view presenting the passphrase form, toolbar actions, and conditional processing overlay.
 
     @ViewBuilder
     private func passphraseView(viewModel: BackupViewModel) -> some View {
@@ -277,11 +287,12 @@ struct RestoreWizardView: View {
         }
     }
 
+    /// Attempts to decrypt and validate the selected backup using the provided view model and advances the wizard to the validation step if that operation succeeds.
+    /// - Parameter viewModel: The `BackupViewModel` that performs decryption and validation.
     private func decryptAndValidate(viewModel: BackupViewModel) async {
-        // The decrypt will happen during restore, but we can validate the passphrase
-        // by attempting to decrypt and parse the backup metadata
-        do {
-            // We'll proceed to validation step, actual decryption happens in restoreBackup()
+        let didValidate = await viewModel.decryptAndValidateBackup()
+
+        if didValidate {
             await MainActor.run {
                 currentStep = .validation
             }

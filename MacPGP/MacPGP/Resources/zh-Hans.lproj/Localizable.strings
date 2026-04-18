@@ -21,8 +21,6 @@
 "sidebar.operations" = "操作";
 "sidebar.keyring" = "密钥环";
 "sidebar.keyring_description" = "管理您的 PGP 密钥";
-"sidebar.web_of_trust" = "信任网络";
-"sidebar.web_of_trust_description" = "可视化信任关系";
 "sidebar.encrypt" = "加密";
 "sidebar.encrypt_description" = "加密消息或文件";
 "sidebar.decrypt" = "解密";
@@ -209,7 +207,6 @@
 "keydetails.delete" = "删除";
 "keydetails.delete_key" = "删除密钥";
 "keydetails.delete_confirmation" = "您确定要删除\"%@\"吗？此操作无法撤销。";
-"keydetails.trust_path" = "信任路径";
 "keydetails.key_revoked" = "此密钥已被吊销";
 "keydetails.key_revoked_message" = "已吊销的密钥不能用于加密或签名。此密钥不应被信任。";
 "keydetails.key_expired" = "此密钥已过期";
@@ -382,7 +379,7 @@
 "keyserver_settings.key_management" = "密钥管理";
 "keyserver_settings.auto_refresh" = "自动从密钥服务器刷新密钥";
 "keyserver_settings.auto_refresh_info" = "自动刷新检查密钥更新";
-"keyserver_settings.auto_refresh_message" = "将定期刷新密钥以获取吊销状态和新签名";
+"keyserver_settings.auto_refresh_message" = "将定期刷新密钥以从密钥服务器获取最新更新";
 "keyserver_settings.server_information" = "服务器信息";
 "keyserver_settings.about_keyservers" = "关于密钥服务器";
 "keyserver_settings.about_message" = "公共密钥服务器允许您共享公钥并发现其他用户的密钥。所选服务器将用于搜索、上传和刷新操作。";
@@ -399,23 +396,6 @@
 "sort.key_id" = "密钥 ID";
 
 /* MARK: - Web of Trust */
-"wot.no_keys" = "无密钥";
-"wot.no_keys_message" = "生成或导入密钥以建立您的信任网络。";
-"wot.selected" = "已选择：%@";
-"wot.trust_level" = "信任级别：%@";
-"wot.secret_key" = "私钥";
-"wot.view_details" = "查看详情";
-"wot.deselect" = "取消选择";
-"wot.legend" = "信任网络图例";
-"wot.trust_levels" = "信任级别";
-"wot.graph_elements" = "图形元素";
-"wot.node" = "密钥（节点）";
-"wot.edge" = "签名（边）";
-"wot.secret_key_node" = "私钥";
-"wot.close" = "关闭";
-"wot.error" = "错误";
-"wot.generate_new_key" = "生成新密钥";
-"wot.import_key" = "导入密钥";
 
 /* MARK: - Common Actions */
 "common.cancel" = "取消";

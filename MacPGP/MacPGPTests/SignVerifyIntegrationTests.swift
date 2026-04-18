@@ -72,6 +72,8 @@ struct SignVerifyIntegrationTests {
         #expect(result.isValid)
         #expect(result.message == "Signature is valid")
         #expect(result.originalMessage == originalMessage)
+        #expect(result.signerKey != nil)
+        #expect(result.signerKey?.fingerprint == alice.fingerprint)
     }
 
     @Test("Round-trip with special characters and emoji")
@@ -92,6 +94,8 @@ struct SignVerifyIntegrationTests {
 
         #expect(verified.isValid)
         #expect(verified.originalMessage == originalMessage)
+        #expect(verified.signerKey != nil)
+        #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
 
     @Test("Round-trip with long message")
@@ -112,6 +116,8 @@ struct SignVerifyIntegrationTests {
 
         #expect(verified.isValid)
         #expect(verified.originalMessage == originalMessage)
+        #expect(verified.signerKey != nil)
+        #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
 
     @Test("Round-trip with multiline message")
@@ -138,6 +144,8 @@ struct SignVerifyIntegrationTests {
 
         #expect(verified.isValid)
         #expect(verified.originalMessage == originalMessage)
+        #expect(verified.signerKey != nil)
+        #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
 
     // MARK: - Inline Signature Round-Trip Tests
@@ -165,6 +173,8 @@ struct SignVerifyIntegrationTests {
         let verified = try signing.verify(message: signed)
 
         #expect(verified.isValid)
+        #expect(verified.signerKey != nil)
+        #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
 
     @Test("Inline signature with binary data")
@@ -185,6 +195,8 @@ struct SignVerifyIntegrationTests {
         let verified = try signing.verify(data: signed)
 
         #expect(verified.isValid)
+        #expect(verified.signerKey != nil)
+        #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
 
     // MARK: - Detached Signature Round-Trip Tests
@@ -211,6 +223,8 @@ struct SignVerifyIntegrationTests {
         let verified = try signing.verify(message: originalMessage, signature: signature)
 
         #expect(verified.isValid)
+        #expect(verified.signerKey != nil)
+        #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
 
     @Test("Detached signature round-trip for data")
@@ -234,6 +248,8 @@ struct SignVerifyIntegrationTests {
         let verified = try signing.verify(data: originalData, signature: signature)
 
         #expect(verified.isValid)
+        #expect(verified.signerKey != nil)
+        #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
 
     @Test("Detached signature with large data")
@@ -260,6 +276,8 @@ struct SignVerifyIntegrationTests {
         let verified = try signing.verify(data: originalData, signature: signature)
 
         #expect(verified.isValid)
+        #expect(verified.signerKey != nil)
+        #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
 
     // MARK: - File Round-Trip Tests
@@ -301,6 +319,8 @@ struct SignVerifyIntegrationTests {
 
         #expect(result.isValid)
         #expect(result.message == "Signature is valid")
+        #expect(result.signerKey != nil)
+        #expect(result.signerKey?.fingerprint == alice.fingerprint)
     }
 
     @Test("File signing with inline signature")
@@ -333,6 +353,8 @@ struct SignVerifyIntegrationTests {
         let result = try signing.verify(file: signedFile)
 
         #expect(result.isValid)
+        #expect(result.signerKey != nil)
+        #expect(result.signerKey?.fingerprint == alice.fingerprint)
     }
 
     @Test("Binary file round-trip with detached signature")
@@ -372,6 +394,8 @@ struct SignVerifyIntegrationTests {
         let result = try signing.verify(file: originalFile, signatureFile: signatureFile)
 
         #expect(result.isValid)
+        #expect(result.signerKey != nil)
+        #expect(result.signerKey?.fingerprint == alice.fingerprint)
     }
 
     // MARK: - Error Cases
@@ -497,6 +521,7 @@ struct SignVerifyIntegrationTests {
         let result = try signing.verify(message: signedMessage)
 
         #expect(!result.isValid)
+        #expect(result.isError)
         #expect(result.message == "No keys available for verification")
     }
 
@@ -534,9 +559,13 @@ struct SignVerifyIntegrationTests {
         // Both should verify successfully
         let armoredVerified = try signing.verify(message: originalMessage, signature: armoredSignature)
         #expect(armoredVerified.isValid)
+        #expect(armoredVerified.signerKey != nil)
+        #expect(armoredVerified.signerKey?.fingerprint == alice.fingerprint)
 
         let binaryVerified = try signing.verify(message: originalMessage, signature: binarySignature)
         #expect(binaryVerified.isValid)
+        #expect(binaryVerified.signerKey != nil)
+        #expect(binaryVerified.signerKey?.fingerprint == alice.fingerprint)
     }
 
     // MARK: - End-to-End Workflow Test
@@ -586,6 +615,8 @@ struct SignVerifyIntegrationTests {
         #expect(verificationResult.isValid)
         #expect(verificationResult.message == "Signature is valid")
         #expect(verificationResult.originalMessage == secretMessage)
+        #expect(verificationResult.signerKey != nil)
+        #expect(verificationResult.signerKey?.fingerprint == signer.fingerprint)
     }
 
     // MARK: - Cross-User Workflow Test
@@ -621,5 +652,180 @@ struct SignVerifyIntegrationTests {
 
         #expect(result.isValid)
         #expect(result.originalMessage == message)
+        #expect(result.signerKey != nil)
+        #expect(result.signerKey?.fingerprint == alice.fingerprint)
+    }
+
+    // MARK: - Signer Attribution Tests
+
+    @Test("Signer attribution works when signer key is available")
+    func testSignerAttributionWithSignerKeyPresent() throws {
+        let (keyring, signing, alice, bob) = setupIntegrationEnvironment()
+        defer { cleanupKeys(keyring: keyring, keys: [alice, bob]) }
+
+        let message = "Signer attribution with public-only verification key"
+        let signedMessage = try signing.sign(
+            message: message,
+            using: alice,
+            passphrase: "alice-secret-pass",
+            cleartext: true
+        )
+
+        let result = try signing.verify(message: signedMessage)
+
+        #expect(result.isValid)
+        #expect(result.originalMessage == message)
+        #expect(result.signerKey != nil)
+        #expect(result.signerKey?.fingerprint == alice.fingerprint)
+    }
+
+    @Test("Detached armored signature resolves signer attribution through dearmoring")
+    func testDetachedArmoredSignatureSignerAttribution() throws {
+        let (keyring, signing, alice, bob) = setupIntegrationEnvironment()
+        defer { cleanupKeys(keyring: keyring, keys: [alice, bob]) }
+
+        let message = "Armored detached signer attribution"
+        let signature = try signing.sign(
+            message: message,
+            using: alice,
+            passphrase: "alice-secret-pass",
+            cleartext: false,
+            detached: true,
+            armored: true
+        )
+
+        let result = try signing.verify(message: message, signature: signature)
+
+        #expect(result.isValid)
+        #expect(result.signerKey != nil)
+        #expect(result.signerKey?.fingerprint == alice.fingerprint)
+    }
+
+    @Test("Detached binary signature resolves signer attribution from raw packet data")
+    func testDetachedBinarySignatureSignerAttribution() throws {
+        let (keyring, signing, alice, bob) = setupIntegrationEnvironment()
+        defer { cleanupKeys(keyring: keyring, keys: [alice, bob]) }
+
+        let message = "Binary detached signer attribution"
+        let signature = try signing.sign(
+            message: message,
+            using: alice,
+            passphrase: "alice-secret-pass",
+            cleartext: false,
+            detached: true,
+            armored: false
+        )
+
+        let result = try signing.verify(message: message, signature: signature)
+
+        #expect(result.isValid)
+        #expect(result.signerKey != nil)
+        #expect(result.signerKey?.fingerprint == alice.fingerprint)
+    }
+
+    @Test("VerificationResult exposes signerKeyID from resolved signer")
+    func testVerificationResultSignerKeyIDProperty() throws {
+        let (keyring, signing, alice, bob) = setupIntegrationEnvironment()
+        defer { cleanupKeys(keyring: keyring, keys: [alice, bob]) }
+
+        let signedMessage = try signing.sign(
+            message: "Signer key ID property",
+            using: alice,
+            passphrase: "alice-secret-pass",
+            cleartext: true
+        )
+
+        let result = try signing.verify(message: signedMessage)
+
+        #expect(result.isValid)
+        #expect(result.signerKeyID == alice.shortKeyID)
+    }
+
+    @Test("extractIssuerKeyID reads signer key ID from armored signature data")
+    func testExtractIssuerKeyIDFromArmoredSignatureData() throws {
+        let (keyring, signing, alice, bob) = setupIntegrationEnvironment()
+        defer { cleanupKeys(keyring: keyring, keys: [alice, bob]) }
+
+        let signature = try signing.sign(
+            message: "Issuer key ID extraction",
+            using: alice,
+            passphrase: "alice-secret-pass",
+            cleartext: false,
+            detached: true,
+            armored: true
+        )
+
+        let issuerKeyID = SigningService.extractIssuerKeyID(from: Data(signature.utf8))
+
+        #expect(issuerKeyID == alice.shortKeyID)
+    }
+
+    @Test("Signer key ID extraction drives detached signature attribution")
+    func testSignerKeyIDExtractionFromDetachedSignature() throws {
+        let (keyring, signing, alice, bob) = setupIntegrationEnvironment()
+        defer { cleanupKeys(keyring: keyring, keys: [alice, bob]) }
+
+        let message = "Detached signer key ID extraction"
+        let signature = try signing.sign(
+            message: message,
+            using: alice,
+            passphrase: "alice-secret-pass",
+            cleartext: false,
+            detached: true,
+            armored: true
+        )
+
+        let result = try signing.verify(message: message, signature: signature)
+
+        #expect(result.isValid)
+        #expect(result.signerKeyID == alice.shortKeyID)
+        #expect(result.signerKey?.fingerprint == alice.fingerprint)
+    }
+
+    @Test("Verification result carries signer display name when signer is known")
+    func testSignerDisplayNameInVerificationResult() throws {
+        let (keyring, signing, alice, bob) = setupIntegrationEnvironment()
+        defer { cleanupKeys(keyring: keyring, keys: [alice, bob]) }
+
+        let signedMessage = try signing.sign(
+            message: "Known signer display name",
+            using: alice,
+            passphrase: "alice-secret-pass",
+            cleartext: true
+        )
+
+        let result = try signing.verify(message: signedMessage)
+
+        #expect(result.isValid)
+        #expect(result.signerKey?.displayName == alice.displayName)
+        #expect(result.signerKey?.email == alice.email)
+    }
+
+    @Test("Unknown signer remains unattributed with current verification behavior")
+    func testUnknownSignerHandling() throws {
+        let keyring = KeyringService()
+        let signing = SigningService(keyringService: keyring)
+
+        let alice = createTestKeyPair(email: "alice-unknown@test.local", passphrase: "alice-secret-pass")
+        let bob = createTestKeyPair(email: "bob-only@test.local", passphrase: "bob-secret-pass")
+
+        try keyring.addKey(alice.rawKey)
+        let signedMessage = try signing.sign(
+            message: "Signed by a key removed before verification",
+            using: alice,
+            passphrase: "alice-secret-pass",
+            cleartext: true
+        )
+
+        try keyring.deleteKey(alice)
+        try keyring.addKey(bob.rawKey)
+
+        defer { cleanupKeys(keyring: keyring, keys: [bob]) }
+
+        let result = try signing.verify(message: signedMessage)
+
+        #expect(!result.isValid)
+        #expect(result.signerKey == nil)
+        #expect(result.signerKeyID == nil)
     }
 }

@@ -237,11 +237,20 @@ struct DecryptView: View {
                     .font(.headline)
                 Spacer()
 
-                if !sessionState.decryptOutputText.isEmpty {
+                if !sessionState.decryptOutputFiles.isEmpty {
+                    Button {
+                        revealOutputFiles()
+                    } label: {
+                        Label(sessionState.decryptOutputFiles.count == 1 ? "Reveal" : "Reveal All", systemImage: "folder")
+                    }
+                    .buttonStyle(.borderless)
+                }
+
+                if !sessionState.decryptOutputText.isEmpty || !sessionState.decryptOutputFiles.isEmpty {
                     Button {
                         copyOutput()
                     } label: {
-                        Label("Copy", systemImage: "doc.on.doc")
+                        Label(sessionState.decryptOutputFiles.isEmpty ? "Copy" : "Copy Paths", systemImage: "doc.on.doc")
                     }
                     .buttonStyle(.borderless)
                 }
@@ -264,13 +273,15 @@ struct DecryptView: View {
                     }
                 }
                 Spacer()
-            } else if sessionState.decryptOutputText.isEmpty {
+            } else if sessionState.decryptOutputText.isEmpty && sessionState.decryptOutputFiles.isEmpty {
                 ContentUnavailableView(
                     "No Output",
                     systemImage: "lock.fill",
-                    description: Text("Decrypted message will appear here")
+                    description: Text(sessionState.decryptInputMode == .file ? "Decrypted files will appear here" : "Decrypted message will appear here")
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !sessionState.decryptOutputFiles.isEmpty {
+                FileResultListView(files: sessionState.decryptOutputFiles, successTitle: "Decrypted Files")
             } else {
                 ScrollView {
                     Text(sessionState.decryptOutputText)
@@ -328,29 +339,51 @@ struct DecryptView: View {
             return
         }
 
+        let inputMode = sessionState.decryptInputMode
+        let inputText = sessionState.decryptInputText
+        let autoDetectKey = sessionState.decryptAutoDetectKey
+        let selectedKey = sessionState.decryptSelectedKey
+        let selectedFiles = sessionState.decryptSelectedFiles
+        let outputLocation = sessionState.decryptOutputLocation
+        let enteredPassphrase = passphrase
+
+        if inputMode == .file && selectedFiles.isEmpty {
+            errorMessage = "Select at least one file to decrypt"
+            showingError = true
+            return
+        }
+
+        if !autoDetectKey && selectedKey == nil {
+            errorMessage = "Please select a decryption key"
+            showingError = true
+            return
+        }
+
+        sessionState.decryptOutputText = ""
+        sessionState.decryptOutputFiles = []
         isProcessing = true
         errorMessage = nil
 
         Task {
             do {
-                switch sessionState.decryptInputMode {
+                switch inputMode {
                 case .text:
-                    guard let data = sessionState.decryptInputText.data(using: .utf8) else {
+                    guard let data = inputText.data(using: .utf8) else {
                         throw OperationError.decryptionFailed(underlying: nil)
                     }
 
                     let result: String
-                    if sessionState.decryptAutoDetectKey {
-                        let (decryptedData, _) = try encryptionService.tryDecrypt(
+                    if autoDetectKey {
+                        let (decryptedData, _) = try await encryptionService.tryDecryptAsync(
                             data: data,
-                            passphrase: passphrase
+                            passphrase: enteredPassphrase
                         )
                         result = String(data: decryptedData, encoding: .utf8) ?? ""
-                    } else if let key = sessionState.decryptSelectedKey {
-                        result = try encryptionService.decrypt(
-                            message: sessionState.decryptInputText,
+                    } else if let key = selectedKey {
+                        result = try await encryptionService.decryptAsync(
+                            message: inputText,
                             using: key,
-                            passphrase: passphrase
+                            passphrase: enteredPassphrase
                         )
                     } else {
                         throw OperationError.keyNotFound(keyID: "")
@@ -361,46 +394,54 @@ struct DecryptView: View {
                     }
 
                 case .file:
-                    guard !sessionState.decryptSelectedFiles.isEmpty else { return }
-                    guard let key = sessionState.decryptAutoDetectKey ? keyringService.secretKeys().first : sessionState.decryptSelectedKey else {
-                        throw OperationError.noSecretKey
-                    }
+                    var outputFiles: [URL] = []
+                    let fileCount = selectedFiles.count
 
-                    var outputPaths: [String] = []
-                    let fileCount = sessionState.decryptSelectedFiles.count
-
-                    for (index, fileURL) in sessionState.decryptSelectedFiles.enumerated() {
-                        // Update progress for current file
-                        await MainActor.run {
-                            sessionState.decryptionProgress = 0.0
-                        }
-
-                        // Use async decrypt with progress callback
-                        let outputURL = try await encryptionService.decryptAsync(
-                            file: fileURL,
-                            using: key,
-                            passphrase: passphrase,
-                            outputURL: sessionState.decryptOutputLocation,
-                            progressCallback: { progress in
-                                // Calculate overall progress: (completed files + current file progress) / total files
-                                let overallProgress = (Double(index) + progress) / Double(fileCount)
-                                sessionState.decryptionProgress = overallProgress
+                    do {
+                        for (index, fileURL) in selectedFiles.enumerated() {
+                            await MainActor.run {
+                                sessionState.decryptionProgress = 0.0
                             }
-                        )
 
-                        outputPaths.append(outputURL.path)
-                    }
+                            let outputURL: URL
+                            if autoDetectKey {
+                                (outputURL, _) = try await encryptionService.tryDecryptAsync(
+                                    file: fileURL,
+                                    passphrase: enteredPassphrase,
+                                    outputURL: outputLocation,
+                                    progressCallback: { progress in
+                                        let overallProgress = (Double(index) + progress) / Double(fileCount)
+                                        sessionState.decryptionProgress = overallProgress
+                                    }
+                                )
+                            } else if let key = selectedKey {
+                                outputURL = try await encryptionService.decryptAsync(
+                                    file: fileURL,
+                                    using: key,
+                                    passphrase: enteredPassphrase,
+                                    outputURL: outputLocation,
+                                    progressCallback: { progress in
+                                        let overallProgress = (Double(index) + progress) / Double(fileCount)
+                                        sessionState.decryptionProgress = overallProgress
+                                    }
+                                )
+                            } else {
+                                throw OperationError.noSecretKey
+                            }
 
-                    await MainActor.run {
-                        if outputPaths.count == 1 {
-                            sessionState.decryptOutputText = "File decrypted successfully:\n\(outputPaths[0])"
-                        } else {
-                            sessionState.decryptOutputText = "Files decrypted successfully (\(outputPaths.count)):\n" + outputPaths.map { "• \($0)" }.joined(separator: "\n")
+                            outputFiles.append(outputURL)
                         }
+
+                        await MainActor.run {
+                            sessionState.decryptOutputFiles = outputFiles
+                        }
+                    } catch {
+                        for outputURL in outputFiles {
+                            try? FileManager.default.removeItem(at: outputURL)
+                        }
+                        throw error
                     }
                 }
-
-                passphrase = ""
             } catch {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
@@ -410,6 +451,7 @@ struct DecryptView: View {
 
             await MainActor.run {
                 isProcessing = false
+                passphrase = ""
                 sessionState.decryptionProgress = 0.0
             }
         }
@@ -454,6 +496,12 @@ struct DecryptView: View {
             return
         }
 
+        let autoDetectKey = sessionState.decryptAutoDetectKey
+        let selectedKey = sessionState.decryptSelectedKey
+        let enteredPassphrase = passphrase
+
+        sessionState.decryptOutputText = ""
+        sessionState.decryptOutputFiles = []
         isProcessing = true
         errorMessage = nil
 
@@ -464,17 +512,17 @@ struct DecryptView: View {
                 }
 
                 let result: String
-                if sessionState.decryptAutoDetectKey {
-                    let (decryptedData, _) = try encryptionService.tryDecrypt(
+                if autoDetectKey {
+                    let (decryptedData, _) = try await encryptionService.tryDecryptAsync(
                         data: data,
-                        passphrase: passphrase
+                        passphrase: enteredPassphrase
                     )
                     result = String(data: decryptedData, encoding: .utf8) ?? ""
-                } else if let key = sessionState.decryptSelectedKey {
-                    result = try encryptionService.decrypt(
+                } else if let key = selectedKey {
+                    result = try await encryptionService.decryptAsync(
                         message: clipboardText,
                         using: key,
-                        passphrase: passphrase
+                        passphrase: enteredPassphrase
                     )
                 } else {
                     throw OperationError.keyNotFound(keyID: "")
@@ -494,8 +542,6 @@ struct DecryptView: View {
                     // Update output pane to show what was decrypted
                     sessionState.decryptOutputText = result
                 }
-
-                passphrase = ""
             } catch {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
@@ -505,6 +551,7 @@ struct DecryptView: View {
 
             await MainActor.run {
                 isProcessing = false
+                passphrase = ""
             }
         }
     }
@@ -517,7 +564,17 @@ struct DecryptView: View {
 
     private func copyOutput() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(sessionState.decryptOutputText, forType: .string)
+        let content: String
+        if !sessionState.decryptOutputFiles.isEmpty {
+            content = sessionState.decryptOutputFiles.map(\.path).joined(separator: "\n")
+        } else {
+            content = sessionState.decryptOutputText
+        }
+        NSPasteboard.general.setString(content, forType: .string)
+    }
+
+    private func revealOutputFiles() {
+        NSWorkspace.shared.activateFileViewerSelecting(sessionState.decryptOutputFiles)
     }
 
     private func chooseOutputLocation() {

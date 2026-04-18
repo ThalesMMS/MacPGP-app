@@ -28,8 +28,10 @@ final class KeyGenerationViewModel {
         self.keyringService = keyringService
 
         let preferences = PreferencesManager.shared
-        self.algorithm = preferences.defaultKeyAlgorithm
-        self.keySize = preferences.defaultKeySize
+        self.algorithm = .rsa
+        self.keySize = KeyAlgorithm.rsa.supportedKeySizes.contains(preferences.defaultKeySize)
+            ? preferences.defaultKeySize
+            : KeyAlgorithm.rsa.defaultKeySize
         self.expirationMonths = preferences.defaultKeyExpirationMonths
     }
 

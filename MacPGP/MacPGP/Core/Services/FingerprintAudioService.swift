@@ -34,10 +34,7 @@ final class FingerprintAudioService: NSObject, AVSpeechSynthesizerDelegate {
     /// - Parameter fingerprint: The PGP key fingerprint (hex string)
     /// - Returns: Phonetic representation as a string
     func formatPhonetic(_ fingerprint: String) -> String {
-        let cleaned = fingerprint
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: ":", with: "")
-            .uppercased()
+        let cleaned = fingerprint.normalizedFingerprint.uppercased()
 
         var phonetic: [String] = []
 

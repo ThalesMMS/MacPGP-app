@@ -17,57 +17,76 @@ final class TrustLevelUITests: XCTestCase {
     }
 
     private func launchAppAndGenerateTestKey(_ app: XCUIApplication) throws {
+        app.launchArguments = ["--reset-keyring"]
         app.launch()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
 
-        // Generate a test key using keyboard shortcut Cmd+N
-        app.typeKey("n", modifierFlags: .command)
+        XCTAssertTrue(app.openKeyGenerationView())
 
         // Fill in the form
-        let nameField = app.textFields["Full Name"]
+        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
         XCTAssertTrue(nameField.waitForExistence(timeout: 3))
         nameField.tap()
         nameField.typeText("Trust Test User")
 
-        let emailField = app.textFields["Email Address"]
+        let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
         emailField.tap()
         emailField.typeText("trusttest@example.com")
 
-        let passphraseField = app.secureTextFields["Passphrase"]
+        let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
         passphraseField.tap()
         passphraseField.typeText("TrustTestPassphrase123!")
 
-        let confirmField = app.secureTextFields["Confirm Passphrase"]
+        let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
         confirmField.tap()
         confirmField.typeText("TrustTestPassphrase123!")
 
         // Generate key
-        let generateButton = app.buttons["Generate"]
-        XCTAssertTrue(generateButton.waitForExistence(timeout: 2))
-        XCTAssertTrue(generateButton.isEnabled)
-        generateButton.click()
+        clickWhenReady(app.buttons["Generate"], named: "Generate button", timeout: 2)
 
         // Wait for key generation to complete
-        let doneButton = app.buttons["Done"]
-        XCTAssertTrue(doneButton.waitForExistence(timeout: 30))
-        doneButton.click()
+        clickWhenReady(app.buttons["Done"], named: "Done button", timeout: 30)
     }
 
     private func openFirstKeyDetails(_ app: XCUIApplication) {
-        // Click on the first key in the keyring list
-        let keyList = app.tables.firstMatch
-        XCTAssertTrue(keyList.waitForExistence(timeout: 3))
-
-        let firstRow = keyList.tableRows.firstMatch
-        XCTAssertTrue(firstRow.exists)
-        firstRow.click()
+        let keyRowPredicate = NSPredicate(
+            format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+            "KeyRow-",
+            "Trust Test User"
+        )
+        let keyRow = app.descendants(matching: .any).matching(keyRowPredicate).firstMatch
+        clickWhenReady(keyRow, named: "Trust Test User key row", timeout: 5)
+        XCTAssertTrue(app.buttons["Set Trust Level"].waitForExistence(timeout: 3))
     }
 
     private func openTrustLevelPicker(_ app: XCUIApplication) {
         // Click the "Set Trust Level" toolbar button
-        let trustButton = app.buttons["Set Trust Level"]
-        XCTAssertTrue(trustButton.waitForExistence(timeout: 3))
-        trustButton.click()
+        clickWhenReady(app.buttons["Set Trust Level"], named: "Set Trust Level button")
+    }
+
+    private func clickWhenReady(
+        _ element: XCUIElement,
+        named name: String,
+        timeout: TimeInterval = 3,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard element.waitForExistence(timeout: timeout) else {
+            XCTFail("\(name) must exist before clicking", file: file, line: line)
+            return
+        }
+
+        let deadline = Date().addingTimeInterval(timeout)
+        while !element.isEnabled && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+
+        guard element.isEnabled else {
+            XCTFail("\(name) must be enabled before clicking", file: file, line: line)
+            return
+        }
+
+        element.click()
     }
 
     @MainActor
@@ -91,10 +110,10 @@ final class TrustLevelUITests: XCTestCase {
 
         // Verify all trust level options are visible
         XCTAssertTrue(app.radioButtons["Unknown"].exists)
-        XCTAssertTrue(app.radioButtons["Never Trust"].exists)
-        XCTAssertTrue(app.radioButtons["Marginal Trust"].exists)
-        XCTAssertTrue(app.radioButtons["Full Trust"].exists)
-        XCTAssertTrue(app.radioButtons["Ultimate Trust"].exists)
+        XCTAssertTrue(app.radioButtons["Never"].exists)
+        XCTAssertTrue(app.radioButtons["Marginal"].exists)
+        XCTAssertTrue(app.radioButtons["Full"].exists)
+        XCTAssertTrue(app.radioButtons["Ultimate"].exists)
 
         // Verify description section exists
         XCTAssertTrue(app.staticTexts["What This Means"].exists)
@@ -131,33 +150,32 @@ final class TrustLevelUITests: XCTestCase {
         openFirstKeyDetails(app)
         openTrustLevelPicker(app)
 
-        // Test selecting "Never Trust"
-        let neverTrustRadio = app.radioButtons["Never Trust"]
-        XCTAssertTrue(neverTrustRadio.waitForExistence(timeout: 2))
-        neverTrustRadio.click()
+        // Test selecting "Never"
+        let neverTrustRadio = app.radioButtons["Never"]
+        clickWhenReady(neverTrustRadio, named: "Never radio button", timeout: 2)
 
         // Verify save button becomes enabled
         let saveButton = app.buttons["Save Trust Level"]
         XCTAssertTrue(saveButton.isEnabled)
 
-        // Test selecting "Marginal Trust"
-        let marginalTrustRadio = app.radioButtons["Marginal Trust"]
-        marginalTrustRadio.click()
+        // Test selecting "Marginal"
+        let marginalTrustRadio = app.radioButtons["Marginal"]
+        clickWhenReady(marginalTrustRadio, named: "Marginal radio button")
         XCTAssertTrue(saveButton.isEnabled)
 
-        // Test selecting "Full Trust"
-        let fullTrustRadio = app.radioButtons["Full Trust"]
-        fullTrustRadio.click()
+        // Test selecting "Full"
+        let fullTrustRadio = app.radioButtons["Full"]
+        clickWhenReady(fullTrustRadio, named: "Full radio button")
         XCTAssertTrue(saveButton.isEnabled)
 
-        // Test selecting "Ultimate Trust"
-        let ultimateTrustRadio = app.radioButtons["Ultimate Trust"]
-        ultimateTrustRadio.click()
+        // Test selecting "Ultimate"
+        let ultimateTrustRadio = app.radioButtons["Ultimate"]
+        clickWhenReady(ultimateTrustRadio, named: "Ultimate radio button")
         XCTAssertTrue(saveButton.isEnabled)
 
         // Test selecting back to "Unknown" (original value)
         let unknownRadio = app.radioButtons["Unknown"]
-        unknownRadio.click()
+        clickWhenReady(unknownRadio, named: "Unknown radio button")
 
         // Verify save button becomes disabled again (back to original)
         XCTAssertFalse(saveButton.isEnabled)
@@ -171,18 +189,21 @@ final class TrustLevelUITests: XCTestCase {
         openFirstKeyDetails(app)
         openTrustLevelPicker(app)
 
-        // Select Ultimate Trust
-        let ultimateTrustRadio = app.radioButtons["Ultimate Trust"]
-        XCTAssertTrue(ultimateTrustRadio.waitForExistence(timeout: 2))
-        ultimateTrustRadio.click()
+        // Select Ultimate
+        let ultimateTrustRadio = app.radioButtons["Ultimate"]
+        clickWhenReady(ultimateTrustRadio, named: "Ultimate radio button", timeout: 2)
 
         // Verify warning appears
         XCTAssertTrue(app.staticTexts["Ultimate Trust Warning"].waitForExistence(timeout: 1))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Ultimate trust should only be assigned to your own keys'")).firstMatch.exists)
+        XCTAssertTrue(
+            app.staticTexts[
+                AccessibilityIdentifiers.TrustLevelPicker.ultimateTrustWarningDescription
+            ].exists
+        )
 
         // Select a different trust level
-        let marginalTrustRadio = app.radioButtons["Marginal Trust"]
-        marginalTrustRadio.click()
+        let marginalTrustRadio = app.radioButtons["Marginal"]
+        clickWhenReady(marginalTrustRadio, named: "Marginal radio button")
 
         // Verify warning disappears
         XCTAssertFalse(app.staticTexts["Ultimate Trust Warning"].exists)
@@ -196,24 +217,25 @@ final class TrustLevelUITests: XCTestCase {
         openFirstKeyDetails(app)
         openTrustLevelPicker(app)
 
-        // Select Full Trust
-        let fullTrustRadio = app.radioButtons["Full Trust"]
-        XCTAssertTrue(fullTrustRadio.waitForExistence(timeout: 2))
-        fullTrustRadio.click()
+        // Select Full
+        let fullTrustRadio = app.radioButtons["Full"]
+        clickWhenReady(fullTrustRadio, named: "Full radio button", timeout: 2)
 
         // Click Save button
         let saveButton = app.buttons["Save Trust Level"]
-        XCTAssertTrue(saveButton.isEnabled)
-        saveButton.click()
+        clickWhenReady(saveButton, named: "Save Trust Level button")
 
         // Verify success view appears
         XCTAssertTrue(app.staticTexts["Trust Level Updated"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'has been set to Full Trust'")).firstMatch.waitForExistence(timeout: 1))
+        XCTAssertTrue(
+            app.staticTexts[
+                AccessibilityIdentifiers.TrustLevelPicker.trustLevelUpdatedMessage
+            ].waitForExistence(timeout: 1)
+        )
 
         // Verify Done button exists
         let doneButton = app.buttons["Done"]
-        XCTAssertTrue(doneButton.exists)
-        doneButton.click()
+        clickWhenReady(doneButton, named: "Done button")
 
         // Verify we're back at key details
         XCTAssertTrue(app.buttons["Set Trust Level"].waitForExistence(timeout: 2))
@@ -228,9 +250,8 @@ final class TrustLevelUITests: XCTestCase {
         openTrustLevelPicker(app)
 
         // Select a different trust level
-        let fullTrustRadio = app.radioButtons["Full Trust"]
-        XCTAssertTrue(fullTrustRadio.waitForExistence(timeout: 2))
-        fullTrustRadio.click()
+        let fullTrustRadio = app.radioButtons["Full"]
+        clickWhenReady(fullTrustRadio, named: "Full radio button", timeout: 2)
 
         // Verify save button is enabled
         let saveButton = app.buttons["Save Trust Level"]
@@ -238,8 +259,7 @@ final class TrustLevelUITests: XCTestCase {
 
         // Click Cancel button
         let cancelButton = app.buttons["Cancel"]
-        XCTAssertTrue(cancelButton.exists)
-        cancelButton.click()
+        clickWhenReady(cancelButton, named: "Cancel button")
 
         // Verify we're back at key details
         XCTAssertTrue(app.buttons["Set Trust Level"].waitForExistence(timeout: 2))
@@ -261,25 +281,23 @@ final class TrustLevelUITests: XCTestCase {
         openFirstKeyDetails(app)
         openTrustLevelPicker(app)
 
-        // Select Marginal Trust
-        let marginalTrustRadio = app.radioButtons["Marginal Trust"]
-        XCTAssertTrue(marginalTrustRadio.waitForExistence(timeout: 2))
-        marginalTrustRadio.click()
+        // Select Marginal
+        let marginalTrustRadio = app.radioButtons["Marginal"]
+        clickWhenReady(marginalTrustRadio, named: "Marginal radio button", timeout: 2)
 
         // Save
         let saveButton = app.buttons["Save Trust Level"]
-        saveButton.click()
+        clickWhenReady(saveButton, named: "Save Trust Level button")
 
         // Wait for success and close
         let doneButton = app.buttons["Done"]
-        XCTAssertTrue(doneButton.waitForExistence(timeout: 3))
-        doneButton.click()
+        clickWhenReady(doneButton, named: "Done button")
 
         // Open trust level picker again
         openTrustLevelPicker(app)
 
-        // Verify Marginal Trust is selected
-        let marginalTrustRadioAgain = app.radioButtons["Marginal Trust"]
+        // Verify Marginal is selected
+        let marginalTrustRadioAgain = app.radioButtons["Marginal"]
         XCTAssertTrue(marginalTrustRadioAgain.waitForExistence(timeout: 2))
         XCTAssertEqual(marginalTrustRadioAgain.value as? Int, 1) // Radio button value 1 means selected
 
@@ -296,23 +314,21 @@ final class TrustLevelUITests: XCTestCase {
         openFirstKeyDetails(app)
         openTrustLevelPicker(app)
 
-        // Select Full Trust
-        let fullTrustRadio = app.radioButtons["Full Trust"]
-        XCTAssertTrue(fullTrustRadio.waitForExistence(timeout: 2))
-        fullTrustRadio.click()
+        // Select Full
+        let fullTrustRadio = app.radioButtons["Full"]
+        clickWhenReady(fullTrustRadio, named: "Full radio button", timeout: 2)
 
         // Save
         let saveButton = app.buttons["Save Trust Level"]
-        saveButton.click()
+        clickWhenReady(saveButton, named: "Save Trust Level button")
 
         // Close success view
         let doneButton = app.buttons["Done"]
-        XCTAssertTrue(doneButton.waitForExistence(timeout: 3))
-        doneButton.click()
+        clickWhenReady(doneButton, named: "Done button")
+        XCTAssertTrue(app.buttons["Set Trust Level"].waitForExistence(timeout: 3))
 
         // Verify trust level badge is visible in key details
-        // The badge should show "Full Trust" somewhere in the key details view
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Full'")).firstMatch.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.descendants(matching: .any)["Trust Level Badge Full"].waitForExistence(timeout: 2))
     }
 
     @MainActor
@@ -324,28 +340,25 @@ final class TrustLevelUITests: XCTestCase {
 
         // First change: Unknown -> Marginal
         openTrustLevelPicker(app)
-        app.radioButtons["Marginal Trust"].click()
-        app.buttons["Save Trust Level"].click()
-        app.buttons["Done"].waitForExistence(timeout: 3)
-        app.buttons["Done"].click()
+        clickWhenReady(app.radioButtons["Marginal"], named: "Marginal radio button")
+        clickWhenReady(app.buttons["Save Trust Level"], named: "Save Trust Level button")
+        clickWhenReady(app.buttons["Done"], named: "Done button")
 
         // Second change: Marginal -> Full
         openTrustLevelPicker(app)
-        app.radioButtons["Full Trust"].click()
-        app.buttons["Save Trust Level"].click()
-        app.buttons["Done"].waitForExistence(timeout: 3)
-        app.buttons["Done"].click()
+        clickWhenReady(app.radioButtons["Full"], named: "Full radio button")
+        clickWhenReady(app.buttons["Save Trust Level"], named: "Save Trust Level button")
+        clickWhenReady(app.buttons["Done"], named: "Done button")
 
         // Third change: Full -> Never
         openTrustLevelPicker(app)
-        app.radioButtons["Never Trust"].click()
-        app.buttons["Save Trust Level"].click()
-        app.buttons["Done"].waitForExistence(timeout: 3)
-        app.buttons["Done"].click()
+        clickWhenReady(app.radioButtons["Never"], named: "Never radio button")
+        clickWhenReady(app.buttons["Save Trust Level"], named: "Save Trust Level button")
+        clickWhenReady(app.buttons["Done"], named: "Done button")
 
         // Verify final state
         openTrustLevelPicker(app)
-        let neverTrustRadio = app.radioButtons["Never Trust"]
+        let neverTrustRadio = app.radioButtons["Never"]
         XCTAssertTrue(neverTrustRadio.waitForExistence(timeout: 2))
         XCTAssertEqual(neverTrustRadio.value as? Int, 1)
     }
@@ -361,20 +374,35 @@ final class TrustLevelUITests: XCTestCase {
         // Verify description section exists
         XCTAssertTrue(app.staticTexts["What This Means"].waitForExistence(timeout: 2))
 
-        // Select Never Trust and verify description updates
-        app.radioButtons["Never Trust"].click()
-        // Description should contain information about never trusting
-        XCTAssertTrue(app.staticTexts["Never Trust"].exists)
+        // Select Never and verify description updates
+        clickWhenReady(app.radioButtons["Never"], named: "Never radio button")
+        XCTAssertTrue(
+            app.staticTexts[
+                AccessibilityIdentifiers.TrustLevelPicker.description(token: "Never")
+            ].waitForExistence(timeout: 2)
+        )
 
-        // Select Full Trust and verify description updates
-        app.radioButtons["Full Trust"].click()
-        XCTAssertTrue(app.staticTexts["Full Trust"].exists)
+        // Select Full and verify description updates
+        clickWhenReady(app.radioButtons["Full"], named: "Full radio button")
+        XCTAssertTrue(
+            app.staticTexts[
+                AccessibilityIdentifiers.TrustLevelPicker.description(token: "Full")
+            ].waitForExistence(timeout: 2)
+        )
         // Full trust should show "Can certify other keys" indicator
-        XCTAssertTrue(app.staticTexts["Can certify other keys"].exists)
+        XCTAssertTrue(
+            app.staticTexts[
+                AccessibilityIdentifiers.TrustLevelPicker.canCertifyDescription(token: "Full")
+            ].waitForExistence(timeout: 2)
+        )
 
-        // Select Marginal Trust
-        app.radioButtons["Marginal Trust"].click()
-        XCTAssertTrue(app.staticTexts["Marginal Trust"].exists)
+        // Select Marginal
+        clickWhenReady(app.radioButtons["Marginal"], named: "Marginal radio button")
+        XCTAssertTrue(
+            app.staticTexts[
+                AccessibilityIdentifiers.TrustLevelPicker.description(token: "Marginal")
+            ].waitForExistence(timeout: 2)
+        )
     }
 
     @MainActor
@@ -386,23 +414,14 @@ final class TrustLevelUITests: XCTestCase {
 
         // First set a trust level so the badge appears
         openTrustLevelPicker(app)
-        app.radioButtons["Full Trust"].click()
-        app.buttons["Save Trust Level"].click()
-        app.buttons["Done"].waitForExistence(timeout: 3)
-        app.buttons["Done"].click()
+        clickWhenReady(app.radioButtons["Full"], named: "Full radio button")
+        clickWhenReady(app.buttons["Save Trust Level"], named: "Save Trust Level button")
+        clickWhenReady(app.buttons["Done"], named: "Done button")
+        XCTAssertTrue(app.buttons["Set Trust Level"].waitForExistence(timeout: 3))
 
         // Now try to open trust picker by clicking on the trust badge in key details
-        // The trust badge should be clickable
-        let trustBadges = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Full'"))
-        if trustBadges.count > 0 {
-            // Click on one of the trust-related elements (badge should be clickable)
-            // This might open the trust picker again
-            // Note: This test might need adjustment based on actual accessibility labels
-            XCTAssertTrue(trustBadges.firstMatch.exists)
-        }
-
-        // Verify we can still open via toolbar button
-        openTrustLevelPicker(app)
+        let trustBadge = app.descendants(matching: .any)["Trust Level Badge Full"]
+        clickWhenReady(trustBadge, named: "Trust Level Badge Full", timeout: 2)
         XCTAssertTrue(app.staticTexts["Set Trust Level"].waitForExistence(timeout: 2))
     }
 }

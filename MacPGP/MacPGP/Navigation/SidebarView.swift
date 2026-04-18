@@ -9,9 +9,6 @@ struct SidebarView: View {
                 NavigationLink(value: SidebarItem.keyring) {
                     Label(SidebarItem.keyring.displayName, systemImage: SidebarItem.keyring.iconName)
                 }
-                NavigationLink(value: SidebarItem.webOfTrust) {
-                    Label(SidebarItem.webOfTrust.displayName, systemImage: SidebarItem.webOfTrust.iconName)
-                }
             }
 
             Section(String(localized: "sidebar.section.operations", defaultValue: "Operations", comment: "Sidebar section header for operations")) {

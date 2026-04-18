@@ -209,16 +209,30 @@ struct VerifyView: View {
         .frame(minWidth: 300, maxWidth: .infinity)
     }
 
+    /// Renders a verification result panel showing the outcome and any associated details.
+    /// - Parameter result: The `VerificationResult` whose outcome and metadata will be displayed.
+    /// - Returns: A view presenting an outcome symbol, title, and message, plus optional signer information, signature date, and the original message when available.
     @ViewBuilder
     private func verificationResultView(_ result: VerificationResult) -> some View {
+        let resultColor: Color = {
+            switch result.outcome {
+            case .valid:
+                return .green
+            case .invalidSignature:
+                return .red
+            case .error:
+                return .orange
+            }
+        }()
+
         VStack(spacing: 24) {
             Spacer()
 
-            Image(systemName: result.isValid ? "checkmark.seal.fill" : "xmark.seal.fill")
+            Image(systemName: result.symbolName)
                 .font(.system(size: 64))
-                .foregroundStyle(result.isValid ? .green : .red)
+                .foregroundStyle(resultColor)
 
-            Text(result.isValid ? "Signature Valid" : "Signature Invalid")
+            Text(result.title)
                 .font(.title)
                 .fontWeight(.semibold)
 
@@ -296,7 +310,29 @@ struct VerifyView: View {
         }
     }
 
+    /// Perform verification for the current input and update the session state with the result.
+    /// 
+    /// Begins an asynchronous verification using the current `sessionState` selections (text vs. file and inline vs. detached). Clears any prior result and sets `isProcessing` while verification runs. On success, sets `sessionState.verifyResult` to the produced `VerificationResult`. On failure, sets `sessionState.verifyResult` to `.verificationError(reason: error.localizedDescription)`. Resets `isProcessing` when finished.
     private func verify() {
+        let inputMode = sessionState.verifyInputMode
+        let signatureMode = sessionState.verifySignatureMode
+        let inputText = sessionState.verifyInputText
+        let signatureText = sessionState.verifySignatureText
+        let selectedFile = sessionState.verifySelectedFile
+        let selectedSignatureFile = sessionState.verifySelectedSignatureFile
+
+        if inputMode == .file && selectedFile == nil {
+            errorMessage = "Please select a file to verify"
+            showingError = true
+            return
+        }
+
+        if inputMode == .file && signatureMode == .detached && selectedSignatureFile == nil {
+            errorMessage = "Please select a signature file"
+            showingError = true
+            return
+        }
+
         isProcessing = true
         sessionState.verifyResult = nil
         errorMessage = nil
@@ -305,20 +341,23 @@ struct VerifyView: View {
             do {
                 let result: VerificationResult
 
-                switch sessionState.verifyInputMode {
+                switch inputMode {
                 case .text:
-                    if sessionState.verifySignatureMode == .inline {
-                        result = try signingService.verify(message: sessionState.verifyInputText)
+                    if signatureMode == .inline {
+                        result = try await signingService.verifyAsync(message: inputText)
                     } else {
-                        result = try signingService.verify(message: sessionState.verifyInputText, signature: sessionState.verifySignatureText)
+                        result = try await signingService.verifyAsync(message: inputText, signature: signatureText)
                     }
 
                 case .file:
-                    guard let fileURL = sessionState.verifySelectedFile else { return }
-                    if sessionState.verifySignatureMode == .inline {
-                        result = try signingService.verify(file: fileURL)
+                    guard let fileURL = selectedFile else {
+                        throw OperationError.verificationFailed(underlying: nil)
+                    }
+
+                    if signatureMode == .inline {
+                        result = try await signingService.verifyAsync(file: fileURL)
                     } else {
-                        result = try signingService.verify(file: fileURL, signatureFile: sessionState.verifySelectedSignatureFile)
+                        result = try await signingService.verifyAsync(file: fileURL, signatureFile: selectedSignatureFile)
                     }
                 }
 
@@ -327,7 +366,7 @@ struct VerifyView: View {
                 }
             } catch {
                 await MainActor.run {
-                    sessionState.verifyResult = .invalid(reason: error.localizedDescription)
+                    sessionState.verifyResult = .verificationError(reason: error.localizedDescription)
                 }
             }
 

@@ -3,20 +3,22 @@ import UniformTypeIdentifiers
 
 struct KeyDetailsView: View {
     let key: PGPKeyModel
+    let onKeyUpdated: (PGPKeyModel) -> Void
     @Environment(KeyringService.self) private var keyringService
-    @Environment(TrustService.self) private var trustService
     @State private var showingExportSheet = false
     @State private var exportData: Data?
     @State private var exportFileName: String = ""
     @State private var showingDeleteConfirmation = false
     @State private var alertMessage: String?
     @State private var showingAlert = false
-    @State private var showingExtendExpiration = false
-    @State private var showingRevocationManagement = false
     @State private var showingFingerprintVerification = false
     @State private var showingTrustLevelPicker = false
-    @State private var trustPaths: [TrustPath] = []
-    @State private var effectiveTrust: TrustLevel = .unknown
+    @State private var trustLevelPickerPresentationID = UUID()
+
+    init(key: PGPKeyModel, onKeyUpdated: @escaping (PGPKeyModel) -> Void = { _ in }) {
+        self.key = key
+        self.onKeyUpdated = onKeyUpdated
+    }
 
     var body: some View {
         ScrollView {
@@ -25,22 +27,19 @@ struct KeyDetailsView: View {
                 Divider()
                 keyInfoSection
                 Divider()
-                KeyFingerprintView(fingerprint: key.fingerprint)
-                Divider()
-                trustPathSection
+                KeyFingerprintView(fingerprint: currentKey.fingerprint)
                 Divider()
                 userIDsSection
 
-                // Show expiration warning banner if key is expiring soon or has expiration concerns
-                if key.expirationWarningLevel != .none || key.isRevoked {
+                // v1.0 keeps expiration handling read-only because ObjectivePGP cannot extend key
+                // expiration reliably yet. The banner warns only and does not expose edit actions.
+                if currentKey.expirationWarningLevel != .none {
                     Divider()
-                    ExpirationWarningBanner(key: key) {
-                        showingExtendExpiration = true
-                    }
+                    ExpirationWarningBanner(key: currentKey)
                 }
 
                 // Show detailed warning/error for expired or revoked keys
-                if key.isExpired || key.isRevoked {
+                if currentKey.isExpired || currentKey.isRevoked {
                     Divider()
                     statusWarning
                 }
@@ -49,14 +48,11 @@ struct KeyDetailsView: View {
             .frame(maxWidth: 600, alignment: .leading)
         }
         .frame(minWidth: 350, maxWidth: .infinity)
-        .navigationTitle(key.displayName)
-        .onAppear {
-            loadTrustPaths()
-        }
+        .navigationTitle(currentKey.displayName)
         .toolbar {
             ToolbarItemGroup {
                 Button {
-                    showingTrustLevelPicker = true
+                    showTrustLevelPicker()
                 } label: {
                     Label("Set Trust Level", systemImage: "shield.checkered")
                 }
@@ -68,29 +64,12 @@ struct KeyDetailsView: View {
                     Label("Verify Fingerprint", systemImage: "checkmark.seal")
                 }
                 .help("Verify this key's fingerprint")
-
-                if key.isSecretKey {
-                    Button {
-                        showingExtendExpiration = true
-                    } label: {
-                        Label("Extend Expiration", systemImage: "calendar.badge.plus")
-                    }
-                    .help("Extend the key's expiration date")
-
-                    Button {
-                        showingRevocationManagement = true
-                    } label: {
-                        Label("Revocation", systemImage: "exclamationmark.shield")
-                    }
-                    .help("Manage revocation certificate")
-                }
-
                 Menu {
                     Button("Export Public Key...") {
                         exportKey(includeSecret: false)
                     }
 
-                    if key.isSecretKey {
+                    if currentKey.isSecretKey {
                         Button("Export Secret Key...") {
                             exportKey(includeSecret: true)
                         }
@@ -99,6 +78,8 @@ struct KeyDetailsView: View {
                     Label("Export", systemImage: "square.and.arrow.up")
                 }
 
+                // Revocation management is intentionally omitted from the release UI until
+                // ObjectivePGP can generate and apply revocation certificates reliably.
                 Button(role: .destructive) {
                     showingDeleteConfirmation = true
                 } label: {
@@ -115,7 +96,7 @@ struct KeyDetailsView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Are you sure you want to delete \"\(key.displayName)\"? This action cannot be undone.")
+            Text("Are you sure you want to delete \"\(currentKey.displayName)\"? This action cannot be undone.")
         }
         .alert("Error", isPresented: $showingAlert) {
             Button("OK") {}
@@ -134,31 +115,37 @@ struct KeyDetailsView: View {
             }
         }
         .sheet(isPresented: $showingTrustLevelPicker) {
-            TrustLevelPickerView(key: key)
-        }
-        .sheet(isPresented: $showingExtendExpiration) {
-            ExtendExpirationView(key: key)
-        }
-        .sheet(isPresented: $showingRevocationManagement) {
-            RevocationManagementView(key: key)
+            TrustLevelPickerView(key: currentKey) { updatedKey in
+                onKeyUpdated(updatedKey)
+            }
+                .id(trustLevelPickerPresentationID)
         }
         .sheet(isPresented: $showingFingerprintVerification) {
-            FingerprintVerificationView(key: key)
+            FingerprintVerificationView(key: currentKey)
         }
+    }
+
+    private func showTrustLevelPicker() {
+        trustLevelPickerPresentationID = UUID()
+        showingTrustLevelPicker = true
+    }
+
+    private var currentKey: PGPKeyModel {
+        keyringService.key(withFingerprint: key.fingerprint) ?? key
     }
 
     private var headerSection: some View {
         HStack(spacing: 16) {
-            Image(systemName: key.isSecretKey ? "key.fill" : "key")
+            Image(systemName: currentKey.isSecretKey ? "key.fill" : "key")
                 .font(.system(size: 48))
-                .foregroundStyle(key.isSecretKey ? .orange : .secondary)
+                .foregroundStyle(currentKey.isSecretKey ? .orange : .secondary)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(key.displayName)
+                Text(currentKey.displayName)
                     .font(.title)
                     .fontWeight(.semibold)
 
-                if let email = key.email {
+                if let email = currentKey.email {
                     Text(email)
                         .font(.title3)
                         .foregroundStyle(.secondary)
@@ -166,38 +153,42 @@ struct KeyDetailsView: View {
 
                 HStack(spacing: 8) {
                     KeyBadge(
-                        text: key.isSecretKey ? "Secret Key" : "Public Key",
-                        color: key.isSecretKey ? .orange : .blue
+                        text: currentKey.isSecretKey ? "Secret Key" : "Public Key",
+                        color: currentKey.isSecretKey ? .orange : .blue
                     )
 
                     // Trust level badge (clickable)
                     Button {
-                        showingTrustLevelPicker = true
+                        showTrustLevelPicker()
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: trustLevelIconName(for: key.trustLevel))
-                            Text("Trust: \(key.trustLevel.displayName)")
+                            Image(systemName: currentKey.trustLevel.iconName)
+                            Text("Trust: \(currentKey.trustLevel.displayName)")
                         }
                         .font(.caption)
                         .fontWeight(.medium)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(trustLevelColor(for: key.trustLevel).opacity(0.15))
-                        .foregroundStyle(trustLevelColor(for: key.trustLevel))
+                        .background(currentKey.trustLevel.color.opacity(0.15))
+                        .foregroundStyle(currentKey.trustLevel.color)
                         .clipShape(Capsule())
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Trust Level Badge \(currentKey.trustLevel.displayName)")
+                    .accessibilityIdentifier("Trust Level Badge \(currentKey.trustLevel.displayName)")
+                    .id(currentKey.trustLevel)
                     .buttonStyle(.plain)
                     .help("Set trust level for this key")
 
-                    if key.isVerified {
+                    if currentKey.isVerified {
                         KeyBadge(text: "Verified", color: .green)
                     }
 
-                    if key.isExpired {
+                    if currentKey.isExpired {
                         KeyBadge(text: "Expired", color: .red)
                     }
 
-                    if key.isRevoked {
+                    if currentKey.isRevoked {
                         KeyBadge(text: "Revoked", color: .red)
                     }
                 }
@@ -212,12 +203,12 @@ struct KeyDetailsView: View {
             GridItem(.flexible()),
             GridItem(.flexible())
         ], alignment: .leading, spacing: 16) {
-            InfoRow(label: "Key ID", value: key.shortKeyID)
-            InfoRow(label: "Algorithm", value: key.algorithmDescription)
-            InfoRow(label: "Created", value: key.creationDate.formatted(date: .abbreviated, time: .omitted))
+            InfoRow(label: "Key ID", value: currentKey.shortKeyID)
+            InfoRow(label: "Algorithm", value: currentKey.algorithmDescription)
+            InfoRow(label: "Created", value: currentKey.creationDate.formatted(date: .abbreviated, time: .omitted))
             InfoRow(
                 label: "Expires",
-                value: key.expirationDate?.formatted(date: .abbreviated, time: .omitted) ?? "Never"
+                value: currentKey.expirationDate?.formatted(date: .abbreviated, time: .omitted) ?? "Never"
             )
         }
     }
@@ -227,7 +218,7 @@ struct KeyDetailsView: View {
             Text("User IDs")
                 .font(.headline)
 
-            ForEach(key.userIDs) { userID in
+            ForEach(currentKey.userIDs) { userID in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(userID.name)
@@ -251,18 +242,18 @@ struct KeyDetailsView: View {
 
     private var statusWarning: some View {
         HStack(spacing: 12) {
-            Image(systemName: key.isRevoked ? "xmark.shield.fill" : "exclamationmark.triangle.fill")
+            Image(systemName: currentKey.isRevoked ? "xmark.shield.fill" : "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
                 .font(.title2)
 
             VStack(alignment: .leading, spacing: 4) {
-                if key.isRevoked {
+                if currentKey.isRevoked {
                     Text("This key has been revoked")
                         .fontWeight(.semibold)
                     Text("Revoked keys cannot be used for encryption or signing. This key should not be trusted.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                } else if key.isExpired {
+                } else if currentKey.isExpired {
                     Text("This key has expired")
                         .fontWeight(.semibold)
                     Text("Expired keys cannot be used for encryption or signing.")
@@ -277,158 +268,13 @@ struct KeyDetailsView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    private var trustPathSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Trust Path")
-                    .font(.headline)
-
-                Spacer()
-
-                HStack(spacing: 4) {
-                    Image(systemName: trustLevelIconName(for: effectiveTrust))
-                    Text(effectiveTrust.displayName)
-                }
-                .font(.caption)
-                .fontWeight(.medium)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(trustLevelColor(for: effectiveTrust).opacity(0.15))
-                .foregroundStyle(trustLevelColor(for: effectiveTrust))
-                .clipShape(Capsule())
-            }
-
-            if !trustPaths.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    let path = trustPaths[0]
-
-                    ForEach(Array(path.nodes.enumerated()), id: \.offset) { index, node in
-                        HStack(spacing: 12) {
-                            // Trust level indicator
-                            ZStack {
-                                Circle()
-                                    .fill(trustLevelColor(for: node.trustLevel).opacity(0.2))
-                                    .frame(width: 32, height: 32)
-
-                                Image(systemName: node.key.isSecretKey ? "key.fill" : "key")
-                                    .font(.caption)
-                                    .foregroundStyle(trustLevelColor(for: node.trustLevel))
-                            }
-
-                            // Key information
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack(spacing: 6) {
-                                    Text(node.key.displayName)
-                                        .font(.caption)
-                                        .fontWeight(.medium)
-
-                                    if index == 0 {
-                                        Text("Your Key")
-                                            .font(.caption2)
-                                            .padding(.horizontal, 4)
-                                            .padding(.vertical, 1)
-                                            .background(Color.purple.opacity(0.2))
-                                            .foregroundStyle(.purple)
-                                            .clipShape(Capsule())
-                                    }
-
-                                    if index == path.nodes.count - 1 {
-                                        Text("Target")
-                                            .font(.caption2)
-                                            .padding(.horizontal, 4)
-                                            .padding(.vertical, 1)
-                                            .background(Color.blue.opacity(0.2))
-                                            .foregroundStyle(.blue)
-                                            .clipShape(Capsule())
-                                    }
-                                }
-
-                                HStack(spacing: 4) {
-                                    Image(systemName: trustLevelIconName(for: node.trustLevel))
-                                    Text(node.trustLevel.displayName)
-                                }
-                                .font(.caption2)
-                                .foregroundStyle(trustLevelColor(for: node.trustLevel))
-                            }
-
-                            Spacer()
-                        }
-                        .padding(8)
-                        .background(Color(nsColor: .controlBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-
-                        if index < path.nodes.count - 1 {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.down")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text("certifies")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.leading, 20)
-                            .padding(.vertical, 2)
-                        }
-                    }
-
-                    if trustPaths.count > 1 {
-                        Text("+ \(trustPaths.count - 1) more trust path\(trustPaths.count > 2 ? "s" : "")")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 4)
-                    }
-                }
-            } else {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-
-                    Text("No trust path found from your trusted keys")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-        }
-    }
-
-    // MARK: - Trust Level Helpers
-
-    private func trustLevelIconName(for level: TrustLevel) -> String {
-        switch level {
-        case .unknown: return "questionmark.circle"
-        case .never: return "xmark.shield"
-        case .marginal: return "shield.lefthalf.filled"
-        case .full: return "shield"
-        case .ultimate: return "crown.fill"
-        }
-    }
-
-    private func trustLevelColor(for level: TrustLevel) -> Color {
-        switch level {
-        case .unknown: return .gray
-        case .never: return .red
-        case .marginal: return .orange
-        case .full: return .green
-        case .ultimate: return .purple
-        }
-    }
-
     // MARK: - Actions
-
-    private func loadTrustPaths() {
-        trustPaths = trustService.findTrustPaths(to: key)
-        effectiveTrust = trustService.calculateEffectiveTrust(for: key)
-    }
 
     private func exportKey(includeSecret: Bool) {
         do {
-            exportData = try keyringService.exportKey(key, includeSecretKey: includeSecret, armored: true)
+            exportData = try keyringService.exportKey(currentKey, includeSecretKey: includeSecret, armored: true)
             let suffix = includeSecret ? "secret" : "public"
-            exportFileName = "\(key.displayName.replacingOccurrences(of: " ", with: "_"))_\(suffix).asc"
+            exportFileName = "\(currentKey.displayName.replacingOccurrences(of: " ", with: "_"))_\(suffix).asc"
             showingExportSheet = true
         } catch {
             alertMessage = "Export failed: \(error.localizedDescription)"
@@ -438,7 +284,7 @@ struct KeyDetailsView: View {
 
     private func deleteKey() {
         do {
-            try keyringService.deleteKey(key)
+            try keyringService.deleteKey(currentKey)
         } catch {
             alertMessage = "Failed to delete key: \(error.localizedDescription)"
             showingAlert = true
@@ -481,10 +327,8 @@ struct InfoRow: View {
 
 #Preview {
     let keyringService = KeyringService()
-    let trustService = TrustService(keyringService: keyringService)
 
     KeyDetailsView(key: .preview)
         .environment(keyringService)
-        .environment(trustService)
         .frame(width: 500, height: 600)
 }

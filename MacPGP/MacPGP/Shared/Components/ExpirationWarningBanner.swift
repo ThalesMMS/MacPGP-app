@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ExpirationWarningBanner: View {
     let key: PGPKeyModel
-    var onExtendExpiration: (() -> Void)?
 
     var body: some View {
         switch key.expirationWarningLevel {
@@ -13,24 +12,21 @@ struct ExpirationWarningBanner: View {
                 icon: "exclamationmark.triangle.fill",
                 color: .orange,
                 title: "Key expiring soon",
-                message: expirationMessage,
-                showButton: key.isSecretKey
+                message: expirationMessage
             )
         case .critical:
             warningBanner(
                 icon: "exclamationmark.triangle.fill",
                 color: .red,
                 title: "Key expires very soon",
-                message: expirationMessage,
-                showButton: key.isSecretKey
+                message: expirationMessage
             )
         case .expired:
             warningBanner(
                 icon: "exclamationmark.triangle.fill",
                 color: .red,
                 title: "This key has expired",
-                message: "Expired keys cannot be used for encryption or signing.",
-                showButton: key.isSecretKey
+                message: "Expired keys cannot be used for encryption or signing."
             )
         }
     }
@@ -53,8 +49,7 @@ struct ExpirationWarningBanner: View {
         icon: String,
         color: Color,
         title: String,
-        message: String,
-        showButton: Bool
+        message: String
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
@@ -70,14 +65,6 @@ struct ExpirationWarningBanner: View {
             }
 
             Spacer()
-
-            if showButton, let action = onExtendExpiration {
-                Button("Extend") {
-                    action()
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-            }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -93,10 +80,7 @@ struct ExpirationWarningBanner: View {
                 var preview = PGPKeyModel.preview
                 // Simulate a key expiring in 25 days
                 return preview
-            }(),
-            onExtendExpiration: {
-                print("Extend expiration tapped")
-            }
+            }()
         )
     }
     .padding()
@@ -110,10 +94,7 @@ struct ExpirationWarningBanner: View {
                 var preview = PGPKeyModel.preview
                 // Simulate a key expiring in 5 days
                 return preview
-            }(),
-            onExtendExpiration: {
-                print("Extend expiration tapped")
-            }
+            }()
         )
     }
     .padding()
@@ -127,10 +108,7 @@ struct ExpirationWarningBanner: View {
                 var preview = PGPKeyModel.preview
                 // Simulate an expired key
                 return preview
-            }(),
-            onExtendExpiration: {
-                print("Extend expiration tapped")
-            }
+            }()
         )
     }
     .padding()

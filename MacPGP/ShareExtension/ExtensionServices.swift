@@ -38,17 +38,8 @@ final class ExtensionServices {
 @Observable
 final class ExtensionKeyringService {
     private(set) var keys: [PGPKeyModel] = []
+    private(set) var keyAvailabilityMessage: String?
     private var rawKeys: [Key] = []
-
-    private let keysURL: URL = {
-        let appGroupID = "group.com.macpgp.shared"
-        guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
-            // Fallback to documents directory if app group is not available
-            return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("keys.pgp")
-        }
-        return containerURL.appendingPathComponent("keys.pgp")
-    }()
 
     init() {
         loadKeys()
@@ -56,28 +47,43 @@ final class ExtensionKeyringService {
 
     func loadKeys() {
         do {
-            guard FileManager.default.fileExists(atPath: keysURL.path) else {
+            let fileManager = FileManager.default
+            guard let containerURL = fileManager.containerURL(
+                forSecurityApplicationGroupIdentifier: SharedConfiguration.appGroupIdentifier
+            ) else {
+                NSLog("ExtensionKeyringService: Shared container unavailable for app group \(SharedConfiguration.appGroupIdentifier)")
+                clearKeys(message: "Open MacPGP to sync your keyring, then try sharing again.")
+                return
+            }
+
+            let keysURL = containerURL.appendingPathComponent(SharedConfiguration.sharedKeysFileName)
+            guard fileManager.fileExists(atPath: keysURL.path) else {
                 NSLog("ExtensionKeyringService: Keys file not found at \(keysURL.path)")
-                keys = []
-                rawKeys = []
+                clearKeys(message: "Open MacPGP to sync your keyring, then try sharing again.")
                 return
             }
 
             let keysData = try Data(contentsOf: keysURL)
             guard !keysData.isEmpty else {
-                keys = []
-                rawKeys = []
+                NSLog("ExtensionKeyringService: Keys file is empty at \(keysURL.path)")
+                clearKeys(message: "Open MacPGP to sync your keyring, then try sharing again.")
                 return
             }
 
             rawKeys = try ObjectivePGP.readKeys(from: keysData)
             keys = rawKeys.map { PGPKeyModel(from: $0) }
+            keyAvailabilityMessage = nil
             NSLog("ExtensionKeyringService: Loaded \(keys.count) keys")
         } catch {
             NSLog("ExtensionKeyringService: Failed to load keys: \(error.localizedDescription)")
-            keys = []
-            rawKeys = []
+            clearKeys(message: "Open MacPGP to refresh your keys, then try sharing again.")
         }
+    }
+
+    private func clearKeys(message: String) {
+        keys = []
+        rawKeys = []
+        keyAvailabilityMessage = message
     }
 
     func rawKey(for model: PGPKeyModel) -> Key? {
@@ -89,7 +95,7 @@ final class ExtensionKeyringService {
     }
 
     func publicKeys() -> [PGPKeyModel] {
-        keys.filter { !$0.isExpired }
+        keys.filter { !$0.isExpired && !$0.isRevoked }
     }
 }
 

@@ -21,8 +21,6 @@
 "sidebar.operations" = "Operationen";
 "sidebar.keyring" = "Schlüsselbund";
 "sidebar.keyring_description" = "Verwalten Sie Ihre PGP-Schlüssel";
-"sidebar.web_of_trust" = "Web of Trust";
-"sidebar.web_of_trust_description" = "Vertrauensbeziehungen visualisieren";
 "sidebar.encrypt" = "Verschlüsseln";
 "sidebar.encrypt_description" = "Nachrichten oder Dateien verschlüsseln";
 "sidebar.decrypt" = "Entschlüsseln";
@@ -209,7 +207,6 @@
 "keydetails.delete" = "Löschen";
 "keydetails.delete_key" = "Schlüssel löschen";
 "keydetails.delete_confirmation" = "Möchten Sie \"%@\" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.";
-"keydetails.trust_path" = "Vertrauenspfad";
 "keydetails.key_revoked" = "Dieser Schlüssel wurde widerrufen";
 "keydetails.key_revoked_message" = "Widerrufene Schlüssel können nicht zum Verschlüsseln oder Signieren verwendet werden. Diesem Schlüssel sollte nicht vertraut werden.";
 "keydetails.key_expired" = "Dieser Schlüssel ist abgelaufen";
@@ -382,7 +379,7 @@
 "keyserver_settings.key_management" = "Schlüsselverwaltung";
 "keyserver_settings.auto_refresh" = "Schlüssel automatisch vom Schlüsselserver aktualisieren";
 "keyserver_settings.auto_refresh_info" = "Auto-Aktualisierung prüft auf Schlüssel-Updates";
-"keyserver_settings.auto_refresh_message" = "Schlüssel werden regelmäßig aktualisiert, um Widerrufsstatus und neue Signaturen zu erhalten";
+"keyserver_settings.auto_refresh_message" = "Schlüssel werden regelmäßig aktualisiert, um die neuesten Updates von Schlüsselservern abzurufen";
 "keyserver_settings.server_information" = "Serverinformation";
 "keyserver_settings.about_keyservers" = "Über Schlüsselserver";
 "keyserver_settings.about_message" = "Öffentliche Schlüsselserver ermöglichen es Ihnen, Ihren öffentlichen Schlüssel zu teilen und Schlüssel von anderen Benutzern zu entdecken. Der ausgewählte Server wird für Such-, Upload- und Aktualisierungsvorgänge verwendet.";
@@ -399,23 +396,6 @@
 "sort.key_id" = "Schlüssel-ID";
 
 /* MARK: - Web of Trust */
-"wot.no_keys" = "Keine Schlüssel";
-"wot.no_keys_message" = "Generieren oder importieren Sie Schlüssel, um Ihr Web of Trust aufzubauen.";
-"wot.selected" = "Ausgewählt: %@";
-"wot.trust_level" = "Vertrauensstufe: %@";
-"wot.secret_key" = "Privater Schlüssel";
-"wot.view_details" = "Details anzeigen";
-"wot.deselect" = "Abwählen";
-"wot.legend" = "Web of Trust-Legende";
-"wot.trust_levels" = "Vertrauensstufen";
-"wot.graph_elements" = "Graph-Elemente";
-"wot.node" = "Schlüssel (Knoten)";
-"wot.edge" = "Signatur (Kante)";
-"wot.secret_key_node" = "Privater Schlüssel";
-"wot.close" = "Schließen";
-"wot.error" = "Fehler";
-"wot.generate_new_key" = "Neuen Schlüssel generieren";
-"wot.import_key" = "Schlüssel importieren";
 
 /* MARK: - Common Actions */
 "common.cancel" = "Abbrechen";

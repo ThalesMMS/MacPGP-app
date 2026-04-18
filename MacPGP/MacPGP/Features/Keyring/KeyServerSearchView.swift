@@ -5,14 +5,19 @@ struct KeyServerSearchView: View {
     @Environment(KeyringService.self) private var keyringService
     @Environment(\.dismiss) private var dismiss
 
+    @State private var preferences = PreferencesManager.shared
     @State private var searchQuery = ""
-    @State private var selectedServer = KeyServerConfig.keysOpenpgp
+    @State private var selectedServer = KeyServerConfig.defaultServer()
     @State private var searchResults: [KeySearchResult] = []
     @State private var selectedResult: KeySearchResult?
     @State private var isSearching = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isImporting = false
+
+    private var enabledServers: [KeyServerConfig] {
+        KeyServerConfig.enabledServers(using: preferences)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,6 +40,7 @@ struct KeyServerSearchView: View {
             actionButtons
         }
         .frame(minWidth: 500, minHeight: 400)
+        .onAppear(perform: normalizeSelectedServer)
         .alert("Error", isPresented: $showingAlert) {
             Button("OK") {}
         } message: {
@@ -72,7 +78,7 @@ struct KeyServerSearchView: View {
             }
 
             Picker("Server:", selection: $selectedServer) {
-                ForEach(KeyServerConfig.defaults.filter { $0.isEnabled }) { server in
+                ForEach(enabledServers) { server in
                     Text(server.name).tag(server)
                 }
             }
@@ -110,14 +116,18 @@ struct KeyServerSearchView: View {
         } description: {
             Text("No keys matching \"\(searchQuery)\" were found on \(selectedServer.name).")
         } actions: {
-            Button("Try Different Server") {
-                // Cycle through available servers
-                let enabledServers = KeyServerConfig.defaults.filter { $0.isEnabled }
-                if let nextIndex = enabledServers.firstIndex(where: { $0.id == selectedServer.id }) {
-                    let nextServerIndex = (nextIndex + 1) % enabledServers.count
-                    selectedServer = enabledServers[nextServerIndex]
+            if enabledServers.count > 1 {
+                Button("Try Different Server") {
+                    if let nextIndex = enabledServers.firstIndex(where: { $0.id == selectedServer.id }) {
+                        let nextServerIndex = (nextIndex + 1) % enabledServers.count
+                        selectedServer = enabledServers[nextServerIndex]
+                    }
+                    performSearch()
                 }
-                performSearch()
+            } else {
+                Button("Search Again") {
+                    performSearch()
+                }
             }
         }
     }
@@ -183,6 +193,12 @@ struct KeyServerSearchView: View {
                     showingAlert = true
                 }
             }
+        }
+    }
+
+    private func normalizeSelectedServer() {
+        if !enabledServers.contains(selectedServer) {
+            selectedServer = KeyServerConfig.defaultServer(using: preferences)
         }
     }
 

@@ -15,6 +15,14 @@ struct EncryptionServiceTests {
 
     // MARK: - Test Helpers
 
+    func makeIsolatedKeyring() -> KeyringService {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EncryptionServiceTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("Keyring", isDirectory: true)
+
+        return KeyringService(persistence: KeyringPersistence(directoryOverride: directory))
+    }
+
     func createTestKeyPair(email: String, passphrase: String) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
@@ -23,7 +31,7 @@ struct EncryptionServiceTests {
     }
 
     func setupTestEnvironment() -> (service: EncryptionService, keyring: KeyringService, recipientKey: PGPKeyModel, senderKey: PGPKeyModel) {
-        let keyring = KeyringService()
+        let keyring = makeIsolatedKeyring()
 
         let recipientKey = createTestKeyPair(email: "recipient@test.local", passphrase: "recipient-pass")
         let senderKey = createTestKeyPair(email: "sender@test.local", passphrase: "sender-pass")
@@ -88,7 +96,7 @@ struct EncryptionServiceTests {
 
     @Test("Encrypt data throws error with empty recipients")
     func testEncryptDataEmptyRecipients() {
-        let keyring = KeyringService()
+        let keyring = makeIsolatedKeyring()
         let service = EncryptionService(keyringService: keyring)
 
         let testData = "Test".data(using: .utf8)!
@@ -100,7 +108,7 @@ struct EncryptionServiceTests {
 
     @Test("Encrypt data throws error with invalid recipient")
     func testEncryptDataInvalidRecipient() {
-        let keyring = KeyringService()
+        let keyring = makeIsolatedKeyring()
         let service = EncryptionService(keyringService: keyring)
 
         let fakeKey = createTestKeyPair(email: "fake@test.local", passphrase: "pass")
@@ -247,6 +255,34 @@ struct EncryptionServiceTests {
         #expect(FileManager.default.fileExists(atPath: outputFile.path))
     }
 
+    @Test("Encrypt file uses selected directory as output folder")
+    func testEncryptFileDirectoryOutput() throws {
+        let (service, keyring, recipientKey, senderKey) = setupTestEnvironment()
+        defer { cleanupTestKeys(keyring: keyring, keys: [recipientKey, senderKey]) }
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let outputDirectory = tempDir.appendingPathComponent("encrypt-output-\(UUID().uuidString)", isDirectory: true)
+        let testFile = tempDir.appendingPathComponent("test-directory-output-\(UUID().uuidString).txt")
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+        try "Folder output test".write(to: testFile, atomically: true, encoding: .utf8)
+
+        defer {
+            try? FileManager.default.removeItem(at: testFile)
+            try? FileManager.default.removeItem(at: outputDirectory)
+        }
+
+        let outputFile = try service.encrypt(
+            file: testFile,
+            for: [recipientKey],
+            outputURL: outputDirectory,
+            armored: false
+        )
+
+        #expect(outputFile.deletingLastPathComponent() == outputDirectory)
+        #expect(FileManager.default.fileExists(atPath: outputFile.path))
+        #expect(outputFile.lastPathComponent.contains(testFile.lastPathComponent))
+    }
+
 
     // MARK: - Data Decryption Tests
 
@@ -318,7 +354,7 @@ struct EncryptionServiceTests {
 
     @Test("Decrypt data throws error with missing key")
     func testDecryptDataMissingKey() throws {
-        let keyring = KeyringService()
+        let keyring = makeIsolatedKeyring()
         let service = EncryptionService(keyringService: keyring)
 
         let recipientKey = createTestKeyPair(email: "temp@test.local", passphrase: "pass")
@@ -565,6 +601,39 @@ struct EncryptionServiceTests {
         #expect(foundKey.fingerprint == recipientKey.fingerprint)
     }
 
+    @Test("TryDecrypt file uses matching key and writes into selected directory")
+    func testTryDecryptFileToDirectoryOutput() throws {
+        let (service, keyring, recipientKey, senderKey) = setupTestEnvironment()
+        defer { cleanupTestKeys(keyring: keyring, keys: [recipientKey, senderKey]) }
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let outputDirectory = tempDir.appendingPathComponent("decrypt-output-\(UUID().uuidString)", isDirectory: true)
+        let originalFile = tempDir.appendingPathComponent("try-decrypt-\(UUID().uuidString).txt")
+        let originalContent = "Decrypt into a selected folder"
+        try originalContent.write(to: originalFile, atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        defer {
+            try? FileManager.default.removeItem(at: originalFile)
+            try? FileManager.default.removeItem(at: outputDirectory)
+        }
+
+        let encryptedFile = try service.encrypt(file: originalFile, for: [recipientKey], armored: false)
+        defer { try? FileManager.default.removeItem(at: encryptedFile) }
+
+        let (decryptedFile, foundKey) = try service.tryDecrypt(
+            file: encryptedFile,
+            passphrase: "recipient-pass",
+            outputURL: outputDirectory
+        )
+
+        #expect(foundKey.fingerprint == recipientKey.fingerprint)
+        #expect(decryptedFile.deletingLastPathComponent() == outputDirectory)
+        #expect(FileManager.default.fileExists(atPath: decryptedFile.path))
+        let decryptedContent = try String(contentsOf: decryptedFile, encoding: .utf8)
+        #expect(decryptedContent == originalContent)
+    }
+
     @Test("TryDecrypt throws error when no key works")
     func testTryDecryptNoValidKey() throws {
         let (service, keyring, recipientKey, senderKey) = setupTestEnvironment()
@@ -637,7 +706,7 @@ struct EncryptionServiceTests {
 
     @Test("Multiple recipients can decrypt same message")
     func testMultipleRecipients() throws {
-        let keyring = KeyringService()
+        let keyring = makeIsolatedKeyring()
         let service = EncryptionService(keyringService: keyring)
 
         let recipient1 = createTestKeyPair(email: "recipient1@test.local", passphrase: "pass1")

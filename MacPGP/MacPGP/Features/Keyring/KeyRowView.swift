@@ -67,6 +67,9 @@ struct KeyRowView: View {
             Spacer()
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .accessibilityLabel(key.displayName)
+        .accessibilityIdentifier("KeyRow-\(key.id)")
     }
 
     private var keyIcon: some View {

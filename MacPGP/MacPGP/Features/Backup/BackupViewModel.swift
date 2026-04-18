@@ -23,6 +23,7 @@ final class BackupViewModel {
     var restorePassphrase: String = ""
     var validatedBackup: BackupFormat?
     var previewKeys: [String] = []
+    var restoreContentsValidated = false
 
     private let keyringService: KeyringService
     private let notificationService: NotificationService?
@@ -55,6 +56,7 @@ final class BackupViewModel {
     var isRestoreValid: Bool {
         restoreFileURL != nil &&
         validatedBackup != nil &&
+        restoreContentsValidated &&
         (!validatedBackup!.isEncrypted || !restorePassphrase.isEmpty)
     }
 
@@ -243,13 +245,21 @@ final class BackupViewModel {
         return derivedKey
     }
 
-    // MARK: - Backup Validation
+    /// Validates a backup file located at the provided URL and updates restore-related state.
+    /// 
+    /// If the file is detected as an encrypted backup, marks the backup as encrypted and prompts for a passphrase.
+    /// If the file is unencrypted and contains valid metadata, populates `validatedBackup`, `previewKeys`, and marks the restore contents as validated.
+    /// On failure sets `errorMessage`.
+    /// - Parameters:
+    ///   - url: File URL of the backup to validate. The file is read and its format inspected.
 
     func validateBackup(url: URL) async {
         isProcessing = true
         errorMessage = nil
+        successMessage = nil
         validatedBackup = nil
         previewKeys = []
+        restoreContentsValidated = false
         restoreFileURL = url
 
         do {
@@ -269,6 +279,7 @@ final class BackupViewModel {
                 let backup = try parseBackupMetadata(from: data)
                 validatedBackup = backup
                 previewKeys = backup.keyFingerprints
+                restoreContentsValidated = true
                 successMessage = "Backup validated: \(backup.keyCount) key(s) found"
             }
         } catch {
@@ -278,6 +289,54 @@ final class BackupViewModel {
         isProcessing = false
     }
 
+    /// Decrypts the selected backup file using the current restore passphrase and validates its metadata.
+    /// 
+    /// On success this updates `validatedBackup`, `previewKeys`, `restoreContentsValidated`, and `successMessage`. On failure this sets `errorMessage`. The method also manages `isProcessing` and clears prior preview/validation state at start.
+    /// - Returns: `true` if decryption and metadata validation succeed, `false` otherwise.
+    func decryptAndValidateBackup() async -> Bool {
+        successMessage = nil
+        validatedBackup = nil
+        previewKeys = []
+        restoreContentsValidated = false
+
+        guard let restoreFileURL else {
+            errorMessage = "Select a backup file first"
+            return false
+        }
+
+        guard !restorePassphrase.isEmpty else {
+            errorMessage = "Passphrase is required"
+            return false
+        }
+
+        isProcessing = true
+        errorMessage = nil
+
+        defer {
+            isProcessing = false
+        }
+
+        do {
+            let encryptedData = try Data(contentsOf: restoreFileURL)
+            let decryptedData = try decryptBackup(data: encryptedData, passphrase: restorePassphrase)
+            let backup = try parseBackupMetadata(from: decryptedData)
+
+            validatedBackup = backup
+            previewKeys = backup.keyFingerprints
+            restoreContentsValidated = true
+            successMessage = "Backup decrypted and validated: \(backup.keyCount) key(s) found"
+
+            return true
+        } catch {
+            errorMessage = "Unable to decrypt backup: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    /// Parse backup metadata from a full backup file payload.
+    /// - Parameter data: The complete backup file contents as `Data` (unencrypted or decrypted).
+    /// - Returns: A `BackupFormat` decoded from the embedded metadata JSON.
+    /// - Throws: `OperationError.invalidKeyData` if the payload is not UTF-8 or the required metadata markers are missing; throws decoding errors (e.g., `DecodingError`) if the metadata JSON cannot be decoded.
     private func parseBackupMetadata(from data: Data) throws -> BackupFormat {
         guard let content = String(data: data, encoding: .utf8) else {
             throw OperationError.invalidKeyData
@@ -423,11 +482,14 @@ final class BackupViewModel {
         progress = 0
     }
 
+    /// Resets all restore-related inputs and validation state to their defaults.
+    /// - Details: Clears the selected restore file and passphrase, removes any validated backup metadata and previewed keys, marks restore contents as not validated, clears success/error messages, and resets progress to 0.
     func resetRestore() {
         restoreFileURL = nil
         restorePassphrase = ""
         validatedBackup = nil
         previewKeys = []
+        restoreContentsValidated = false
         errorMessage = nil
         successMessage = nil
         progress = 0

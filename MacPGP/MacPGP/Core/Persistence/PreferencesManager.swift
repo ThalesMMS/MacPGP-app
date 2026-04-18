@@ -43,26 +43,34 @@ final class PreferencesManager {
         static let backupReminderEnabled = "backupReminderEnabled"
         static let backupReminderIntervalDays = "backupReminderIntervalDays"
         static let defaultKeyServer = "defaultKeyServer"
+        static let enabledKeyServers = "enabledKeyServers"
         static let keyServerTimeout = "keyServerTimeout"
         static let autoRefreshKeys = "autoRefreshKeys"
         static let appLanguage = "appLanguage"
     }
 
+    // Release builds only expose RSA key generation until ObjectivePGP safely supports
+    // additional algorithms. The stored value is ignored for now; persist on set so
+    // the preference round-trips correctly once additional algorithms are re-enabled.
     var defaultKeyAlgorithm: KeyAlgorithm {
-        get {
-            guard let value = defaults.string(forKey: Keys.defaultKeyAlgorithm) else {
-                return .rsa
-            }
-            return KeyAlgorithm(rawValue: value) ?? .rsa
-        }
-        set {
-            defaults.set(newValue.rawValue, forKey: Keys.defaultKeyAlgorithm)
-        }
+        get { .rsa }
+        set { defaults.set(newValue.rawValue, forKey: Keys.defaultKeyAlgorithm) }
     }
 
     var defaultKeySize: Int {
-        get { defaults.integer(forKey: Keys.defaultKeySize).nonZeroOr(4096) }
-        set { defaults.set(newValue, forKey: Keys.defaultKeySize) }
+        get {
+            let storedSize = defaults.integer(forKey: Keys.defaultKeySize)
+                .nonZeroOr(KeyAlgorithm.rsa.defaultKeySize)
+            return KeyAlgorithm.rsa.supportedKeySizes.contains(storedSize)
+                ? storedSize
+                : KeyAlgorithm.rsa.defaultKeySize
+        }
+        set {
+            let normalizedSize = KeyAlgorithm.rsa.supportedKeySizes.contains(newValue)
+                ? newValue
+                : KeyAlgorithm.rsa.defaultKeySize
+            defaults.set(normalizedSize, forKey: Keys.defaultKeySize)
+        }
     }
 
     var defaultKeyExpirationMonths: Int {
@@ -140,15 +148,35 @@ final class PreferencesManager {
         set { defaults.set(newValue, forKey: Keys.backupReminderIntervalDays) }
     }
 
-    var defaultKeyServer: String {
+    var enabledKeyServers: [String] {
         get {
-            guard let value = defaults.string(forKey: Keys.defaultKeyServer) else {
-                return "keys.openpgp.org"
-            }
-            return value
+            let stored = defaults.stringArray(forKey: Keys.enabledKeyServers) ?? []
+            let normalized = normalizeEnabledKeyServers(stored)
+            return normalized.isEmpty ? defaultEnabledKeyServers : normalized
         }
         set {
-            defaults.set(newValue, forKey: Keys.defaultKeyServer)
+            let normalized = normalizeEnabledKeyServers(newValue)
+            let enabledServers = normalized.isEmpty ? defaultEnabledKeyServers : normalized
+            defaults.set(enabledServers, forKey: Keys.enabledKeyServers)
+
+            if !enabledServers.contains(defaults.string(forKey: Keys.defaultKeyServer) ?? "") {
+                defaults.set(enabledServers.first ?? KeyServerConfig.keysOpenpgp.hostname, forKey: Keys.defaultKeyServer)
+            }
+        }
+    }
+
+    var defaultKeyServer: String {
+        get {
+            let storedValue = defaults.string(forKey: Keys.defaultKeyServer) ?? KeyServerConfig.keysOpenpgp.hostname
+            return enabledKeyServers.contains(storedValue)
+                ? storedValue
+                : (enabledKeyServers.first ?? KeyServerConfig.keysOpenpgp.hostname)
+        }
+        set {
+            let normalizedValue = enabledKeyServers.contains(newValue)
+                ? newValue
+                : (enabledKeyServers.first ?? KeyServerConfig.keysOpenpgp.hostname)
+            defaults.set(normalizedValue, forKey: Keys.defaultKeyServer)
         }
     }
 
@@ -202,6 +230,21 @@ final class PreferencesManager {
         // This ensures the app starts with the correct language
         let currentLanguage = appLanguage
         applyLanguage(currentLanguage)
+    }
+
+    private var defaultEnabledKeyServers: [String] {
+        KeyServerConfig.defaults
+            .filter(\.isEnabled)
+            .map(\.hostname)
+    }
+
+    private func normalizeEnabledKeyServers(_ servers: [String]) -> [String] {
+        let knownServers = Set(KeyServerConfig.defaults.map(\.hostname))
+        var seen = Set<String>()
+
+        return servers.filter { hostname in
+            knownServers.contains(hostname) && seen.insert(hostname).inserted
+        }
     }
 
     private func detectSystemLanguage() -> AppLanguage {

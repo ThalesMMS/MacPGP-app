@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import UserNotifications
 
 /// Handles communication between app extensions (FinderSync, QuickLook, Thumbnail) and the main application
 /// This service processes file operations triggered from Finder context menus and other extension interfaces
@@ -16,15 +17,19 @@ final class ExtensionCommunicationService: NSObject {
     /// UserInfo key for file URLs array
     static let fileURLsKey = "fileURLs"
 
+    private static let finderSyncErrorsKey = "com.macpgp.finderSync.errors"
+
     // MARK: - Properties
 
     private let fileAnalyzer = PGPFileAnalyzer()
+    private let notificationCenter = UNUserNotificationCenter.current()
 
     // MARK: - Initialization
 
     override init() {
         super.init()
         registerForEvents()
+        deliverPendingFinderSyncErrors()
     }
 
     // MARK: - Registration
@@ -41,6 +46,8 @@ final class ExtensionCommunicationService: NSObject {
     /// Determines the appropriate operation (encrypt/decrypt) based on file type
     /// - Parameter urls: Array of file URLs to process
     func handleOpenFiles(_ urls: [URL]) {
+        deliverPendingFinderSyncErrors()
+
         guard !urls.isEmpty else {
             NSLog("[ExtensionCommunicationService] No files to handle")
             return
@@ -93,6 +100,65 @@ final class ExtensionCommunicationService: NSObject {
                 object: nil,
                 userInfo: [Self.fileURLsKey: urls]
             )
+        }
+    }
+
+    private func deliverPendingFinderSyncErrors() {
+        guard let defaults = UserDefaults(suiteName: SharedConfiguration.appGroupIdentifier) else {
+            NSLog("[ExtensionCommunicationService] Failed to open app group defaults for Finder Sync errors")
+            return
+        }
+
+        guard let pendingErrors = defaults.array(forKey: Self.finderSyncErrorsKey) as? [[String: Any]],
+              !pendingErrors.isEmpty else {
+            return
+        }
+
+        defaults.removeObject(forKey: Self.finderSyncErrorsKey)
+
+        let notifications = pendingErrors.compactMap { payload -> (id: String, title: String, message: String)? in
+            guard let title = payload["title"] as? String,
+                  let message = payload["message"] as? String else {
+                return nil
+            }
+
+            let id = payload["id"] as? String ?? UUID().uuidString
+            return (id: id, title: title, message: message)
+        }
+
+        guard !notifications.isEmpty else {
+            return
+        }
+
+        notificationCenter.requestAuthorization(options: [.alert, .sound]) { [notificationCenter] granted, error in
+            if let error = error {
+                NSLog("[ExtensionCommunicationService] Failed to request notification authorization: \(error.localizedDescription)")
+                return
+            }
+
+            guard granted else {
+                NSLog("[ExtensionCommunicationService] Notification authorization denied for Finder Sync errors")
+                return
+            }
+
+            for notification in notifications {
+                let content = UNMutableNotificationContent()
+                content.title = notification.title
+                content.body = notification.message
+                content.sound = .default
+
+                let request = UNNotificationRequest(
+                    identifier: "com.macpgp.finder-error-\(notification.id)",
+                    content: content,
+                    trigger: nil
+                )
+
+                notificationCenter.add(request) { error in
+                    if let error = error {
+                        NSLog("[ExtensionCommunicationService] Failed to deliver Finder Sync error notification: \(error.localizedDescription)")
+                    }
+                }
+            }
         }
     }
 }

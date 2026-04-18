@@ -10,6 +10,7 @@ struct BackupWizardView: View {
     @State private var backupCompleted = false
     @State private var showingPaperKey = false
     @State private var paperKeyContext: PGPKeyModel?
+    @State private var exportStatusMessage: String?
 
     enum BackupStep {
         case keySelection
@@ -267,6 +268,10 @@ struct BackupWizardView: View {
         .scrollContentBackground(.hidden)
     }
 
+    /// Renders the exporting step UI that prompts the user to choose a save location and shows status or error messages.
+    /// - Parameters:
+    ///   - viewModel: The `BackupViewModel` backing this view; its `errorMessage` is displayed when present and it is passed to the export dialog action.
+    /// - Returns: A view containing an export icon, instructional text, a "Choose Location..." action button, and either the view model's error message or the current export status message.
     @ViewBuilder
     private func exportingStep(viewModel: BackupViewModel) -> some View {
         VStack(spacing: 24) {
@@ -294,6 +299,11 @@ struct BackupWizardView: View {
             if let error = viewModel.errorMessage {
                 Text(error)
                     .foregroundStyle(.red)
+                    .font(.callout)
+                    .padding(.horizontal)
+            } else if let exportStatusMessage {
+                Text(exportStatusMessage)
+                    .foregroundStyle(.secondary)
                     .font(.callout)
                     .padding(.horizontal)
             }
@@ -404,6 +414,13 @@ struct BackupWizardView: View {
         }
     }
 
+    /// Advance the wizard to the next step or dismiss the view when the wizard is complete.
+    /// 
+    /// - Note: Transitions are:
+    ///   - `.keySelection` → `.encryptionSettings`
+    ///   - `.encryptionSettings` → `.exporting`
+    ///   - `.exporting` → no change
+    ///   - `.success` → calls `dismiss()`
     private func goNext(viewModel: BackupViewModel) {
         switch currentStep {
         case .keySelection:
@@ -417,7 +434,14 @@ struct BackupWizardView: View {
         }
     }
 
+    /// Present a save panel for selecting a backup file location and initiate the backup creation process.
+    /// 
+    /// If the user cancels the panel, `exportStatusMessage` is set to `"Export canceled. Choose a location to continue."`.
+    /// After a destination is selected, this method calls `viewModel.createBackup(destination:)`. When the view model reports no error (`viewModel.errorMessage == nil`), the view updates `backupCompleted` to `true` and advances `currentStep` to `.success`; if an error is reported, `exportStatusMessage` is cleared.
+    /// - Parameter viewModel: The `BackupViewModel` used to perform the backup and to observe any resulting error message.
     private func showExportDialog(viewModel: BackupViewModel) {
+        exportStatusMessage = nil
+
         let panel = NSSavePanel()
         panel.title = "Export Backup"
         panel.message = "Choose a location to save your backup"
@@ -428,6 +452,9 @@ struct BackupWizardView: View {
 
         panel.begin { response in
             guard response == .OK, let url = panel.url else {
+                Task { @MainActor in
+                    exportStatusMessage = "Export canceled. Choose a location to continue."
+                }
                 return
             }
 
@@ -438,6 +465,8 @@ struct BackupWizardView: View {
                     if viewModel.errorMessage == nil {
                         backupCompleted = true
                         currentStep = .success
+                    } else {
+                        exportStatusMessage = nil
                     }
                 }
             }

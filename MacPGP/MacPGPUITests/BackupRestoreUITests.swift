@@ -25,40 +25,45 @@ final class BackupRestoreUITests: XCTestCase {
     }
 
     private func generateTestKey(_ app: XCUIApplication, name: String = "Backup Test User", email: String = "backup@test.com", passphrase: String = "TestPass123!") {
-        // Generate a test key for backup testing
-        app.typeKey("n", modifierFlags: .command)
+        guard app.openKeyGenerationView() else { return }
 
-        let nameField = app.textFields["Full Name"]
-        if nameField.waitForExistence(timeout: 3) {
-            nameField.tap()
-            nameField.typeText(name)
-
-            let emailField = app.textFields["Email Address"]
-            emailField.tap()
-            emailField.typeText(email)
-
-            let passphraseField = app.secureTextFields["Passphrase"]
-            passphraseField.tap()
-            passphraseField.typeText(passphrase)
-
-            let confirmField = app.secureTextFields["Confirm Passphrase"]
-            confirmField.tap()
-            confirmField.typeText(passphrase)
-
-            let generateButton = app.buttons["Generate"]
-            if generateButton.isEnabled {
-                generateButton.tap()
-
-                // Wait for key generation to complete
-                sleep(3)
-
-                // Close the success dialog if it appears
-                let okButton = app.buttons["OK"]
-                if okButton.waitForExistence(timeout: 2) {
-                    okButton.tap()
-                }
-            }
+        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
+        guard nameField.waitForExistence(timeout: 3) else {
+            XCTFail("Full Name field must appear")
+            return
         }
+        nameField.tap()
+        nameField.typeText(name)
+
+        let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
+        emailField.tap()
+        emailField.typeText(email)
+
+        let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
+        passphraseField.tap()
+        passphraseField.typeText(passphrase)
+
+        let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
+        confirmField.tap()
+        confirmField.typeText(passphrase)
+
+        let generateButton = app.buttons["Generate"]
+        guard generateButton.waitForExistence(timeout: 2) else {
+            XCTFail("Generate button must appear")
+            return
+        }
+        guard generateButton.isEnabled else {
+            XCTFail("Generate button must be enabled after valid key data")
+            return
+        }
+        generateButton.tap()
+
+        let doneButton = app.buttons["Done"]
+        guard doneButton.waitForExistence(timeout: 30) else {
+            XCTFail("Timed out waiting for Done button after key generation")
+            return
+        }
+        doneButton.tap()
     }
 
     // MARK: - Backup Wizard Tests
@@ -236,7 +241,7 @@ final class BackupRestoreUITests: XCTestCase {
         let restoreSheet = app.sheets.firstMatch
         if restoreSheet.waitForExistence(timeout: 2) {
             // Verify title
-            let titleText = app.staticTexts["Restore Keys"]
+            let titleText = app.staticTexts["Select Backup File"]
             XCTAssertTrue(titleText.exists, "Restore wizard title should exist")
 
             // Close the wizard
@@ -271,7 +276,7 @@ final class BackupRestoreUITests: XCTestCase {
                 XCTAssertTrue(restoreSheet.waitForExistence(timeout: 2), "Restore wizard sheet should appear")
 
                 // Verify title
-                let titleText = app.staticTexts["Restore Keys"]
+                let titleText = app.staticTexts["Select Backup File"]
                 XCTAssertTrue(titleText.exists, "Restore wizard title should exist")
 
                 // Verify Cancel button exists

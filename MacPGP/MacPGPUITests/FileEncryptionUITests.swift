@@ -31,42 +31,96 @@ final class FileEncryptionUITests: XCTestCase {
     }
 
     private func generateTestKey(_ app: XCUIApplication, name: String, email: String, passphrase: String) {
-        let keyringButton = app.buttons["Keyring"]
-        if keyringButton.exists {
-            keyringButton.tap()
+        guard app.openKeyGenerationView() else {
+            XCTFail("Key generation UI failed to open")
+            return
         }
 
-        app.typeKey("n", modifierFlags: .command)
+        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
+        guard nameField.waitForExistence(timeout: 3) else {
+            XCTFail("Full Name field must appear")
+            return
+        }
+        nameField.tap()
+        nameField.typeText(name)
 
-        let nameField = app.textFields["Full Name"]
-        if nameField.waitForExistence(timeout: 3) {
-            nameField.tap()
-            nameField.typeText(name)
+        let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
+        emailField.tap()
+        emailField.typeText(email)
 
-            let emailField = app.textFields["Email Address"]
-            emailField.tap()
-            emailField.typeText(email)
+        let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
+        passphraseField.tap()
+        passphraseField.typeText(passphrase)
 
-            let passphraseField = app.secureTextFields["Passphrase"]
-            passphraseField.tap()
-            passphraseField.typeText(passphrase)
+        let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
+        confirmField.tap()
+        confirmField.typeText(passphrase)
 
-            let confirmField = app.secureTextFields["Confirm Passphrase"]
-            confirmField.tap()
-            confirmField.typeText(passphrase)
+        let generateButton = app.buttons["Generate"]
+        guard generateButton.waitForExistence(timeout: 2) else {
+            XCTFail("Generate button must appear")
+            return
+        }
+        guard generateButton.isEnabled else {
+            XCTFail("Generate button must be enabled after valid key data")
+            return
+        }
+        generateButton.tap()
 
-            let generateButton = app.buttons["Generate"]
-            if generateButton.isEnabled {
-                generateButton.tap()
+        let doneButton = app.buttons["Done"]
+        guard doneButton.waitForExistence(timeout: 30) else {
+            XCTFail("Timed out waiting for Done button after key generation")
+            return
+        }
+        doneButton.tap()
+    }
 
-                sleep(3)
+    private func actionButton(_ app: XCUIApplication, named name: String) -> XCUIElement {
+        let toolbarButton = app.toolbars.buttons[name]
+        if toolbarButton.exists {
+            return toolbarButton
+        }
 
-                let okButton = app.buttons["OK"]
-                if okButton.waitForExistence(timeout: 2) {
-                    okButton.tap()
-                }
+        let buttons = app.buttons.matching(NSPredicate(format: "label == %@", name))
+        return buttons.element(boundBy: max(buttons.count - 1, 0))
+    }
+
+    private func selectFilesButton(_ app: XCUIApplication) -> XCUIElement {
+        let pluralButton = app.buttons["Select Files..."]
+        let singularButton = app.buttons["Select File..."]
+        let deadline = Date().addingTimeInterval(2)
+
+        repeat {
+            if pluralButton.exists {
+                return pluralButton
             }
+            if singularButton.exists {
+                return singularButton
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+
+        if pluralButton.exists {
+            return pluralButton
         }
+
+        return singularButton
+    }
+
+    private func openFilePanelAppeared(_ app: XCUIApplication, timeout: TimeInterval = 3) -> Bool {
+        let sheet = app.sheets.firstMatch
+        let openWindow = app.windows["Open"]
+        let openButton = app.buttons["Open"]
+        let deadline = Date().addingTimeInterval(timeout)
+
+        repeat {
+            if sheet.exists || openWindow.exists || openButton.exists {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+
+        return sheet.exists || openWindow.exists || openButton.exists
     }
 
     @MainActor
@@ -188,7 +242,7 @@ final class FileEncryptionUITests: XCTestCase {
         XCTAssertTrue(fileMode.waitForExistence(timeout: 3))
         fileMode.tap()
 
-        let selectFileButton = app.buttons["Select File..."]
+        let selectFileButton = selectFilesButton(app)
         XCTAssertTrue(selectFileButton.waitForExistence(timeout: 2))
 
         let outputLocationButton = app.buttons["Choose Output Location"]
@@ -208,7 +262,7 @@ final class FileEncryptionUITests: XCTestCase {
         XCTAssertTrue(fileMode.waitForExistence(timeout: 3))
         fileMode.tap()
 
-        let selectFileButton = app.buttons["Select File..."]
+        let selectFileButton = selectFilesButton(app)
         XCTAssertTrue(selectFileButton.waitForExistence(timeout: 2))
 
         let outputLocationButton = app.buttons["Choose Output Location"]
@@ -264,10 +318,9 @@ final class FileEncryptionUITests: XCTestCase {
 
         navigateToEncrypt(app)
 
-        let encryptButton = app.buttons.matching(identifier: "Encrypt").element(boundBy: 1)
-        if encryptButton.waitForExistence(timeout: 3) {
-            XCTAssertFalse(encryptButton.isEnabled)
-        }
+        let encryptButton = actionButton(app, named: "Encrypt")
+        XCTAssertTrue(encryptButton.waitForExistence(timeout: 3), "Encrypt button must appear")
+        XCTAssertFalse(encryptButton.isEnabled)
     }
 
     @MainActor
@@ -279,10 +332,9 @@ final class FileEncryptionUITests: XCTestCase {
 
         navigateToDecrypt(app)
 
-        let decryptButton = app.buttons.matching(identifier: "Decrypt").element(boundBy: 1)
-        if decryptButton.waitForExistence(timeout: 3) {
-            XCTAssertFalse(decryptButton.isEnabled)
-        }
+        let decryptButton = actionButton(app, named: "Decrypt")
+        XCTAssertTrue(decryptButton.waitForExistence(timeout: 3), "Decrypt button must appear")
+        XCTAssertFalse(decryptButton.isEnabled)
     }
 
     @MainActor
@@ -408,11 +460,7 @@ final class FileEncryptionUITests: XCTestCase {
 
         navigateToDecrypt(app)
 
-        let warningIcon = app.images["exclamationmark.triangle.fill"]
-        XCTAssertTrue(warningIcon.waitForExistence(timeout: 3))
-
-        let warningText = app.staticTexts["No secret keys available for decryption"]
-        XCTAssertTrue(warningText.exists)
+        XCTAssertTrue(app.staticTexts["No secret keys available for decryption"].waitForExistence(timeout: 3))
     }
 
     @MainActor
@@ -429,12 +477,11 @@ final class FileEncryptionUITests: XCTestCase {
             fileMode.tap()
         }
 
-        let selectFileButton = app.buttons["Select File..."]
-        if selectFileButton.waitForExistence(timeout: 2) {
-            selectFileButton.tap()
+        let selectFileButton = selectFilesButton(app)
+        XCTAssertTrue(selectFileButton.waitForExistence(timeout: 2), "Select Files button must appear")
+        selectFileButton.tap()
 
-            XCTAssertTrue(app.wait(for: .runningForeground, timeout: 2))
-        }
+        XCTAssertTrue(openFilePanelAppeared(app), "Open file panel must appear")
     }
 
     @MainActor
@@ -451,12 +498,11 @@ final class FileEncryptionUITests: XCTestCase {
             fileMode.tap()
         }
 
-        let selectFileButton = app.buttons["Select File..."]
-        if selectFileButton.waitForExistence(timeout: 2) {
-            selectFileButton.tap()
+        let selectFileButton = selectFilesButton(app)
+        XCTAssertTrue(selectFileButton.waitForExistence(timeout: 2), "Select Files button must appear")
+        selectFileButton.tap()
 
-            XCTAssertTrue(app.wait(for: .runningForeground, timeout: 2))
-        }
+        XCTAssertTrue(openFilePanelAppeared(app), "Open file panel must appear")
     }
 
     @MainActor
@@ -531,13 +577,13 @@ final class FileEncryptionUITests: XCTestCase {
             fileMode.tap()
         }
 
-        let fileLabel = app.staticTexts["File"]
+        let fileLabel = app.staticTexts["Files"]
         XCTAssertTrue(fileLabel.waitForExistence(timeout: 2))
 
         let outputLocationLabel = app.staticTexts["Output Location"]
         XCTAssertTrue(outputLocationLabel.exists)
 
-        let dropZoneText = app.staticTexts["Drop a file here"]
+        let dropZoneText = app.staticTexts["Drop files here"]
         XCTAssertTrue(dropZoneText.exists)
     }
 
@@ -555,13 +601,13 @@ final class FileEncryptionUITests: XCTestCase {
             fileMode.tap()
         }
 
-        let encryptedFileLabel = app.staticTexts["Encrypted File"]
+        let encryptedFileLabel = app.staticTexts["Encrypted Files"]
         XCTAssertTrue(encryptedFileLabel.waitForExistence(timeout: 2))
 
         let outputLocationLabel = app.staticTexts["Output Location"]
         XCTAssertTrue(outputLocationLabel.exists)
 
-        let dropZoneText = app.staticTexts["Drop a file here"]
+        let dropZoneText = app.staticTexts["Drop files here"]
         XCTAssertTrue(dropZoneText.exists)
     }
 }

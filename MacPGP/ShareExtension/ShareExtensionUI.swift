@@ -142,13 +142,16 @@ struct RecipientPicker: View {
             Text("Recipients")
                 .font(.headline)
 
-            if keyringService.publicKeys().isEmpty {
+            if availableRecipients.isEmpty {
                 ContentUnavailableView(
                     "No Keys Available",
                     systemImage: "key",
-                    description: Text("Import recipient public keys first")
+                    description: Text(keyringService.keyAvailabilityMessage ?? "Open MacPGP to import or refresh recipient keys, then try sharing again.")
                 )
                 .frame(height: 150)
+                .onAppear {
+                    selectedRecipients.removeAll()
+                }
             } else {
                 TextField("Search recipients...", text: $searchText)
                     .textFieldStyle(.roundedBorder)
@@ -186,15 +189,17 @@ struct RecipientPicker: View {
         }
     }
 
-    private var filteredKeys: [PGPKeyModel] {
-        let keys = keyringService.publicKeys().filter { !$0.isExpired }
+    private var availableRecipients: [PGPKeyModel] {
+        keyringService.publicKeys()
+    }
 
+    private var filteredKeys: [PGPKeyModel] {
         if searchText.isEmpty {
-            return keys
+            return availableRecipients
         }
 
         let query = searchText.lowercased()
-        return keys.filter {
+        return availableRecipients.filter {
             $0.displayName.lowercased().contains(query) ||
             $0.email?.lowercased().contains(query) == true ||
             $0.shortKeyID.lowercased().contains(query)

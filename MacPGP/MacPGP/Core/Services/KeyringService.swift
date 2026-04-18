@@ -7,10 +7,11 @@ final class KeyringService {
     private(set) var isLoading = false
     private(set) var lastError: OperationError?
 
-    private let persistence = KeyringPersistence()
+    private let persistence: any KeyringPersisting
     private var rawKeys: [Key] = []
 
-    init() {
+    init(persistence: any KeyringPersisting = KeyringPersistence()) {
+        self.persistence = persistence
         loadKeys()
     }
 
@@ -20,6 +21,9 @@ final class KeyringService {
 
         do {
             rawKeys = try persistence.loadKeys()
+            if persistence.shouldSyncSharedContainer {
+                syncLoadedKeysToSharedContainer()
+            }
             reloadKeysWithVerificationStatus()
         } catch {
             lastError = .persistenceError(underlying: error)
@@ -185,13 +189,20 @@ final class KeyringService {
             trustLevel: trustLevel,
             notes: notes
         )
-
-        reloadKeysWithVerificationStatus()
+        updateKeyInPlace(fingerprint: keyModel.fingerprint, trustLevel: trustLevel)
     }
 
     func clearTrustLevel(_ keyModel: PGPKeyModel) throws {
         try persistence.removeTrustLevel(forFingerprint: keyModel.fingerprint)
-        reloadKeysWithVerificationStatus()
+        updateKeyInPlace(fingerprint: keyModel.fingerprint, trustLevel: .unknown)
+    }
+
+    private func updateKeyInPlace(fingerprint: String, trustLevel: TrustLevel) {
+        if let index = keys.firstIndex(where: { $0.fingerprint == fingerprint }) {
+            keys[index] = PGPKeyModel(copying: keys[index], trustLevel: trustLevel)
+        } else {
+            reloadKeysWithVerificationStatus()
+        }
     }
 
     private func reloadKeysWithVerificationStatus() {
@@ -218,6 +229,16 @@ final class KeyringService {
                 verificationMethod: verificationMethod,
                 trustLevel: trustLevel
             )
+        }
+    }
+
+    private func syncLoadedKeysToSharedContainer() {
+        guard persistence.shouldSyncSharedContainer else { return }
+
+        do {
+            try SharedContainerSync.syncKeysToContainer(keys: rawKeys)
+        } catch {
+            NSLog("[KeyringService] Failed to sync loaded keys to shared container: \(error.localizedDescription)")
         }
     }
 }

@@ -21,8 +21,6 @@
 "sidebar.operations" = "Operaciones";
 "sidebar.keyring" = "Llavero";
 "sidebar.keyring_description" = "Administra tus claves PGP";
-"sidebar.web_of_trust" = "Red de Confianza";
-"sidebar.web_of_trust_description" = "Visualiza relaciones de confianza";
 "sidebar.encrypt" = "Cifrar";
 "sidebar.encrypt_description" = "Cifra mensajes o archivos";
 "sidebar.decrypt" = "Descifrar";
@@ -209,7 +207,6 @@
 "keydetails.delete" = "Eliminar";
 "keydetails.delete_key" = "Eliminar Clave";
 "keydetails.delete_confirmation" = "¿Estás seguro de que quieres eliminar \"%@\"? Esta acción no se puede deshacer.";
-"keydetails.trust_path" = "Ruta de Confianza";
 "keydetails.key_revoked" = "Esta clave ha sido revocada";
 "keydetails.key_revoked_message" = "Las claves revocadas no pueden usarse para cifrado o firma. Esta clave no debe ser confiada.";
 "keydetails.key_expired" = "Esta clave ha expirado";
@@ -382,7 +379,7 @@
 "keyserver_settings.key_management" = "Gestión de Claves";
 "keyserver_settings.auto_refresh" = "Actualizar claves automáticamente desde servidor de claves";
 "keyserver_settings.auto_refresh_info" = "La actualización automática verifica actualizaciones de claves";
-"keyserver_settings.auto_refresh_message" = "Las claves se actualizarán periódicamente para obtener estado de revocación y nuevas firmas";
+"keyserver_settings.auto_refresh_message" = "Las claves se actualizarán periódicamente para obtener las últimas actualizaciones de los servidores de claves";
 "keyserver_settings.server_information" = "Información del Servidor";
 "keyserver_settings.about_keyservers" = "Acerca de los Servidores de Claves";
 "keyserver_settings.about_message" = "Los servidores de claves públicos te permiten compartir tu clave pública y descubrir claves de otros usuarios. El servidor seleccionado se usará para operaciones de búsqueda, carga y actualización.";
@@ -399,23 +396,6 @@
 "sort.key_id" = "ID de Clave";
 
 /* MARK: - Web of Trust */
-"wot.no_keys" = "Sin Claves";
-"wot.no_keys_message" = "Genera o importa claves para construir tu red de confianza.";
-"wot.selected" = "Seleccionada: %@";
-"wot.trust_level" = "Nivel de Confianza: %@";
-"wot.secret_key" = "Clave Secreta";
-"wot.view_details" = "Ver Detalles";
-"wot.deselect" = "Deseleccionar";
-"wot.legend" = "Leyenda de Red de Confianza";
-"wot.trust_levels" = "Niveles de Confianza";
-"wot.graph_elements" = "Elementos del Gráfico";
-"wot.node" = "Clave (nodo)";
-"wot.edge" = "Firma (arista)";
-"wot.secret_key_node" = "Clave secreta";
-"wot.close" = "Cerrar";
-"wot.error" = "Error";
-"wot.generate_new_key" = "Generar Nueva Clave";
-"wot.import_key" = "Importar Clave";
 
 /* MARK: - Common Actions */
 "common.cancel" = "Cancelar";

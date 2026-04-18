@@ -2,9 +2,15 @@ import SwiftUI
 
 struct TrustLevelPickerView: View {
     let key: PGPKeyModel
+    let onTrustLevelUpdated: (PGPKeyModel) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(KeyringService.self) private var keyringService
     @State private var viewModel: TrustLevelPickerViewModel?
+
+    init(key: PGPKeyModel, onTrustLevelUpdated: @escaping (PGPKeyModel) -> Void = { _ in }) {
+        self.key = key
+        self.onTrustLevelUpdated = onTrustLevelUpdated
+    }
 
     var body: some View {
         Group {
@@ -41,11 +47,11 @@ struct TrustLevelPickerView: View {
 
         ScrollView {
             VStack(spacing: 20) {
-                keyInfoSection
+                keyInfoSection(key: viewModel.key)
                 trustLevelSection(viewModel: viewModel)
                 trustDescriptionSection(viewModel: viewModel)
                 warningSection(viewModel: viewModel)
-                saveButtonSection(viewModel: viewModel)
+                saveStatusSection(viewModel: viewModel)
 
                 if let error = viewModel.errorMessage {
                     errorSection(error: error)
@@ -60,13 +66,20 @@ struct TrustLevelPickerView: View {
                     dismiss()
                 }
             }
+
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save Trust Level") {
+                    viewModel.saveTrustLevel(onSuccess: onTrustLevelUpdated)
+                }
+                .disabled(!viewModel.hasChanged)
+            }
         }
     }
 
     // MARK: - Key Information Section
 
     @ViewBuilder
-    private var keyInfoSection: some View {
+    private func keyInfoSection(key: PGPKeyModel) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Key Information")
                 .font(.headline)
@@ -152,6 +165,11 @@ struct TrustLevelPickerView: View {
                     Text(viewModel.selectedTrustLevel.description)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier(
+                            AccessibilityIdentifiers.TrustLevelPicker.description(
+                                token: viewModel.selectedTrustLevel.accessibilityToken
+                            )
+                        )
 
                     if viewModel.selectedTrustLevel.canCertify {
                         HStack(spacing: 4) {
@@ -160,6 +178,11 @@ struct TrustLevelPickerView: View {
                             Text("Can certify other keys")
                                 .font(.caption2)
                                 .foregroundStyle(.green)
+                                .accessibilityIdentifier(
+                                    AccessibilityIdentifiers.TrustLevelPicker.canCertifyDescription(
+                                        token: viewModel.selectedTrustLevel.accessibilityToken
+                                    )
+                                )
                         }
                         .padding(.top, 4)
                     }
@@ -168,11 +191,11 @@ struct TrustLevelPickerView: View {
                 Spacer()
             }
             .padding(12)
-            .background(trustLevelColor(for: viewModel.selectedTrustLevel).opacity(0.1))
+            .background(viewModel.selectedTrustLevel.color.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(trustLevelColor(for: viewModel.selectedTrustLevel).opacity(0.3), lineWidth: 1)
+                    .stroke(viewModel.selectedTrustLevel.color.opacity(0.3), lineWidth: 1)
             )
         }
     }
@@ -195,6 +218,9 @@ struct TrustLevelPickerView: View {
                     Text("Ultimate trust should only be assigned to your own keys. This level indicates absolute trust in the key's ability to certify other keys.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier(
+                            AccessibilityIdentifiers.TrustLevelPicker.ultimateTrustWarningDescription
+                        )
                 }
 
                 Spacer()
@@ -206,29 +232,17 @@ struct TrustLevelPickerView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(Color.orange.opacity(0.3), lineWidth: 1)
             )
-        } else {
-            EmptyView()
         }
     }
 
-    // MARK: - Save Button Section
+    // MARK: - Save Status Section
 
     @ViewBuilder
-    private func saveButtonSection(viewModel: TrustLevelPickerViewModel) -> some View {
-        VStack(spacing: 8) {
-            Button(action: { viewModel.saveTrustLevel() }) {
-                Label("Save Trust Level", systemImage: "shield.checkered")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(trustLevelColor(for: viewModel.selectedTrustLevel))
-            .disabled(!viewModel.hasChanged)
-
-            if !viewModel.hasChanged {
-                Text("No changes to save")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+    private func saveStatusSection(viewModel: TrustLevelPickerViewModel) -> some View {
+        if !viewModel.hasChanged {
+            Text("No changes to save")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -260,18 +274,21 @@ struct TrustLevelPickerView: View {
 
             Image(systemName: "shield.checkered")
                 .font(.system(size: 64))
-                .foregroundStyle(trustLevelColor(for: viewModel.selectedTrustLevel))
+                .foregroundStyle(viewModel.selectedTrustLevel.color)
 
             VStack(spacing: 8) {
                 Text("Trust Level Updated")
                     .font(.title2)
                     .fontWeight(.bold)
 
-                Text("The trust level for \"\(key.displayName)\" has been set to \(viewModel.selectedTrustLevel.displayName).")
+                Text("The trust level for \"\(viewModel.key.displayName)\" has been set to \(viewModel.selectedTrustLevel.displayName).")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
+                    .accessibilityIdentifier(
+                        AccessibilityIdentifiers.TrustLevelPicker.trustLevelUpdatedMessage
+                    )
             }
 
             Spacer()
@@ -290,28 +307,8 @@ struct TrustLevelPickerView: View {
 
     @ViewBuilder
     private func trustLevelIcon(for level: TrustLevel) -> some View {
-        Image(systemName: trustLevelIconName(for: level))
-            .foregroundStyle(trustLevelColor(for: level))
-    }
-
-    private func trustLevelIconName(for level: TrustLevel) -> String {
-        switch level {
-        case .unknown: return "questionmark.circle"
-        case .never: return "xmark.shield"
-        case .marginal: return "shield.lefthalf.filled"
-        case .full: return "shield"
-        case .ultimate: return "crown.fill"
-        }
-    }
-
-    private func trustLevelColor(for level: TrustLevel) -> Color {
-        switch level {
-        case .unknown: return .gray
-        case .never: return .red
-        case .marginal: return .orange
-        case .full: return .green
-        case .ultimate: return .purple
-        }
+        Image(systemName: level.iconName)
+            .foregroundStyle(level.color)
     }
 }
 
@@ -319,7 +316,7 @@ struct TrustLevelPickerView: View {
 
 @Observable
 final class TrustLevelPickerViewModel {
-    let key: PGPKeyModel
+    private(set) var key: PGPKeyModel
     let keyringService: KeyringService
 
     var selectedTrustLevel: TrustLevel
@@ -329,22 +326,25 @@ final class TrustLevelPickerViewModel {
     private let initialTrustLevel: TrustLevel
 
     init(key: PGPKeyModel, keyringService: KeyringService) {
-        self.key = key
+        let currentKey = keyringService.key(withFingerprint: key.fingerprint) ?? key
+        self.key = currentKey
         self.keyringService = keyringService
-        self.selectedTrustLevel = key.trustLevel
-        self.initialTrustLevel = key.trustLevel
+        self.selectedTrustLevel = currentKey.trustLevel
+        self.initialTrustLevel = currentKey.trustLevel
     }
 
     var hasChanged: Bool {
         selectedTrustLevel != initialTrustLevel
     }
 
-    func saveTrustLevel() {
+    func saveTrustLevel(onSuccess: (PGPKeyModel) -> Void = { _ in }) {
         errorMessage = nil
 
         do {
             try keyringService.updateTrustLevel(key, trustLevel: selectedTrustLevel)
+            key = keyringService.key(withFingerprint: key.fingerprint) ?? key
             isSuccess = true
+            onSuccess(key)
         } catch {
             errorMessage = "Failed to update trust level: \(error.localizedDescription)"
         }

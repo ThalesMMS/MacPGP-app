@@ -80,6 +80,7 @@ struct EncryptionMetadataView: View {
     @State private var decryptedData: Data?
     @State private var decryptionError: String?
     @State private var isDecrypting = false
+    @State private var decryptionUnavailableMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -112,6 +113,9 @@ struct EncryptionMetadataView: View {
             }
         }
         .frame(minWidth: 400, minHeight: 300)
+        .task {
+            await refreshKeyAvailability()
+        }
         .overlay(
             Group {
                 if showPassphrasePrompt {
@@ -216,21 +220,40 @@ struct EncryptionMetadataView: View {
                         }
                     }
 
-                    // Decrypt button
-                    Button {
-                        showPassphrasePrompt = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "lock.open.fill")
-                            Text("Decrypt Preview")
+                    if let message = decryptionUnavailableMessage {
+                        DecryptionUnavailableView(message: message)
+                            .padding(.top, 8)
+                    } else {
+                        // Decrypt button
+                        Button {
+                            showPassphrasePrompt = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "lock.open.fill")
+                                Text("Decrypt Preview")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .buttonStyle(.borderedProminent)
+                        .padding(.top, 8)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .padding(.top, 8)
                 }
                 .padding()
+        }
+    }
+
+    private func refreshKeyAvailability() async {
+        do {
+            let keys = try await loadKeysFromKeyring()
+            if keys.contains(where: { $0.isSecret }) {
+                decryptionUnavailableMessage = nil
+            } else {
+                decryptionUnavailableMessage = "Decryption is unavailable because no shared secret keys are available. Open MacPGP to sync your keyring, then try Quick Look again."
+            }
+        } catch {
+            NSLog("QuickLookExtension: Failed to check shared keys: \(error.localizedDescription)")
+            decryptionUnavailableMessage = "Decryption is unavailable because shared keys could not be loaded. Open MacPGP to sync your keyring, then try Quick Look again."
         }
     }
 
@@ -243,14 +266,16 @@ struct EncryptionMetadataView: View {
                 // Load the encrypted file data
                 let encryptedData = try Data(contentsOf: fileURL)
 
-                // Load keys from shared keyring directory
-                let keys = try loadKeysFromKeyring()
+                // Load keys from the shared App Group container
+                let keys = try await loadKeysFromKeyring()
                 let secretKeys = keys.filter { $0.isSecret }
 
                 guard !secretKeys.isEmpty else {
                     await MainActor.run {
                         isDecrypting = false
-                        decryptionError = "No secret keys found. Import a key in the main app first."
+                        decryptionUnavailableMessage = "Decryption is unavailable because no shared secret keys are available. Open MacPGP to sync your keyring, then try Quick Look again."
+                        showPassphrasePrompt = false
+                        self.passphrase = ""
                     }
                     return
                 }
@@ -297,64 +322,47 @@ struct EncryptionMetadataView: View {
                 }
 
             } catch {
+                NSLog("QuickLookExtension: Failed to decrypt preview: \(error.localizedDescription)")
                 await MainActor.run {
                     isDecrypting = false
-                    decryptionError = "Decryption failed: \(error.localizedDescription)"
+                    decryptionError = "Unable to decrypt in Quick Look. Open MacPGP to refresh your keys, then try again."
                 }
             }
         }
     }
 
-    private func loadKeysFromKeyring() throws -> [Key] {
+    private func loadKeysFromKeyring() async throws -> [Key] {
+        try await Task.detached(priority: .utility) {
+            try Self.readKeysFromKeyring()
+        }.value
+    }
+
+    private static func readKeysFromKeyring() throws -> [Key] {
         let fileManager = FileManager.default
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let keyringDir = appSupport.appendingPathComponent("MacPGP/Keyring", isDirectory: true)
-
-        let publicKeyringPath = keyringDir.appendingPathComponent("pubring.gpg")
-        let secretKeyringPath = keyringDir.appendingPathComponent("secring.gpg")
-
-        let publicKeys: [Key]
-        if fileManager.fileExists(atPath: publicKeyringPath.path) {
-            publicKeys = try ObjectivePGP.readKeys(fromPath: publicKeyringPath.path)
-        } else {
-            publicKeys = []
+        guard let containerURL = fileManager.containerURL(
+            forSecurityApplicationGroupIdentifier: SharedConfiguration.appGroupIdentifier
+        ) else {
+            NSLog("QuickLookExtension: Shared container unavailable for app group \(SharedConfiguration.appGroupIdentifier)")
+            throw NSError(
+                domain: "com.macpgp.quicklook",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Shared key container is unavailable"]
+            )
         }
 
-        let secretKeys: [Key]
-        if fileManager.fileExists(atPath: secretKeyringPath.path) {
-            secretKeys = try ObjectivePGP.readKeys(fromPath: secretKeyringPath.path)
-        } else {
-            secretKeys = []
+        let keysURL = containerURL.appendingPathComponent(SharedConfiguration.sharedKeysFileName)
+        guard fileManager.fileExists(atPath: keysURL.path) else {
+            NSLog("QuickLookExtension: Keys file not found at \(keysURL.path)")
+            return []
         }
 
-        guard !secretKeys.isEmpty else { return publicKeys }
-
-        var mergedKeys = publicKeys
-        var indexByFingerprint: [String: Int] = [:]
-        indexByFingerprint.reserveCapacity(publicKeys.count + secretKeys.count)
-
-        for (index, key) in publicKeys.enumerated() {
-            if let fingerprint = key.publicKey?.fingerprint.description(),
-               indexByFingerprint[fingerprint] == nil {
-                indexByFingerprint[fingerprint] = index
-            }
+        let keysData = try Data(contentsOf: keysURL)
+        guard !keysData.isEmpty else {
+            NSLog("QuickLookExtension: Keys file is empty at \(keysURL.path)")
+            return []
         }
 
-        for secretKey in secretKeys {
-            guard let fingerprint = secretKey.publicKey?.fingerprint.description() else {
-                mergedKeys.append(secretKey)
-                continue
-            }
-
-            if let existingIndex = indexByFingerprint[fingerprint] {
-                mergedKeys[existingIndex] = secretKey
-            } else {
-                indexByFingerprint[fingerprint] = mergedKeys.count
-                mergedKeys.append(secretKey)
-            }
-        }
-
-        return mergedKeys
+        return try ObjectivePGP.readKeys(from: keysData)
     }
 
     private func formatKeyID(_ keyID: String) -> String {
@@ -416,6 +424,32 @@ struct MetadataRow: View {
                 .foregroundColor(.primary)
             Spacer()
         }
+    }
+}
+
+struct DecryptionUnavailableView: View {
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "key.slash.fill")
+                .foregroundColor(.orange)
+                .font(.title3)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Decryption Unavailable")
+                    .font(.headline)
+                Text(message)
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+        }
+        .padding()
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -546,7 +580,7 @@ struct EncryptionErrorView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 
-            Text(error.localizedDescription)
+            Text("MacPGP could not display this preview. Open the file in MacPGP to inspect it.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

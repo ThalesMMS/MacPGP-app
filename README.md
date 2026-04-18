@@ -1,12 +1,12 @@
 # MacPGP
 
-![Platform: macOS 15+](https://img.shields.io/badge/platform-macOS%2015%2B-blue)
+![Platform: macOS Tahoe](https://img.shields.io/badge/platform-macOS%20Tahoe-blue)
 ![UI: SwiftUI](https://img.shields.io/badge/UI-SwiftUI-orange)
 ![License: BSD 3-Clause](https://img.shields.io/badge/license-BSD%203--Clause-lightgrey)
 
 ![UI Screenshot](screenshot.png)
 
-MacPGP is a native macOS OpenPGP app built with SwiftUI for PGP key management, message and file encryption/decryption, digital signing, signature verification, and Finder-integrated workflows such as file badges, Quick Look previews, and custom thumbnails.
+MacPGP is a native macOS OpenPGP app built with SwiftUI for PGP key management, message and file encryption/decryption, digital signing, signature verification, and Finder-integrated workflows through FinderSync, QuickLook, and Thumbnail extensions.
 
 ## Features
 
@@ -22,28 +22,38 @@ MacPGP is a native macOS OpenPGP app built with SwiftUI for PGP key management, 
 - **ASCII Armor Support** - Import/export keys and messages in armored format
 - **Session State** - Preserves input/output state across view navigation
 
+The authoritative Mac App Store v1.0 release boundary is defined in [docs/V1_SCOPE.md](docs/V1_SCOPE.md).
+
 ## Finder Integration
 
-MacPGP includes three macOS extensions that integrate directly with Finder for a seamless encryption workflow:
+MacPGP v1.0 ships three Finder-facing macOS extensions:
 
-- **File Badges** - Encrypted files (.gpg, .asc, .pgp) display a lock badge in Finder, making it easy to identify PGP-encrypted content at a glance
-- **Quick Look Previews** - Press Space on an encrypted file to see:
+- **FinderSyncExtension** - Encrypted files (.gpg, .asc, .pgp) display a lock badge in Finder, and Finder context menu actions open supported encrypt/decrypt workflows in MacPGP
+- **QuickLookExtension** - Press Space on an encrypted file to see:
   - Encryption metadata (algorithm, recipients, file size)
   - Decrypt preview button with secure passphrase prompt
   - In-place content preview (text and images) without saving to disk
-- **Custom Thumbnails** - Visual distinction for encrypted files:
+- **ThumbnailExtension** - Encrypted files get custom thumbnails for quick visual distinction:
   - Binary files (.gpg, .pgp): Blue gradient with lock icon
   - ASCII armored files (.asc): Green gradient with document-lock icon
-- **Context Menu Actions** - Right-click any file for quick access:
-  - "Encrypt with MacPGP" - Opens main app with recipient picker
-  - "Decrypt with MacPGP" - Opens main app with passphrase prompt
 
 **Enabling Extensions:**
-After first launch, enable the extensions in System Settings → Privacy & Security → Extensions → Finder Extensions / Quick Look / Thumbnails.
+After first launch, enable the shipping extensions in System Settings → Privacy & Security → Extensions → Finder Extensions / Quick Look / Thumbnails.
+
+`ShareExtension.appex` remains in the repository for future work, but it is not embedded in the public v1.0 build. See [docs/V1_SCOPE.md](docs/V1_SCOPE.md) for the release boundary.
+
+## Future Features
+
+These capabilities are planned for future releases and are not part of the v1.0 shipping UI:
+
+- Web of Trust backed by proper PGP certification support
+- ShareExtension remains in the codebase for future share-sheet workflows, but it is not shipped in the public v1.0 build
+- Key expiration editing and revocation certificate workflows remain hidden until ObjectivePGP support is ready
 
 ## Requirements
 
-- macOS 15.0+
+- Minimum supported: macOS Tahoe (macOS 26)
+- Tested on: macOS Tahoe (macOS 26)
 - Xcode 16.0+
 
 ## Release status
@@ -56,8 +66,8 @@ Release prep lives in [CHANGELOG.md](CHANGELOG.md) and [RELEASING.md](RELEASING.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/ThalesMMS/MacPGP-app.git
-   cd MacPGP-app
+   git clone https://github.com/ThalesMMS/MacPGP.git
+   cd MacPGP
    ```
 
 2. Open the Xcode project:

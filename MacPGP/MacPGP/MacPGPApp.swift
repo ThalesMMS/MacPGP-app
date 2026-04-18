@@ -42,11 +42,41 @@ struct MacPGPApp: App {
     @State private var keyServerService = KeyServerService()
 
     init() {
+        Self.resetKeyringIfRequested()
+
         let keyring = KeyringService()
         _keyringService = State(initialValue: keyring)
         _sessionState = State(initialValue: SessionStateManager())
         _trustService = State(initialValue: TrustService(keyringService: keyring))
         _keyServerService = State(initialValue: KeyServerService())
+    }
+
+    /// Resets persisted keyring state for debug or test launches that include the `--reset-keyring` flag.
+    ///
+    /// Release launches outside XCTest ignore the flag so production runs cannot wipe persisted keys.
+    /// Any errors encountered while writing persistence are caught and logged via `NSLog`.
+    private static func resetKeyringIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("--reset-keyring") else { return }
+        guard isResetKeyringAllowed else { return }
+
+        let persistence = KeyringPersistence()
+        do {
+            try persistence.saveKeys([])
+            try persistence.saveMetadata(KeyringMetadata())
+        } catch {
+            NSLog("[MacPGPApp] Failed to reset keyring: \(error.localizedDescription)")
+        }
+    }
+
+    private static var isResetKeyringAllowed: Bool {
+        #if DEBUG
+        return true
+        #else
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil ||
+            environment["XCTestSessionIdentifier"] != nil ||
+            NSClassFromString("XCTestCase") != nil
+        #endif
     }
 
     var body: some Scene {

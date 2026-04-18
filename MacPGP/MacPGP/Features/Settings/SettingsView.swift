@@ -12,27 +12,27 @@ struct SettingsView: View {
         TabView {
             generalSettings
                 .tabItem {
-                    Label(String(localized: "settings.tab.general", comment: "General settings tab label"), systemImage: "gearshape")
+                    Label(String(localized: "settings.tab.general", defaultValue: "General", comment: "General settings tab label"), systemImage: "gearshape")
                 }
 
             keySettings
                 .tabItem {
-                    Label(String(localized: "settings.tab.keys", comment: "Keys settings tab label"), systemImage: "key")
+                    Label(String(localized: "settings.tab.keys", defaultValue: "Keys", comment: "Keys settings tab label"), systemImage: "key")
                 }
 
             securitySettings
                 .tabItem {
-                    Label(String(localized: "settings.tab.security", comment: "Security settings tab label"), systemImage: "lock.shield")
+                    Label(String(localized: "settings.tab.security", defaultValue: "Security", comment: "Security settings tab label"), systemImage: "lock.shield")
                 }
 
             backupSettings
                 .tabItem {
-                    Label(String(localized: "settings.tab.backup", comment: "Backup settings tab label"), systemImage: "externaldrive")
+                    Label(String(localized: "settings.tab.backup", defaultValue: "Backup", comment: "Backup settings tab label"), systemImage: "externaldrive")
                 }
 
             keyserverSettings
                 .tabItem {
-                    Label(String(localized: "settings.tab.keyserver", comment: "Keyserver settings tab label"), systemImage: "server.rack")
+                    Label(String(localized: "settings.tab.keyserver", defaultValue: "Keyserver", comment: "Keyserver settings tab label"), systemImage: "server.rack")
                 }
         }
         .frame(width: 500, height: 420)
@@ -118,11 +118,22 @@ struct SettingsView: View {
     private var keySettings: some View {
         Form {
             Section(String(localized: "settings.keys.section_title", comment: "Default key generation settings section header")) {
+                // ObjectivePGP key generation is release-supported only for RSA in v1.0.
                 Picker(String(localized: "settings.keys.algorithm", comment: "Label for algorithm picker"), selection: $preferences.defaultKeyAlgorithm) {
-                    ForEach([KeyAlgorithm.rsa, .ecdsa, .eddsa]) { algo in
+                    ForEach([KeyAlgorithm.rsa]) { algo in
                         Text(algo.displayName).tag(algo)
                     }
                 }
+
+                Text(
+                    String(
+                        localized: "settings.keys.algorithm_release_note",
+                        defaultValue: "MacPGP v1.0 creates RSA keys only. Additional algorithms stay hidden until ObjectivePGP supports them reliably.",
+                        comment: "Release note explaining why the algorithm picker exposes only RSA"
+                    )
+                )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Picker(String(localized: "settings.keys.key_size", comment: "Label for key size picker"), selection: $preferences.defaultKeySize) {
                     ForEach(preferences.defaultKeyAlgorithm.supportedKeySizes, id: \.self) { size in

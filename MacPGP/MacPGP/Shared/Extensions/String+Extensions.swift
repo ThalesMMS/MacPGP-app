@@ -30,4 +30,8 @@ extension String {
             return String(cleaned[start..<end])
         }.joined(separator: " ")
     }
+
+    var normalizedFingerprint: String {
+        String(filter(\.isHexDigit)).lowercased()
+    }
 }

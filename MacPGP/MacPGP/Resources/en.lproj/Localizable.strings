@@ -21,8 +21,6 @@
 "sidebar.operations" = "Operations";
 "sidebar.keyring" = "Keyring";
 "sidebar.keyring_description" = "Manage your PGP keys";
-"sidebar.web_of_trust" = "Web of Trust";
-"sidebar.web_of_trust_description" = "Visualize trust relationships";
 "sidebar.encrypt" = "Encrypt";
 "sidebar.encrypt_description" = "Encrypt messages or files";
 "sidebar.decrypt" = "Decrypt";
@@ -209,7 +207,6 @@
 "keydetails.delete" = "Delete";
 "keydetails.delete_key" = "Delete Key";
 "keydetails.delete_confirmation" = "Are you sure you want to delete \"%@\"? This action cannot be undone.";
-"keydetails.trust_path" = "Trust Path";
 "keydetails.key_revoked" = "This key has been revoked";
 "keydetails.key_revoked_message" = "Revoked keys cannot be used for encryption or signing. This key should not be trusted.";
 "keydetails.key_expired" = "This key has expired";
@@ -382,7 +379,7 @@
 "keyserver_settings.key_management" = "Key Management";
 "keyserver_settings.auto_refresh" = "Automatically refresh keys from keyserver";
 "keyserver_settings.auto_refresh_info" = "Auto-refresh checks for key updates";
-"keyserver_settings.auto_refresh_message" = "Keys will be refreshed periodically to get revocation status and new signatures";
+"keyserver_settings.auto_refresh_message" = "Keys will be refreshed periodically to get the latest updates from keyservers";
 "keyserver_settings.server_information" = "Server Information";
 "keyserver_settings.about_keyservers" = "About Keyservers";
 "keyserver_settings.about_message" = "Public keyservers allow you to share your public key and discover keys from other users. The selected server will be used for search, upload, and refresh operations.";
@@ -399,23 +396,6 @@
 "sort.key_id" = "Key ID";
 
 /* MARK: - Web of Trust */
-"wot.no_keys" = "No Keys";
-"wot.no_keys_message" = "Generate or import keys to build your web of trust.";
-"wot.selected" = "Selected: %@";
-"wot.trust_level" = "Trust Level: %@";
-"wot.secret_key" = "Secret Key";
-"wot.view_details" = "View Details";
-"wot.deselect" = "Deselect";
-"wot.legend" = "Web of Trust Legend";
-"wot.trust_levels" = "Trust Levels";
-"wot.graph_elements" = "Graph Elements";
-"wot.node" = "Key (node)";
-"wot.edge" = "Signature (edge)";
-"wot.secret_key_node" = "Secret key";
-"wot.close" = "Close";
-"wot.error" = "Error";
-"wot.generate_new_key" = "Generate New Key";
-"wot.import_key" = "Import Key";
 
 /* MARK: - Common Actions */
 "common.cancel" = "Cancel";

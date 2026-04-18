@@ -265,12 +265,12 @@ struct FingerprintVerificationView: View {
                     .foregroundStyle(.green)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Fingerprints Match!")
+                    Text("Fingerprints match")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(.green)
 
-                    Text("The fingerprints are identical. This key can be trusted.")
+                    Text("The fingerprints are identical. Tap Verify to mark this key as verified.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -313,7 +313,10 @@ struct FingerprintVerificationView: View {
         }
     }
 
-    // MARK: - Verification Actions Section
+    /// Renders the verification actions block with method selection and the "Mark as Verified" control.
+    /// - Parameters:
+    ///   - viewModel: The view model supplying verification state and actions used to drive the UI.
+    /// - Returns: A view containing guidance text, a segmented picker for selecting the verification method, a prominent "Mark as Verified" button (tinted green) whose enabled state follows the view model's `canMarkAsVerified`, and a contextual helper label shown when marking is disabled and the key is not already verified.
 
     @ViewBuilder
     private func verificationActionsSection(viewModel: FingerprintVerificationViewModel) -> some View {
@@ -324,7 +327,7 @@ struct FingerprintVerificationView: View {
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("After verifying the fingerprint through a trusted channel, mark this key as verified. Choose the verification method you used:")
+                Text("Paste the fingerprint you received through a trusted channel. Matching it records that you've verified the fingerprint; it does not mark the key as trusted.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -347,6 +350,12 @@ struct FingerprintVerificationView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
                 .disabled(!viewModel.canMarkAsVerified)
+
+                if !viewModel.canMarkAsVerified && !key.isVerified {
+                    Label("Paste a matching fingerprint to continue.", systemImage: "checkmark.shield")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(12)
             .background(Color(nsColor: .controlBackgroundColor))
@@ -419,7 +428,13 @@ final class FingerprintVerificationViewModel {
 
     var showQRCode = false
     var showComparison = false
-    var comparisonFingerprint = ""
+    var comparisonFingerprint = "" {
+        didSet {
+            if comparisonFingerprint != oldValue {
+                errorMessage = nil
+            }
+        }
+    }
     var selectedMethod: FingerprintVerificationMethod = .inPerson
     var errorMessage: String?
     var isSuccess = false
@@ -437,9 +452,12 @@ final class FingerprintVerificationViewModel {
     }
 
     var canMarkAsVerified: Bool {
-        !key.isVerified
+        !key.isVerified && fingerprintsMatch
     }
 
+    /// Copies the key's fingerprint to the system pasteboard.
+    /// 
+    /// This replaces the current contents of NSPasteboard.general with the fingerprint string.
     func copyFingerprint() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(key.fingerprint, forType: .string)
@@ -453,8 +471,16 @@ final class FingerprintVerificationViewModel {
         }
     }
 
+    /// Marks the associated key as verified using the currently selected verification method and updates the view model state.
+    /// 
+    /// If the precondition to mark the key as verified is not met, sets `errorMessage` to a user-facing prompt and returns without attempting persistence. On successful persistence, sets `isSuccess` to `true`. If persistence fails, sets `errorMessage` to a message describing the failure.
     func markAsVerified() {
         errorMessage = nil
+
+        guard canMarkAsVerified else {
+            errorMessage = "Paste a matching fingerprint before marking this key as verified."
+            return
+        }
 
         do {
             try keyringService.markKeyAsVerified(key, method: selectedMethod)
@@ -465,10 +491,7 @@ final class FingerprintVerificationViewModel {
     }
 
     private func normalizeFingerprint(_ fingerprint: String) -> String {
-        fingerprint
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: ":", with: "")
-            .uppercased()
+        fingerprint.normalizedFingerprint
     }
 }
 
