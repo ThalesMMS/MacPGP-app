@@ -63,11 +63,15 @@ final class PGPFileAnalyzer {
     /// - Returns: Analysis result containing file type and encryption status
     /// - Throws: Error if file cannot be read or analyzed
     func analyze(fileAt url: URL) throws -> AnalysisResult {
-        guard FileManager.default.fileExists(atPath: url.path) else {
+        let data: Data
+        do {
+            data = try SecureScopedFileAccess.readData(from: url)
+        } catch let error as OperationError {
+            throw error
+        } catch {
             throw OperationError.fileAccessError(path: url.path)
         }
 
-        let data = try Data(contentsOf: url)
         return try analyze(data: data, fileURL: url)
     }
 
@@ -139,7 +143,7 @@ final class PGPFileAnalyzer {
     private func detectFileType(data: Data, encodingFormat: EncodingFormat) throws -> FileType {
         do {
             // Try to parse as encrypted message
-            let parsedData = try ObjectivePGP.decrypt(data, andVerifySignature: false, using: [])
+            _ = try ObjectivePGP.decrypt(data, andVerifySignature: false, using: [])
             // If we got here without a key error, it's likely encrypted
             // (will fail with missing key error)
             return .encrypted

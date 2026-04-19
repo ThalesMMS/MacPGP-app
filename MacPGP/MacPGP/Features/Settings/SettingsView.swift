@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var showingClearKeychainConfirmation = false
     @State private var alertMessage: String?
     @State private var showingAlert = false
+    @State private var backupReminderService = BackupReminderService()
 
     var body: some View {
         TabView {
@@ -41,7 +42,7 @@ struct SettingsView: View {
             isPresented: $showingResetConfirmation
         ) {
             Button(String(localized: "settings.reset_dialog.reset_button", comment: "Button to confirm reset to defaults"), role: .destructive) {
-                preferences.resetToDefaults()
+                resetPreferencesToDefaults()
             }
             Button(String(localized: "settings.button.cancel", comment: "Cancel button"), role: .cancel) {}
         } message: {
@@ -203,10 +204,14 @@ struct SettingsView: View {
     private var backupSettings: some View {
         Form {
             Section(String(localized: "settings.backup.reminders", comment: "Backup reminders section header")) {
-                Toggle(String(localized: "settings.backup.enable_reminders", comment: "Toggle to enable backup reminders"), isOn: $preferences.backupReminderEnabled)
+                Toggle(String(localized: "settings.backup.enable_reminders", comment: "Toggle to enable backup reminders"), isOn: backupReminderEnabled)
+
+                Text(String(localized: "settings.backup.notification_permission_note", comment: "Explains contextual notification permission for backup reminders"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 if preferences.backupReminderEnabled {
-                    Picker(String(localized: "settings.backup.remind_every", comment: "Label for reminder interval picker"), selection: $preferences.backupReminderIntervalDays) {
+                    Picker(String(localized: "settings.backup.remind_every", comment: "Label for reminder interval picker"), selection: backupReminderIntervalDays) {
                         Text(String(localized: "settings.backup.interval.7_days", comment: "7 days interval option")).tag(7)
                         Text(String(localized: "settings.backup.interval.14_days", comment: "14 days interval option")).tag(14)
                         Text(String(localized: "settings.backup.interval.30_days", comment: "30 days interval option")).tag(30)
@@ -247,6 +252,37 @@ struct SettingsView: View {
 
     private var keyserverSettings: some View {
         KeyServerSettingsView()
+    }
+
+    private var backupReminderEnabled: Binding<Bool> {
+        Binding {
+            preferences.backupReminderEnabled
+        } set: { isEnabled in
+            preferences.backupReminderEnabled = isEnabled
+            updateBackupReminderSchedule()
+        }
+    }
+
+    private var backupReminderIntervalDays: Binding<Int> {
+        Binding {
+            preferences.backupReminderIntervalDays
+        } set: { intervalDays in
+            preferences.backupReminderIntervalDays = intervalDays
+            updateBackupReminderSchedule()
+        }
+    }
+
+    private func updateBackupReminderSchedule() {
+        if preferences.backupReminderEnabled {
+            backupReminderService.updateReminderSchedule()
+        } else {
+            backupReminderService.cancelScheduledReminder()
+        }
+    }
+
+    private func resetPreferencesToDefaults() {
+        preferences.resetToDefaults()
+        updateBackupReminderSchedule()
     }
 
     private func clearKeychain() {

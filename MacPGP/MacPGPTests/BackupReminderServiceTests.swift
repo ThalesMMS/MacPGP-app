@@ -17,6 +17,7 @@ struct BackupReminderServiceTests {
     /// Helper to reset preferences to a known state
     func resetPreferences() {
         PreferencesManager.shared.lastBackupDate = nil
+        PreferencesManager.shared.lastBackupReminderDate = nil
         PreferencesManager.shared.backupReminderEnabled = true
         PreferencesManager.shared.backupReminderIntervalDays = 30
     }

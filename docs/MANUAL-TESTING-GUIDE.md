@@ -2,7 +2,7 @@
 
 Release target: MacPGP v1.0 App Store build
 Document version: 0.1
-Last updated: 2026-04-16
+Last updated: 2026-04-18
 Scope reference: `docs/V1_SCOPE.md`
 
 This guide is the release-grade manual test matrix for MacPGP features that require manual verification because they depend on macOS system integration, Finder extensions, Keychain, notifications, local files, or install state.
@@ -110,7 +110,7 @@ Use this table as the live run log. Each row must cover exactly one Install Stat
 
 1. Use a macOS system with Xcode installed.
 2. Build and run the MacPGP app from the release candidate source or archive under test.
-3. Allow notifications for MacPGP in System Settings > Notifications.
+3. For notification delivery checks, start with MacPGP unset in System Settings > Notifications when possible, then allow notifications only when the in-context prompt appears during the test.
 4. Confirm the shared App Group identifier is `group.com.macpgp.shared`.
 5. Confirm the primary app keyring path is `~/Library/Application Support/MacPGP/Keyring/`.
 6. Confirm the extension-visible keyring projection is `~/Library/Group Containers/group.com.macpgp.shared/keys.pgp`.
@@ -579,17 +579,22 @@ Repeat these steps for each key size. Use a unique name and email address per ru
 - [ ] Encryption succeeds with signing enabled.
 - [ ] Decrypted result can be verified as signed by the selected key where supported.
 
-#### CORE-ENCDEC-1.4: ASCII Armor Toggle and Clipboard Text Flow
+#### CORE-ENCDEC-1.4: ASCII Armor Toggle, Clipboard Text Flow, and Notification Opt-In
 
 **Steps:**
 
-1. Copy plaintext from TextEdit.
-2. Paste it into Encrypt > Text mode.
-3. Select one recipient.
-4. Turn Armor on and encrypt.
-5. Copy the encrypted output.
-6. Paste the output into TextEdit and confirm ASCII-armored text.
-7. Repeat with Armor off.
+1. Start from a fresh install or reset MacPGP notification permission so the system state is "Not Determined".
+2. Launch MacPGP and confirm no notification permission prompt appears on launch.
+3. Copy plaintext from TextEdit.
+4. Paste it into Encrypt > Text mode.
+5. Select one recipient.
+6. Turn Armor on and encrypt.
+7. Copy the encrypted output.
+8. Paste the output into TextEdit and confirm ASCII-armored text.
+9. Trigger "Encrypt from Clipboard" from the toolbar or menu.
+10. Confirm the macOS notification permission prompt appears during this clipboard action.
+11. Repeat the clipboard encrypt or decrypt action with notification permission denied.
+12. Repeat with Armor off.
 
 **Expected:**
 
@@ -597,6 +602,9 @@ Repeat these steps for each key size. Use a unique name and email address per ru
 - [ ] Armor on produces ASCII-armored output.
 - [ ] Armor off produces non-armored output or a clearly documented binary handling path.
 - [ ] Output can be copied and pasted without truncation.
+- [ ] Notification permission is requested only after the first notification-worthy clipboard action, not on app launch.
+- [ ] If notification permission is denied, clipboard encrypt and decrypt operations still complete without crashing.
+- [ ] If notification permission is denied, notification delivery fails silently from the user's perspective and in-app output remains available.
 
 #### CORE-ENCDEC-1.5: File Encryption for a Single File
 
@@ -1280,17 +1288,22 @@ Use test keys intended for public keyserver testing only. Do not upload personal
 **Steps:**
 
 1. Open Settings > Backup.
-2. Enable backup reminders.
-3. Select each reminder frequency: 7, 14, 30, 60, and 90 days.
-4. Close and reopen Settings after each change.
+2. Confirm backup reminders are off on a fresh preference state.
+3. Enable backup reminders and confirm the macOS notification permission prompt appears in this context if permission has not already been decided.
+4. Select each reminder frequency: 7, 14, 30, 60, and 90 days.
+5. Disable backup reminders.
+6. Close and reopen Settings after each change.
 
 **Expected:**
 
+- [ ] Fresh installs do not request notification permission before this opt-in.
 - [ ] Backup reminders toggle persists.
 - [ ] Each reminder interval can be selected.
 - [ ] Selected interval persists after closing Settings.
+- [ ] Changing the reminder interval reschedules the next pending reminder using the new interval.
 - [ ] Last backup date or "Never" status is visible.
 - [ ] Disabling reminders suppresses future reminder scheduling.
+- [ ] Re-enabling reminders does not show a second system prompt after permission has already been decided.
 
 #### CORE-SETTINGS-5.1: Keyserver Tab Server Selection and Timeout
 
@@ -1625,14 +1638,19 @@ Use test keys intended for public keyserver testing only. Do not upload personal
 2. Set "Reminder interval" to 7 days.
 3. Enable backup reminders.
 4. Check "Last backup" date.
-5. Wait for notification or verify scheduling behavior.
+5. Set the test account to an overdue backup state where `lastBackupDate + reminder interval` is in the past, then launch MacPGP.
+6. Wait for notification or verify scheduling behavior.
+7. Relaunch MacPGP while still overdue.
+8. Disable backup reminders and relaunch again.
 
 **Expected:**
 
 - [ ] Settings save correctly.
 - [ ] Reminder schedules based on last backup plus interval.
 - [ ] If no backup exists, reminder schedules for the next day.
-- [ ] If overdue, reminder appears immediately.
+- [ ] If overdue, one reminder fires immediately on app launch and uses non-alarming copy and the default notification sound.
+- [ ] Relaunching while still overdue does not repeatedly deliver reminders inside the configured reminder interval.
+- [ ] Disabling reminders cancels pending backup reminder notifications.
 - [ ] After creating a backup, "Last backup" updates.
 - [ ] Reminder reschedules automatically.
 

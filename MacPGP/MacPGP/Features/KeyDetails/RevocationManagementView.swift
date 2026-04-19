@@ -339,11 +339,13 @@ final class RevocationManagementViewModel {
             guard let url = urls.first else { return }
 
             do {
-                let data = try Data(contentsOf: url)
+                let data = try revocationService.importRevocationCertificateFromFile(from: url)
                 selectedCertificateURL = url
                 selectedCertificateData = data
             } catch {
-                errorMessage = "Failed to read certificate file: \(error.localizedDescription)"
+                selectedCertificateURL = nil
+                selectedCertificateData = nil
+                errorMessage = "Failed to read certificate file: \(error.userFacingMessage)"
             }
 
         case .failure(let error):

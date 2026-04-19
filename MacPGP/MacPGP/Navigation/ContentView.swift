@@ -63,6 +63,7 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .decryptClipboard)) { _ in
             handleDecryptClipboard()
         }
+        .environment(notificationService)
     }
 
     @ViewBuilder
@@ -101,9 +102,6 @@ struct ContentView: View {
         switch result {
         case .success(let urls):
             for url in urls {
-                guard url.startAccessingSecurityScopedResource() else { continue }
-                defer { url.stopAccessingSecurityScopedResource() }
-
                 do {
                     let importedKeys = try keyringService.importKey(from: url)
                     if let firstKey = importedKeys.first {
@@ -147,6 +145,8 @@ struct ContentView: View {
     }
 
     private func handleEncryptClipboard() {
+        notificationService.requestAuthorizationIfNeeded()
+
         // Check if clipboard has text
         guard let clipboardText = NSPasteboard.general.string(forType: .string),
               !clipboardText.isEmpty else {
@@ -204,7 +204,7 @@ struct ContentView: View {
             } catch {
                 await MainActor.run {
                     notificationService.showError(
-                        title: String(localized: "error.encryption_failed", comment: "Error title when encryption operation fails"),
+                        title: String(localized: "error.encryption_failed.title", comment: "Error title when encryption operation fails"),
                         message: error.localizedDescription
                     )
                 }
@@ -213,6 +213,8 @@ struct ContentView: View {
     }
 
     private func handleDecryptClipboard() {
+        notificationService.requestAuthorizationIfNeeded()
+
         // Check if clipboard has text
         guard let clipboardText = NSPasteboard.general.string(forType: .string),
               !clipboardText.isEmpty else {
@@ -274,7 +276,7 @@ struct ContentView: View {
             } catch {
                 await MainActor.run {
                     notificationService.showError(
-                        title: String(localized: "error.decryption_failed", comment: "Error title when decryption operation fails"),
+                        title: String(localized: "error.decryption_failed.title", comment: "Error title when decryption operation fails"),
                         message: error.localizedDescription
                     )
                 }

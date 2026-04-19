@@ -1,4 +1,4 @@
 enum SharedConfiguration {
-    static let appGroupIdentifier = "group.com.macpgp.shared"
-    static let sharedKeysFileName = "keys.pgp"
+    nonisolated static let appGroupIdentifier = "group.com.macpgp.shared"
+    nonisolated static let sharedKeysFileName = "keys.pgp"
 }

@@ -264,7 +264,19 @@ struct EncryptionMetadataView: View {
         Task {
             do {
                 // Load the encrypted file data
-                let encryptedData = try Data(contentsOf: fileURL)
+                let encryptedData: Data
+                do {
+                    encryptedData = try Data(contentsOf: fileURL)
+                } catch {
+                    NSLog("QuickLookExtension: Failed to read encrypted file \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                    await MainActor.run {
+                        isDecrypting = false
+                        showPassphrasePrompt = true
+                        self.passphrase = ""
+                        decryptionError = "Quick Look could not read this file. It may have been moved, deleted, or made unavailable. Reopen the file and try again."
+                    }
+                    return
+                }
 
                 // Load keys from the shared App Group container
                 let keys = try await loadKeysFromKeyring()
@@ -337,7 +349,7 @@ struct EncryptionMetadataView: View {
         }.value
     }
 
-    private static func readKeysFromKeyring() throws -> [Key] {
+    nonisolated private static func readKeysFromKeyring() throws -> [Key] {
         let fileManager = FileManager.default
         guard let containerURL = fileManager.containerURL(
             forSecurityApplicationGroupIdentifier: SharedConfiguration.appGroupIdentifier

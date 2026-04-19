@@ -141,8 +141,12 @@ final class ExtensionEncryptionService {
 
         progressCallback?(0.2)
 
-        // Read file data
-        let fileData = try Data(contentsOf: file)
+        let fileData: Data
+        do {
+            fileData = try Data(contentsOf: file)
+        } catch {
+            throw OperationError.fileAccessError(path: file.path)
+        }
         progressCallback?(0.4)
 
         // Encrypt the data
@@ -165,11 +169,14 @@ final class ExtensionEncryptionService {
             throw OperationError.encryptionFailed(underlying: error)
         }
 
-        // Determine output URL
-        let output = outputURL ?? file.deletingLastPathComponent().appendingPathComponent(file.lastPathComponent + ".gpg")
+        let output = outputURL ?? FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(UUID().uuidString)-\(file.lastPathComponent).gpg")
 
-        // Write encrypted data
-        try encryptedData.write(to: output)
+        do {
+            try encryptedData.write(to: output)
+        } catch {
+            throw OperationError.fileAccessError(path: output.path)
+        }
         progressCallback?(1.0)
 
         return output

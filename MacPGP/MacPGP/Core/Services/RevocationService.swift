@@ -288,7 +288,10 @@ final class RevocationService {
     /// - Throws: OperationError if the operation fails
     func exportRevocationCertificate(certificate: Data, to url: URL) throws {
         do {
-            try certificate.write(to: url, options: [.atomic])
+            try SecureScopedFileAccess.writeData(certificate, to: url, options: [.atomic])
+        } catch let error as OperationError {
+            lastError = error
+            throw error
         } catch {
             let wrapped = OperationError.fileAccessError(path: url.path)
             lastError = wrapped
@@ -302,7 +305,10 @@ final class RevocationService {
     /// - Throws: OperationError if the operation fails
     func importRevocationCertificateFromFile(from url: URL) throws -> Data {
         do {
-            return try Data(contentsOf: url)
+            return try SecureScopedFileAccess.readData(from: url)
+        } catch let error as OperationError {
+            lastError = error
+            throw error
         } catch {
             let wrapped = OperationError.fileAccessError(path: url.path)
             lastError = wrapped

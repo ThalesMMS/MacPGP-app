@@ -26,13 +26,11 @@ final class BackupViewModel {
     var restoreContentsValidated = false
 
     private let keyringService: KeyringService
-    private let notificationService: NotificationService?
     private let backupReminderService: BackupReminderService?
     private let preferences = PreferencesManager.shared
 
-    init(keyringService: KeyringService, notificationService: NotificationService? = nil, backupReminderService: BackupReminderService? = nil) {
+    init(keyringService: KeyringService, backupReminderService: BackupReminderService? = nil) {
         self.keyringService = keyringService
-        self.notificationService = notificationService ?? NotificationService()
         self.backupReminderService = backupReminderService ?? BackupReminderService()
     }
 
@@ -96,7 +94,7 @@ final class BackupViewModel {
             progress = 0.8
 
             // Step 5: Write to destination (100%)
-            try finalData.write(to: destination, options: .atomic)
+            try SecureScopedFileAccess.writeData(finalData, to: destination, options: .atomic)
             progress = 1.0
 
             // Update last backup date and reschedule reminder
@@ -104,12 +102,8 @@ final class BackupViewModel {
             backupReminderService?.updateReminderSchedule()
 
             successMessage = "Backup created successfully"
-            notificationService?.showBackupSuccess(
-                title: "Backup Complete",
-                message: "Successfully backed up \(selectedKeyCount) key(s)"
-            )
         } catch {
-            errorMessage = "Backup failed: \(error.localizedDescription)"
+            errorMessage = "Backup failed: \(error.userFacingMessage)"
         }
 
         isProcessing = false
@@ -263,7 +257,7 @@ final class BackupViewModel {
         restoreFileURL = url
 
         do {
-            let data = try Data(contentsOf: url)
+            let data = try SecureScopedFileAccess.readData(from: url)
 
             // Check if encrypted
             if let header = String(data: data.prefix(14), encoding: .utf8), header == "MACPGP-ENC-V1\n" {
@@ -283,7 +277,7 @@ final class BackupViewModel {
                 successMessage = "Backup validated: \(backup.keyCount) key(s) found"
             }
         } catch {
-            errorMessage = "Invalid backup file: \(error.localizedDescription)"
+            errorMessage = "Invalid backup file: \(error.userFacingMessage)"
         }
 
         isProcessing = false
@@ -317,7 +311,7 @@ final class BackupViewModel {
         }
 
         do {
-            let encryptedData = try Data(contentsOf: restoreFileURL)
+            let encryptedData = try SecureScopedFileAccess.readData(from: restoreFileURL)
             let decryptedData = try decryptBackup(data: encryptedData, passphrase: restorePassphrase)
             let backup = try parseBackupMetadata(from: decryptedData)
 
@@ -328,7 +322,7 @@ final class BackupViewModel {
 
             return true
         } catch {
-            errorMessage = "Unable to decrypt backup: \(error.localizedDescription)"
+            errorMessage = "Unable to decrypt backup: \(error.userFacingMessage)"
             return false
         }
     }
@@ -372,7 +366,7 @@ final class BackupViewModel {
 
         do {
             // Step 1: Read backup file (20%)
-            var data = try Data(contentsOf: url)
+            var data = try SecureScopedFileAccess.readData(from: url)
             progress = 0.2
 
             // Step 2: Decrypt if encrypted (40%)
@@ -394,12 +388,8 @@ final class BackupViewModel {
             progress = 1.0
 
             successMessage = "Successfully restored \(importedKeys.count) key(s)"
-            notificationService?.showRestoreSuccess(
-                title: "Restore Complete",
-                message: "Successfully restored \(importedKeys.count) key(s)"
-            )
         } catch {
-            errorMessage = "Restore failed: \(error.localizedDescription)"
+            errorMessage = "Restore failed: \(error.userFacingMessage)"
         }
 
         isProcessing = false

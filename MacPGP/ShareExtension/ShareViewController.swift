@@ -47,13 +47,13 @@ class ShareViewController: NSViewController {
     private func extractSharedFiles() {
         guard let extensionContext = self.extensionContext else {
             NSLog("ShareViewController: No extension context available")
-            cancel()
+            showErrorMessage("MacPGP could not access the shared item. Try sharing the file again.")
             return
         }
 
         guard let inputItems = extensionContext.inputItems as? [NSExtensionItem] else {
             NSLog("ShareViewController: No input items found")
-            cancel()
+            showErrorMessage("No shared items were found. Try sharing the file again.")
             return
         }
 
@@ -73,6 +73,7 @@ class ShareViewController: NSViewController {
 
                         if let error = error {
                             NSLog("ShareViewController: Error loading file URL: \(error.localizedDescription)")
+                            showErrorMessage("MacPGP could not load a shared file. Try sharing the file again.")
                             return
                         }
 
@@ -90,7 +91,7 @@ class ShareViewController: NSViewController {
 
         if urlsToProcess.isEmpty {
             NSLog("ShareViewController: No files found in shared items")
-            cancel()
+            showErrorMessage("No files were available to encrypt. Try sharing a file from Finder.")
             return
         }
 
@@ -129,11 +130,15 @@ class ShareViewController: NSViewController {
         progressCallback: ((Double) -> Void)? = nil
     ) throws -> [URL] {
         guard !fileURLs.isEmpty else {
-            throw OperationError.encryptionFailed(underlying: nil)
+            let error = OperationError.encryptionFailed(underlying: nil)
+            showErrorMessage(error.userFacingMessage)
+            throw error
         }
 
         guard !recipients.isEmpty else {
-            throw OperationError.recipientKeyMissing
+            let error = OperationError.recipientKeyMissing
+            showErrorMessage(error.userFacingMessage)
+            throw error
         }
 
         var encryptedURLs: [URL] = []
@@ -162,6 +167,7 @@ class ShareViewController: NSViewController {
                 NSLog("ShareViewController: Encrypted file \(index + 1)/\(totalFiles): \(fileURL.lastPathComponent)")
             } catch {
                 NSLog("ShareViewController: Failed to encrypt file \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                showErrorMessage("Unable to encrypt \(fileURL.lastPathComponent).\n\n\(error.userFacingMessage)")
                 throw error
             }
         }
@@ -185,11 +191,15 @@ class ShareViewController: NSViewController {
         progressCallback: (@Sendable (Double) -> Void)? = nil
     ) async throws -> [URL] {
         guard !fileURLs.isEmpty else {
-            throw OperationError.encryptionFailed(underlying: nil)
+            let error = OperationError.encryptionFailed(underlying: nil)
+            showErrorMessage(error.userFacingMessage)
+            throw error
         }
 
         guard !recipients.isEmpty else {
-            throw OperationError.recipientKeyMissing
+            let error = OperationError.recipientKeyMissing
+            showErrorMessage(error.userFacingMessage)
+            throw error
         }
 
         var encryptedURLs: [URL] = []
@@ -206,19 +216,25 @@ class ShareViewController: NSViewController {
                 nil
             }
 
-            // Encrypt the file using the encryption service
-            let encryptedURL = try await services.encryptionService.encryptAsync(
-                file: fileURL,
-                for: recipients,
-                signedBy: signer,
-                passphrase: passphrase,
-                outputURL: nil,
-                armored: armored,
-                progressCallback: fileProgress
-            )
+            do {
+                // Encrypt the file using the encryption service
+                let encryptedURL = try await services.encryptionService.encryptAsync(
+                    file: fileURL,
+                    for: recipients,
+                    signedBy: signer,
+                    passphrase: passphrase,
+                    outputURL: nil,
+                    armored: armored,
+                    progressCallback: fileProgress
+                )
 
-            encryptedURLs.append(encryptedURL)
-            NSLog("ShareViewController: Encrypted file \(index + 1)/\(totalFiles): \(fileURL.lastPathComponent)")
+                encryptedURLs.append(encryptedURL)
+                NSLog("ShareViewController: Encrypted file \(index + 1)/\(totalFiles): \(fileURL.lastPathComponent)")
+            } catch {
+                NSLog("ShareViewController: Failed to encrypt file \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                showErrorMessage("Unable to encrypt \(fileURL.lastPathComponent).\n\n\(error.userFacingMessage)")
+                throw error
+            }
         }
 
         return encryptedURLs
@@ -230,6 +246,42 @@ class ShareViewController: NSViewController {
     func cancel() {
         guard let extensionContext = self.extensionContext else { return }
         extensionContext.cancelRequest(withError: NSError(domain: "com.macpgp.ShareExtension", code: -1, userInfo: nil))
+    }
+
+    private func showErrorMessage(_ message: String) {
+        DispatchQueue.main.async {
+            self.view.subviews.forEach { $0.removeFromSuperview() }
+
+            let titleLabel = NSTextField(labelWithString: "Unable to Encrypt")
+            titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+            titleLabel.alignment = .center
+
+            let messageLabel = NSTextField(wrappingLabelWithString: message)
+            messageLabel.alignment = .center
+            messageLabel.textColor = .secondaryLabelColor
+
+            let closeButton = NSButton(title: "Close", target: self, action: #selector(self.closeAfterError))
+            closeButton.bezelStyle = .rounded
+
+            let stackView = NSStackView(views: [titleLabel, messageLabel, closeButton])
+            stackView.orientation = .vertical
+            stackView.alignment = .centerX
+            stackView.spacing = 16
+            stackView.translatesAutoresizingMaskIntoConstraints = false
+
+            self.view.addSubview(stackView)
+            NSLayoutConstraint.activate([
+                stackView.centerXAnchor.constraint(equalTo: self.view.centerXAnchor),
+                stackView.centerYAnchor.constraint(equalTo: self.view.centerYAnchor),
+                stackView.leadingAnchor.constraint(greaterThanOrEqualTo: self.view.leadingAnchor, constant: 32),
+                stackView.trailingAnchor.constraint(lessThanOrEqualTo: self.view.trailingAnchor, constant: -32),
+                messageLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 360)
+            ])
+        }
+    }
+
+    @objc private func closeAfterError() {
+        cancel()
     }
 
     /// Completes the share extension operation with encrypted files

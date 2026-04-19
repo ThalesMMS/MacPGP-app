@@ -22,8 +22,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize extension communication service for FinderSync integration
         extensionCommunicationService = ExtensionCommunicationService()
 
-        // Initialize backup reminder service
-        backupReminderService = BackupReminderService()
+        // Initialize backup reminder service and schedule after launch setup is complete.
+        let reminderService = BackupReminderService()
+        backupReminderService = reminderService
+        DispatchQueue.main.async {
+            reminderService.scheduleReminderIfNeeded()
+        }
     }
 
     /// Handles files opened from extensions or Finder

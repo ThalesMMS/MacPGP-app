@@ -365,6 +365,20 @@
 "settings.backup_never" = "Niemals";
 "settings.backup_note" = "Sicherungshinweis";
 "settings.backup_note_message" = "Regelmäßige Sicherungen schützen Ihre Schlüssel vor Datenverlust. Exportieren Sie Ihre Schlüssel an einen sicheren Ort und bewahren Sie sie sicher auf.";
+"settings.backup.reminders" = "Sicherungserinnerungen";
+"settings.backup.enable_reminders" = "Sicherungserinnerungen aktivieren";
+"settings.backup.notification_permission_note" = "MacPGP fragt nur nach der Berechtigung für Mitteilungen, wenn Sicherungserinnerungen aktiviert werden.";
+"settings.backup.remind_every" = "Erinnern alle";
+"settings.backup.interval.7_days" = "7 Tage";
+"settings.backup.interval.14_days" = "14 Tage";
+"settings.backup.interval.30_days" = "30 Tage";
+"settings.backup.interval.60_days" = "60 Tage";
+"settings.backup.interval.90_days" = "90 Tage";
+"settings.backup.status" = "Sicherungsstatus";
+"settings.backup.last_backup" = "Letzte Sicherung";
+"settings.backup.never" = "Niemals";
+"settings.backup.note_title" = "Sicherungshinweis";
+"settings.backup.note_message" = "Regelmäßige Sicherungen schützen Ihre Schlüssel vor Datenverlust. Exportieren Sie Ihre Schlüssel an einen sicheren Ort und bewahren Sie sie sicher auf.";
 "settings.keyserver" = "Schlüsselserver";
 
 /* MARK: - Keyserver Settings */
@@ -422,8 +436,19 @@
 "error.delete_failed" = "Löschen des Schlüssels fehlgeschlagen: %@";
 "error.encryption_failed" = "Verschlüsselung fehlgeschlagen: %@";
 "error.decryption_failed" = "Entschlüsselung fehlgeschlagen: %@";
+"error.encryption_failed.title" = "Verschlüsselung fehlgeschlagen";
+"error.decryption_failed.title" = "Entschlüsselung fehlgeschlagen";
 "error.signing_failed" = "Signierung fehlgeschlagen: %@";
 "error.verification_failed" = "Verifizierung fehlgeschlagen: %@";
+"error.clipboard_empty" = "Zwischenablage leer";
+"error.no_text_in_clipboard" = "Die Zwischenablage enthält keinen Text.";
+"error.no_recipients" = "Keine Empfänger ausgewählt";
+"error.select_recipients_first" = "Wählen Sie vor dem Verschlüsseln mindestens einen Empfänger aus.";
+"error.passphrase_required" = "Passphrase erforderlich";
+"error.enter_passphrase_for_signing" = "Geben Sie die Passphrase des Signaturschlüssels in der Verschlüsseln-Ansicht ein.";
+"error.no_secret_keys" = "Keine privaten Schlüssel";
+"error.no_secret_keys_for_decryption" = "Importieren oder erstellen Sie vor dem Entschlüsseln einen privaten Schlüssel.";
+"error.no_valid_passphrase" = "Keine gespeicherte Passphrase konnte den Text aus der Zwischenablage entschlüsseln. Öffnen Sie Entschlüsseln und geben Sie die Passphrase ein.";
 
 /* MARK: - OperationError Descriptions */
 "error.key_not_found.description" = "Der Schlüssel \"%@\" wurde in Ihrem Schlüsselbund nicht gefunden";
@@ -455,6 +480,12 @@
 "error.recipient_key_missing.description" = "Der öffentliche Schlüssel des Empfängers fehlt in Ihrem Schlüsselbund.";
 "error.signer_key_missing.description" = "Kein privater Schlüssel zum Signieren der Nachricht verfügbar.";
 "error.file_access_error.description" = "Zugriff auf die Datei nicht möglich: %@";
+"error.security_scoped_access_denied.description" = "MacPGP hat keine Berechtigung mehr für den Zugriff auf: %@";
+"error.file_not_found.description" = "Die Datei wurde nicht gefunden: %@";
+"error.permission_denied.description" = "Berechtigung verweigert für: %@";
+"error.read_only_volume.description" = "Das Ziel befindet sich auf einem schreibgeschützten Volume: %@";
+"error.disk_full.description" = "Nicht genügend Speicherplatz zum Schreiben von: %@";
+"error.name_too_long.description" = "Der Dateiname oder Pfad ist zu lang: %@";
 "error.unknown_error.description" = "Ein unerwarteter Fehler ist aufgetreten: %@";
 
 /* MARK: - OperationError Recovery Suggestions */
@@ -478,6 +509,12 @@
 "error.recipient_key_missing.recovery" = "Suchen und importieren Sie den öffentlichen Schlüssel des Empfängers von einem Schlüsselserver.";
 "error.signer_key_missing.recovery" = "Generieren Sie ein Schlüsselpaar zum Signieren von Nachrichten.";
 "error.file_access_error.recovery" = "Überprüfen Sie die Dateiberechtigungen in Systemeinstellungen > Datenschutz & Sicherheit.";
+"error.security_scoped_access_denied.recovery" = "Wählen Sie die Datei oder den Ordner erneut aus und versuchen Sie es noch einmal.";
+"error.file_not_found.recovery" = "Wählen Sie die Datei erneut aus oder stellen Sie sie am ursprünglichen Speicherort wieder her.";
+"error.permission_denied.recovery" = "Überprüfen Sie die Dateiberechtigungen oder wählen Sie einen anderen Speicherort.";
+"error.read_only_volume.recovery" = "Wählen Sie einen beschreibbaren Ordner und versuchen Sie es erneut.";
+"error.disk_full.recovery" = "Geben Sie Speicherplatz frei oder wählen Sie ein anderes Ziel.";
+"error.name_too_long.recovery" = "Benennen Sie die Datei um oder wählen Sie einen kürzeren Ordnerpfad.";
 "error.unknown_error.recovery" = "Versuchen Sie die Operation erneut. Wenn das Problem weiterhin besteht, starten Sie die Anwendung neu.";
 
 /* MARK: - OperationError Failure Reasons */
@@ -510,6 +547,12 @@
 "error.recipient_key_missing.reason" = "Der Empfänger hat keinen öffentlichen Schlüssel in Ihrem Schlüsselbund.";
 "error.signer_key_missing.reason" = "Kein signierfähiger privater Schlüssel gefunden.";
 "error.file_access_error.reason" = "Die Datei unter %@ existiert möglicherweise nicht oder Sie haben keine Zugriffsberechtigung.";
+"error.security_scoped_access_denied.reason" = "Die Sandbox-Zugriffsberechtigung für %@ ist nicht mehr verfügbar.";
+"error.file_not_found.reason" = "Unter %@ existiert keine Datei.";
+"error.permission_denied.reason" = "macOS hat den Zugriff auf %@ verweigert.";
+"error.read_only_volume.reason" = "%@ befindet sich auf einem schreibgeschützten Volume.";
+"error.disk_full.reason" = "Das Ziel für %@ hat nicht genügend freien Speicherplatz.";
+"error.name_too_long.reason" = "%@ überschreitet die unterstützte Länge für Dateinamen oder Pfade.";
 "error.unknown_error.reason" = "%@";
 
 
@@ -520,6 +563,16 @@
 "success.key_imported" = "Schlüssel erfolgreich importiert";
 "success.key_exported" = "Schlüssel erfolgreich exportiert";
 "success.key_deleted" = "Schlüssel erfolgreich gelöscht";
+"success.encryption_successful" = "Verschlüsselung abgeschlossen";
+"success.clipboard_encrypted" = "Der Inhalt der Zwischenablage wurde verschlüsselt.";
+"success.decryption_successful" = "Entschlüsselung abgeschlossen";
+"success.clipboard_decrypted" = "Der Inhalt der Zwischenablage wurde entschlüsselt.";
+
+/* MARK: - Backup Reminders */
+"BackupReminder.Title" = "Schlüssel sichern";
+"BackupReminder.Body" = "Ihre Sicherungserinnerung ist fällig. Erstellen Sie eine Sicherung, um den Zugriff auf Ihre Schlüssel zu schützen.";
+"BackupReminder.BodyWithLastBackup" = "Ihre letzte Sicherung war vor %d Tagen. Erstellen Sie eine Sicherung, um den Zugriff auf Ihre Schlüssel zu schützen.";
+"BackupReminder.BodyNoBackup" = "Erstellen Sie eine Sicherung, um den Zugriff auf Ihre Schlüssel zu schützen.";
 
 /* MARK: - Shared Components */
 "qr.unable_to_generate" = "QR-Code kann nicht generiert werden";

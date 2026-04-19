@@ -234,6 +234,16 @@ struct OperationErrorTests {
         #expect(description!.contains("access"))
     }
 
+    @Test("securityScopedAccessDenied provides clear error description")
+    func testSecurityScopedAccessDeniedDescription() {
+        let error = OperationError.securityScopedAccessDenied(path: "/tmp/test.txt")
+        let description = error.errorDescription
+
+        #expect(description != nil)
+        #expect(description!.contains("/tmp/test.txt"))
+        #expect(description!.contains("permission"))
+    }
+
     @Test("unknownError provides clear error description")
     func testUnknownErrorDescription() {
         let error = OperationError.unknownError(message: "Something went wrong")
@@ -433,6 +443,15 @@ struct OperationErrorTests {
         #expect(suggestion!.contains("permission") || suggestion!.contains("Privacy"))
     }
 
+    @Test("securityScopedAccessDenied provides actionable recovery suggestion")
+    func testSecurityScopedAccessDeniedRecoverySuggestion() {
+        let error = OperationError.securityScopedAccessDenied(path: "/tmp/test.txt")
+        let suggestion = error.recoverySuggestion
+
+        #expect(suggestion != nil)
+        #expect(suggestion!.contains("re-select") || suggestion!.contains("select"))
+    }
+
     @Test("unknownError provides actionable recovery suggestion")
     func testUnknownErrorRecoverySuggestion() {
         let error = OperationError.unknownError(message: "Test")
@@ -529,6 +548,16 @@ struct OperationErrorTests {
         #expect(reason!.contains("permission") || reason!.contains("not exist"))
     }
 
+    @Test("securityScopedAccessDenied provides clear failure reason")
+    func testSecurityScopedAccessDeniedFailureReason() {
+        let error = OperationError.securityScopedAccessDenied(path: "/some/path.txt")
+        let reason = error.failureReason
+
+        #expect(reason != nil)
+        #expect(reason!.contains("/some/path.txt"))
+        #expect(reason!.contains("sandbox") || reason!.contains("access"))
+    }
+
     // MARK: - LocalizedError Conformance Tests
 
     @Test("Error conforms to LocalizedError protocol")
@@ -563,6 +592,12 @@ struct OperationErrorTests {
             .recipientKeyMissing,
             .signerKeyMissing,
             .fileAccessError(path: "/test"),
+            .securityScopedAccessDenied(path: "/test"),
+            .fileNotFound(path: "/test"),
+            .permissionDenied(path: "/test"),
+            .readOnlyVolume(path: "/test"),
+            .diskFull(path: "/test"),
+            .nameTooLong(path: "/test"),
             .unknownError(message: "test")
         ]
 

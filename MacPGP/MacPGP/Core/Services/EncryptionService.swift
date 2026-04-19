@@ -119,7 +119,7 @@ final class EncryptionService {
     ) throws -> URL {
         progressCallback?(0.0)
 
-        let fileData = try Data(contentsOf: file)
+        let fileData = try SecureScopedFileAccess.readData(from: file)
         progressCallback?(0.3)
 
         let encryptedData = try encrypt(
@@ -132,7 +132,7 @@ final class EncryptionService {
         progressCallback?(0.7)
 
         let outputPath = resolvedEncryptedOutputURL(for: file, outputURL: outputURL, armored: armored)
-        try encryptedData.write(to: outputPath)
+        try writeData(encryptedData, to: outputPath, scopedBy: outputURL)
 
         progressCallback?(1.0)
         return outputPath
@@ -214,7 +214,7 @@ final class EncryptionService {
     ) throws -> URL {
         progressCallback?(0.0)
 
-        let fileData = try Data(contentsOf: file)
+        let fileData = try SecureScopedFileAccess.readData(from: file)
         progressCallback?(0.3)
 
         let decryptedData = try decrypt(data: fileData, using: key, passphrase: passphrase)
@@ -222,7 +222,7 @@ final class EncryptionService {
 
         let outputPath = resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
 
-        try decryptedData.write(to: outputPath)
+        try writeData(decryptedData, to: outputPath, scopedBy: outputURL)
         progressCallback?(1.0)
         return outputPath
     }
@@ -249,7 +249,7 @@ final class EncryptionService {
         try await Task.detached {
             await MainActor.run { progressCallback?(0.0) }
 
-            let fileData = try Data(contentsOf: file)
+            let fileData = try SecureScopedFileAccess.readData(from: file)
             await MainActor.run { progressCallback?(0.3) }
 
             let encryptedData = try self.encrypt(
@@ -262,7 +262,7 @@ final class EncryptionService {
             await MainActor.run { progressCallback?(0.7) }
 
             let outputPath = self.resolvedEncryptedOutputURL(for: file, outputURL: outputURL, armored: armored)
-            try encryptedData.write(to: outputPath)
+            try self.writeData(encryptedData, to: outputPath, scopedBy: outputURL)
 
             await MainActor.run { progressCallback?(1.0) }
             return outputPath
@@ -287,7 +287,7 @@ final class EncryptionService {
         try await Task.detached {
             await MainActor.run { progressCallback?(0.0) }
 
-            let fileData = try Data(contentsOf: file)
+            let fileData = try SecureScopedFileAccess.readData(from: file)
             await MainActor.run { progressCallback?(0.3) }
 
             let decryptedData = try self.decrypt(data: fileData, using: key, passphrase: passphrase)
@@ -295,7 +295,7 @@ final class EncryptionService {
 
             let outputPath = self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
 
-            try decryptedData.write(to: outputPath)
+            try self.writeData(decryptedData, to: outputPath, scopedBy: outputURL)
             await MainActor.run { progressCallback?(1.0) }
             return outputPath
         }.value
@@ -346,14 +346,14 @@ final class EncryptionService {
     ) throws -> (URL, PGPKeyModel) {
         progressCallback?(0.0)
 
-        let fileData = try Data(contentsOf: file)
+        let fileData = try SecureScopedFileAccess.readData(from: file)
         progressCallback?(0.3)
 
         let (decryptedData, key) = try tryDecrypt(data: fileData, passphrase: passphrase)
         progressCallback?(0.7)
 
         let resolvedOutputURL = resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
-        try decryptedData.write(to: resolvedOutputURL)
+        try writeData(decryptedData, to: resolvedOutputURL, scopedBy: outputURL)
 
         progressCallback?(1.0)
         return (resolvedOutputURL, key)
@@ -376,14 +376,14 @@ final class EncryptionService {
         try await Task.detached {
             await MainActor.run { progressCallback?(0.0) }
 
-            let fileData = try Data(contentsOf: file)
+            let fileData = try SecureScopedFileAccess.readData(from: file)
             await MainActor.run { progressCallback?(0.3) }
 
             let (decryptedData, key) = try self.tryDecrypt(data: fileData, passphrase: passphrase)
             await MainActor.run { progressCallback?(0.7) }
 
             let resolvedOutputURL = self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
-            try decryptedData.write(to: resolvedOutputURL)
+            try self.writeData(decryptedData, to: resolvedOutputURL, scopedBy: outputURL)
 
             await MainActor.run { progressCallback?(1.0) }
             return (resolvedOutputURL, key)
@@ -451,5 +451,13 @@ final class EncryptionService {
 
         let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey])
         return resourceValues?.isDirectory == true
+    }
+
+    private func writeData(_ data: Data, to outputPath: URL, scopedBy outputURL: URL?) throws {
+        let scopedURL = outputURL ?? outputPath
+
+        try SecureScopedFileAccess.withSecurityScopedAccess(to: scopedURL) { _ in
+            try SecureScopedFileAccess.writeData(data, to: outputPath)
+        }
     }
 }

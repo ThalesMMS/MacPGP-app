@@ -206,8 +206,8 @@ final class KeyringPersistence: KeyringPersisting {
     }
 
     func importKey(from url: URL) throws -> [Key] {
-        let keys = try ObjectivePGP.readKeys(fromPath: url.path)
-        return keys
+        let data = try SecureScopedFileAccess.readData(from: url)
+        return try importKey(from: data)
     }
 
     func importKey(from data: Data) throws -> [Key] {

@@ -142,7 +142,7 @@ class FinderSync: FIFinderSync {
         guard let mainAppURL = resolveMainAppURL() else {
             forwardErrorToContainingApp(
                 title: "MacPGP app not found",
-                message: "Please reinstall MacPGP and try again."
+                message: "Install or reinstall MacPGP, then try the Finder action again."
             )
             return
         }
@@ -157,7 +157,7 @@ class FinderSync: FIFinderSync {
                 NSLog("Failed to open files with MacPGP: \(error.localizedDescription)")
                 self?.forwardErrorToContainingApp(
                     title: "Could not open MacPGP",
-                    message: "Please open MacPGP and try again."
+                    message: "Open MacPGP, then try the Finder action again."
                 )
             }
         }

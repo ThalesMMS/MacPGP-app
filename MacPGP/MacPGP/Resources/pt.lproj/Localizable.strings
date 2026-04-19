@@ -365,6 +365,20 @@
 "settings.backup_never" = "Nunca";
 "settings.backup_note" = "Nota sobre Backup";
 "settings.backup_note_message" = "Backups regulares protegem suas chaves contra perda de dados. Exporte suas chaves para um local seguro e armazene-as com segurança.";
+"settings.backup.reminders" = "Lembretes de Backup";
+"settings.backup.enable_reminders" = "Ativar lembretes de backup";
+"settings.backup.notification_permission_note" = "O MacPGP solicita permissão de notificação somente quando os lembretes de backup são ativados.";
+"settings.backup.remind_every" = "Lembrar-me a cada";
+"settings.backup.interval.7_days" = "7 dias";
+"settings.backup.interval.14_days" = "14 dias";
+"settings.backup.interval.30_days" = "30 dias";
+"settings.backup.interval.60_days" = "60 dias";
+"settings.backup.interval.90_days" = "90 dias";
+"settings.backup.status" = "Status do Backup";
+"settings.backup.last_backup" = "Último backup";
+"settings.backup.never" = "Nunca";
+"settings.backup.note_title" = "Nota sobre Backup";
+"settings.backup.note_message" = "Backups regulares protegem suas chaves contra perda de dados. Exporte suas chaves para um local seguro e armazene-as com segurança.";
 "settings.keyserver" = "Servidor de Chaves";
 
 /* MARK: - Keyserver Settings */
@@ -422,8 +436,19 @@
 "error.delete_failed" = "Falha ao excluir chave: %@";
 "error.encryption_failed" = "Criptografia falhou: %@";
 "error.decryption_failed" = "Descriptografia falhou: %@";
+"error.encryption_failed.title" = "Criptografia falhou";
+"error.decryption_failed.title" = "Descriptografia falhou";
 "error.signing_failed" = "Assinatura falhou: %@";
 "error.verification_failed" = "Verificação falhou: %@";
+"error.clipboard_empty" = "Área de transferência vazia";
+"error.no_text_in_clipboard" = "A área de transferência não contém texto.";
+"error.no_recipients" = "Nenhum destinatário selecionado";
+"error.select_recipients_first" = "Selecione pelo menos um destinatário antes de criptografar.";
+"error.passphrase_required" = "Senha necessária";
+"error.enter_passphrase_for_signing" = "Digite a senha da chave de assinatura na tela Criptografar.";
+"error.no_secret_keys" = "Nenhuma chave secreta";
+"error.no_secret_keys_for_decryption" = "Importe ou gere uma chave secreta antes de descriptografar.";
+"error.no_valid_passphrase" = "Nenhuma senha salva conseguiu descriptografar o texto da área de transferência. Abra Descriptografar e digite a senha.";
 
 /* MARK: - OperationError Descriptions */
 "error.key_not_found.description" = "A chave \"%@\" não foi encontrada no seu chaveiro";
@@ -455,6 +480,12 @@
 "error.recipient_key_missing.description" = "A chave pública do destinatário está faltando no seu chaveiro.";
 "error.signer_key_missing.description" = "Nenhuma chave privada disponível para assinar a mensagem.";
 "error.file_access_error.description" = "Não foi possível acessar o arquivo em: %@";
+"error.security_scoped_access_denied.description" = "O MacPGP não tem mais permissão para acessar: %@";
+"error.file_not_found.description" = "O arquivo não foi encontrado: %@";
+"error.permission_denied.description" = "Permissão negada para: %@";
+"error.read_only_volume.description" = "O destino está em um volume somente leitura: %@";
+"error.disk_full.description" = "Não há espaço em disco suficiente para gravar: %@";
+"error.name_too_long.description" = "O nome do arquivo ou caminho é longo demais: %@";
 "error.unknown_error.description" = "Ocorreu um erro inesperado: %@";
 
 /* MARK: - OperationError Recovery Suggestions */
@@ -478,6 +509,12 @@
 "error.recipient_key_missing.recovery" = "Pesquise e importe a chave pública do destinatário de um servidor de chaves.";
 "error.signer_key_missing.recovery" = "Gere um par de chaves para assinar mensagens.";
 "error.file_access_error.recovery" = "Verifique as permissões de arquivo em Configurações do Sistema > Privacidade e Segurança.";
+"error.security_scoped_access_denied.recovery" = "Selecione novamente o arquivo ou a pasta e tente outra vez.";
+"error.file_not_found.recovery" = "Escolha o arquivo novamente ou restaure-o para o local original.";
+"error.permission_denied.recovery" = "Verifique as permissões do arquivo ou escolha outro local.";
+"error.read_only_volume.recovery" = "Escolha uma pasta gravável e tente novamente.";
+"error.disk_full.recovery" = "Libere espaço em disco ou escolha outro destino.";
+"error.name_too_long.recovery" = "Renomeie o arquivo ou escolha um caminho de pasta mais curto.";
 "error.unknown_error.recovery" = "Tente a operação novamente. Se o problema persistir, reinicie o aplicativo.";
 
 /* MARK: - OperationError Failure Reasons */
@@ -510,6 +547,12 @@
 "error.recipient_key_missing.reason" = "O destinatário não possui uma chave pública no seu chaveiro.";
 "error.signer_key_missing.reason" = "Nenhuma chave privada capaz de assinar foi encontrada.";
 "error.file_access_error.reason" = "O arquivo em %@ pode não existir ou você pode não ter permissão para acessá-lo.";
+"error.security_scoped_access_denied.reason" = "A permissão de acesso do sandbox para %@ não está mais disponível.";
+"error.file_not_found.reason" = "Não existe arquivo em %@.";
+"error.permission_denied.reason" = "O macOS negou acesso a %@.";
+"error.read_only_volume.reason" = "%@ está em um volume somente leitura.";
+"error.disk_full.reason" = "O destino para %@ não tem espaço livre suficiente.";
+"error.name_too_long.reason" = "%@ excede o comprimento suportado para nome de arquivo ou caminho.";
 "error.unknown_error.reason" = "%@";
 
 
@@ -520,6 +563,16 @@
 "success.key_imported" = "Chave importada com sucesso";
 "success.key_exported" = "Chave exportada com sucesso";
 "success.key_deleted" = "Chave excluída com sucesso";
+"success.encryption_successful" = "Criptografia concluída";
+"success.clipboard_encrypted" = "O conteúdo da área de transferência foi criptografado.";
+"success.decryption_successful" = "Descriptografia concluída";
+"success.clipboard_decrypted" = "O conteúdo da área de transferência foi descriptografado.";
+
+/* MARK: - Backup Reminders */
+"BackupReminder.Title" = "Faça backup das suas chaves";
+"BackupReminder.Body" = "Seu lembrete de backup venceu. Crie um backup para ajudar a proteger o acesso às suas chaves.";
+"BackupReminder.BodyWithLastBackup" = "Seu último backup foi há %d dias. Crie um backup para ajudar a proteger o acesso às suas chaves.";
+"BackupReminder.BodyNoBackup" = "Crie um backup para ajudar a proteger o acesso às suas chaves.";
 
 /* MARK: - Shared Components */
 "qr.unable_to_generate" = "Não foi possível gerar o código QR";

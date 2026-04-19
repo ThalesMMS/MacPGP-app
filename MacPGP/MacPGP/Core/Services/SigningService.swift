@@ -264,7 +264,7 @@ final class SigningService {
         outputURL: URL?,
         armored: Bool
     ) throws -> URL {
-        let fileData = try Data(contentsOf: file)
+        let fileData = try SecureScopedFileAccess.readData(from: file)
         let signedData = try signData(
             fileData,
             using: snapshot,
@@ -282,7 +282,7 @@ final class SigningService {
             outputPath = file.appendingPathExtension(armored ? "asc" : "gpg")
         }
 
-        try signedData.write(to: outputPath)
+        try SecureScopedFileAccess.writeData(signedData, to: outputPath)
         return outputPath
     }
 
@@ -562,11 +562,11 @@ final class SigningService {
     }
 
     func verify(file: URL, signatureFile: URL? = nil) throws -> VerificationResult {
-        let fileData = try Data(contentsOf: file)
+        let fileData = try SecureScopedFileAccess.readData(from: file)
 
         var signatureData: Data?
         if let sigFile = signatureFile {
-            signatureData = try Data(contentsOf: sigFile)
+            signatureData = try SecureScopedFileAccess.readData(from: sigFile)
         }
 
         return try verify(data: fileData, signature: signatureData)
@@ -580,11 +580,11 @@ final class SigningService {
     func verifyAsync(file: URL, signatureFile: URL? = nil) async throws -> VerificationResult {
         let snapshots = verificationSnapshots()
         let payload = try await Task.detached(priority: .userInitiated) {
-            let fileData = try Data(contentsOf: file)
+            let fileData = try SecureScopedFileAccess.readData(from: file)
 
             var signatureData: Data?
             if let signatureFile = signatureFile {
-                signatureData = try Data(contentsOf: signatureFile)
+                signatureData = try SecureScopedFileAccess.readData(from: signatureFile)
             }
 
             return Self.verifyPayload(data: fileData, signature: signatureData, using: snapshots)

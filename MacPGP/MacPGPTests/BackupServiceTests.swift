@@ -19,7 +19,7 @@ struct BackupServiceTests {
     @MainActor
     func testEncryptBackup() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         let testData = "Test backup data".data(using: .utf8)!
         let passphrase = "test123"
@@ -39,7 +39,7 @@ struct BackupServiceTests {
     @MainActor
     func testEncryptBackupEmptyPassphrase() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         let testData = "Test backup data".data(using: .utf8)!
 
@@ -54,7 +54,7 @@ struct BackupServiceTests {
     @MainActor
     func testValidateUnencryptedBackup() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         // Create a test backup file
         let tempDir = FileManager.default.temporaryDirectory
@@ -98,7 +98,7 @@ struct BackupServiceTests {
     @MainActor
     func testValidateEncryptedBackup() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         // Create an encrypted test backup file
         let tempDir = FileManager.default.temporaryDirectory
@@ -126,7 +126,7 @@ struct BackupServiceTests {
     @MainActor
     func testDecryptAndValidateEncryptedBackup() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         let tempDir = FileManager.default.temporaryDirectory
         let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
@@ -170,7 +170,7 @@ struct BackupServiceTests {
     @MainActor
     func testDecryptAndValidateEncryptedBackupWrongPassphrase() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         let tempDir = FileManager.default.temporaryDirectory
         let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
@@ -197,7 +197,7 @@ struct BackupServiceTests {
     @MainActor
     func testValidateInvalidBackup() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         // Create an invalid backup file
         let tempDir = FileManager.default.temporaryDirectory
@@ -235,7 +235,7 @@ struct BackupServiceTests {
     @MainActor
     func testCreateUnencryptedBackup() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         // Clean up any test keys
         let existingKeys = keyringService.keys.filter { $0.email == "test-backup@example.com" }
@@ -287,7 +287,7 @@ struct BackupServiceTests {
     @MainActor
     func testCreateEncryptedBackup() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         // Clean up any test keys
         let existingKeys = keyringService.keys.filter { $0.email == "test-encrypted@example.com" }
@@ -343,7 +343,7 @@ struct BackupServiceTests {
     @MainActor
     func testRestoreContentsValidatedInitiallyFalse() {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
         #expect(viewModel.restoreContentsValidated == false)
     }
 
@@ -351,7 +351,7 @@ struct BackupServiceTests {
     @MainActor
     func testValidateUnencryptedBackupSetsRestoreContentsValidated() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         let tempDir = FileManager.default.temporaryDirectory
         let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
@@ -384,7 +384,7 @@ struct BackupServiceTests {
     @MainActor
     func testValidateInvalidBackupKeepsRestoreContentsValidatedFalse() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         let tempDir = FileManager.default.temporaryDirectory
         let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
@@ -400,7 +400,7 @@ struct BackupServiceTests {
     @MainActor
     func testIsRestoreValidRequiresRestoreContentsValidated() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         let tempDir = FileManager.default.temporaryDirectory
         let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
@@ -438,7 +438,7 @@ struct BackupServiceTests {
     @MainActor
     func testDecryptAndValidateBackupNoFileURL() async {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         viewModel.successMessage = "Backup decrypted and validated"
         viewModel.validatedBackup = BackupFormat(
@@ -463,7 +463,7 @@ struct BackupServiceTests {
     @MainActor
     func testDecryptAndValidateBackupEmptyPassphrase() async throws {
         let keyringService = KeyringService()
-        let viewModel = BackupViewModel(keyringService: keyringService, notificationService: nil, backupReminderService: nil)
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
 
         let tempDir = FileManager.default.temporaryDirectory
         let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")

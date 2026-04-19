@@ -365,6 +365,20 @@
 "settings.backup_never" = "从未";
 "settings.backup_note" = "备份说明";
 "settings.backup_note_message" = "定期备份可保护您的密钥免受数据丢失。将密钥导出到安全位置并妥善保管。";
+"settings.backup.reminders" = "备份提醒";
+"settings.backup.enable_reminders" = "启用备份提醒";
+"settings.backup.notification_permission_note" = "MacPGP 仅在启用备份提醒时请求通知权限。";
+"settings.backup.remind_every" = "提醒间隔";
+"settings.backup.interval.7_days" = "7 天";
+"settings.backup.interval.14_days" = "14 天";
+"settings.backup.interval.30_days" = "30 天";
+"settings.backup.interval.60_days" = "60 天";
+"settings.backup.interval.90_days" = "90 天";
+"settings.backup.status" = "备份状态";
+"settings.backup.last_backup" = "上次备份";
+"settings.backup.never" = "从未";
+"settings.backup.note_title" = "备份说明";
+"settings.backup.note_message" = "定期备份可保护您的密钥免受数据丢失。将密钥导出到安全位置并妥善保管。";
 "settings.keyserver" = "密钥服务器";
 
 /* MARK: - Keyserver Settings */
@@ -422,8 +436,19 @@
 "error.delete_failed" = "删除密钥失败：%@";
 "error.encryption_failed" = "加密失败：%@";
 "error.decryption_failed" = "解密失败：%@";
+"error.encryption_failed.title" = "加密失败";
+"error.decryption_failed.title" = "解密失败";
 "error.signing_failed" = "签名失败：%@";
 "error.verification_failed" = "验证失败：%@";
+"error.clipboard_empty" = "剪贴板为空";
+"error.no_text_in_clipboard" = "剪贴板不包含文本。";
+"error.no_recipients" = "未选择收件人";
+"error.select_recipients_first" = "请先选择至少一个收件人，然后再加密。";
+"error.passphrase_required" = "需要密码";
+"error.enter_passphrase_for_signing" = "请在加密视图中输入签名密钥的密码。";
+"error.no_secret_keys" = "没有私钥";
+"error.no_secret_keys_for_decryption" = "请先导入或生成私钥，然后再解密。";
+"error.no_valid_passphrase" = "没有已保存的密码可以解密剪贴板文本。请打开解密并输入密码。";
 
 /* MARK: - OperationError Descriptions */
 "error.key_not_found.description" = "在您的密钥环中未找到密钥\"%@\"";
@@ -455,6 +480,12 @@
 "error.recipient_key_missing.description" = "收件人的公钥在您的密钥环中缺失。";
 "error.signer_key_missing.description" = "没有可用的私钥来签署消息。";
 "error.file_access_error.description" = "无法访问文件：%@";
+"error.security_scoped_access_denied.description" = "MacPGP 不再有权限访问：%@";
+"error.file_not_found.description" = "找不到文件：%@";
+"error.permission_denied.description" = "权限被拒绝：%@";
+"error.read_only_volume.description" = "目标位于只读卷上：%@";
+"error.disk_full.description" = "磁盘空间不足，无法写入：%@";
+"error.name_too_long.description" = "文件名或路径过长：%@";
 "error.unknown_error.description" = "发生意外错误：%@";
 
 /* MARK: - OperationError Recovery Suggestions */
@@ -478,6 +509,12 @@
 "error.recipient_key_missing.recovery" = "从密钥服务器搜索并导入收件人的公钥。";
 "error.signer_key_missing.recovery" = "生成密钥对以签署消息。";
 "error.file_access_error.recovery" = "在系统设置 > 隐私与安全中检查文件权限设置。";
+"error.security_scoped_access_denied.recovery" = "请重新选择文件或文件夹，然后再试。";
+"error.file_not_found.recovery" = "请重新选择该文件，或将其恢复到原始位置。";
+"error.permission_denied.recovery" = "请检查文件权限，或选择其他位置。";
+"error.read_only_volume.recovery" = "请选择可写文件夹，然后再试。";
+"error.disk_full.recovery" = "请释放磁盘空间，或选择其他目标位置。";
+"error.name_too_long.recovery" = "请重命名文件，或选择更短的文件夹路径。";
 "error.unknown_error.recovery" = "重试操作。如果问题持续存在，请重新启动应用程序。";
 
 /* MARK: - OperationError Failure Reasons */
@@ -510,6 +547,12 @@
 "error.recipient_key_missing.reason" = "收件人在您的密钥环中没有公钥。";
 "error.signer_key_missing.reason" = "未找到具有签名能力的私钥。";
 "error.file_access_error.reason" = "%@ 处的文件可能不存在或您可能没有访问权限。";
+"error.security_scoped_access_denied.reason" = "%@ 的沙盒访问授权不再可用。";
+"error.file_not_found.reason" = "%@ 处没有文件。";
+"error.permission_denied.reason" = "macOS 拒绝访问 %@。";
+"error.read_only_volume.reason" = "%@ 位于只读卷上。";
+"error.disk_full.reason" = "%@ 的目标位置没有足够可用空间。";
+"error.name_too_long.reason" = "%@ 超出支持的文件名或路径长度。";
 "error.unknown_error.reason" = "%@";
 
 /* MARK: - Success Messages */
@@ -519,6 +562,16 @@
 "success.key_imported" = "密钥导入成功";
 "success.key_exported" = "密钥导出成功";
 "success.key_deleted" = "密钥删除成功";
+"success.encryption_successful" = "加密完成";
+"success.clipboard_encrypted" = "剪贴板内容已加密。";
+"success.decryption_successful" = "解密完成";
+"success.clipboard_decrypted" = "剪贴板内容已解密。";
+
+/* MARK: - Backup Reminders */
+"BackupReminder.Title" = "备份您的密钥";
+"BackupReminder.Body" = "备份提醒已到期。请创建备份，以帮助保护对密钥的访问。";
+"BackupReminder.BodyWithLastBackup" = "您上次备份是在 %d 天前。请创建备份，以帮助保护对密钥的访问。";
+"BackupReminder.BodyNoBackup" = "请创建备份，以帮助保护对密钥的访问。";
 
 /* MARK: - Shared Components */
 "qr.unable_to_generate" = "无法生成二维码";

@@ -13,11 +13,6 @@ final class BackupReminderService {
         self.isTestEnvironment = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
                                  ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil ||
                                  NSClassFromString("XCTestCase") != nil
-
-        // Only schedule if not in test environment
-        if !isTestEnvironment {
-            scheduleReminderIfNeeded()
-        }
     }
 
     /// Schedules a backup reminder notification based on user preferences
@@ -33,6 +28,8 @@ final class BackupReminderService {
             return
         }
 
+        NotificationService.requestAuthorizationIfNeeded(on: notificationCenter)
+
         // Calculate when the next reminder should fire
         guard let nextReminderDate = calculateNextReminderDate() else {
             return
@@ -41,7 +38,7 @@ final class BackupReminderService {
         // Only schedule if the date is in the future
         guard nextReminderDate > Date() else {
             // If we're past due, show the reminder immediately
-            showBackupReminder()
+            showBackupReminderIfAllowed()
             return
         }
 
@@ -66,8 +63,8 @@ final class BackupReminderService {
     /// - Parameter date: The date when the reminder should fire
     private func scheduleReminder(for date: Date) {
         let content = UNMutableNotificationContent()
-        content.title = "Backup Your Keys"
-        content.body = "It's been \(PreferencesManager.shared.backupReminderIntervalDays) days since your last backup. Protect your keys by creating a backup now."
+        content.title = NSLocalizedString("BackupReminder.Title", comment: "Backup reminder notification title")
+        content.body = NSLocalizedString("BackupReminder.Body", comment: "Scheduled backup reminder notification body")
         content.sound = .default
         content.categoryIdentifier = "BACKUP_REMINDER"
 
@@ -87,16 +84,44 @@ final class BackupReminderService {
         }
     }
 
+    private func showBackupReminderIfAllowed() {
+        let intervalDays = PreferencesManager.shared.backupReminderIntervalDays
+
+        if let lastReminderDate = PreferencesManager.shared.lastBackupReminderDate,
+           let nextAllowedDate = Calendar.current.date(byAdding: .day, value: intervalDays, to: lastReminderDate),
+           nextAllowedDate > Date() {
+            return
+        }
+
+        showBackupReminder { [notificationCenter] wasQueued in
+            guard wasQueued else { return }
+
+            notificationCenter.getNotificationSettings { settings in
+                guard settings.authorizationStatus == .authorized ||
+                      settings.authorizationStatus == .provisional else {
+                    return
+                }
+
+                DispatchQueue.main.async {
+                    PreferencesManager.shared.lastBackupReminderDate = Date()
+                }
+            }
+        }
+    }
+
     /// Displays a backup reminder notification immediately
-    private func showBackupReminder() {
+    private func showBackupReminder(completion: @escaping (Bool) -> Void) {
         let content = UNMutableNotificationContent()
-        content.title = "Backup Your Keys"
+        content.title = NSLocalizedString("BackupReminder.Title", comment: "Backup reminder notification title")
 
         if let lastBackupDate = PreferencesManager.shared.lastBackupDate {
             let daysSinceBackup = Calendar.current.dateComponents([.day], from: lastBackupDate, to: Date()).day ?? 0
-            content.body = "It's been \(daysSinceBackup) days since your last backup. Protect your keys by creating a backup now."
+            content.body = String.localizedStringWithFormat(
+                NSLocalizedString("BackupReminder.BodyWithLastBackup", comment: "Immediate backup reminder body with days since last backup"),
+                daysSinceBackup
+            )
         } else {
-            content.body = "You haven't backed up your keys yet. Protect your keys by creating a backup now."
+            content.body = NSLocalizedString("BackupReminder.BodyNoBackup", comment: "Immediate backup reminder body when no backup exists")
         }
 
         content.sound = .default
@@ -112,6 +137,7 @@ final class BackupReminderService {
             if let error = error {
                 print("Failed to deliver backup reminder: \(error.localizedDescription)")
             }
+            completion(error == nil)
         }
     }
 

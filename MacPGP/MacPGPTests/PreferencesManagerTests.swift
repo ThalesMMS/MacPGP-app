@@ -7,6 +7,7 @@ struct PreferencesManagerTests {
     private enum TestDefaultsKeys {
         static let defaultKeySize = "defaultKeySize"
         static let defaultKeyAlgorithm = "defaultKeyAlgorithm"
+        static let backupReminderEnabled = "backupReminderEnabled"
     }
 
     // MARK: - Helpers
@@ -18,6 +19,10 @@ struct PreferencesManagerTests {
 
     private func cleanupAlgorithmKey() {
         UserDefaults.standard.removeObject(forKey: TestDefaultsKeys.defaultKeyAlgorithm)
+    }
+
+    private func cleanupBackupReminderEnabledKey() {
+        UserDefaults.standard.removeObject(forKey: TestDefaultsKeys.backupReminderEnabled)
     }
 
     // MARK: - defaultKeyAlgorithm
@@ -136,5 +141,26 @@ struct PreferencesManagerTests {
             PreferencesManager.shared.defaultKeySize = size
             #expect(PreferencesManager.shared.defaultKeySize == size)
         }
+    }
+
+    // MARK: - backupReminderEnabled
+
+    @Test("backupReminderEnabled defaults off until user opts in")
+    func testBackupReminderEnabledDefaultsOff() {
+        defer { cleanupBackupReminderEnabledKey() }
+
+        UserDefaults.standard.removeObject(forKey: TestDefaultsKeys.backupReminderEnabled)
+        #expect(PreferencesManager.shared.backupReminderEnabled == false)
+    }
+
+    @Test("backupReminderEnabled persists enabled and disabled values")
+    func testBackupReminderEnabledRoundTripPersistence() {
+        defer { cleanupBackupReminderEnabledKey() }
+
+        PreferencesManager.shared.backupReminderEnabled = true
+        #expect(PreferencesManager.shared.backupReminderEnabled == true)
+
+        PreferencesManager.shared.backupReminderEnabled = false
+        #expect(PreferencesManager.shared.backupReminderEnabled == false)
     }
 }

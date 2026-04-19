@@ -3,17 +3,35 @@ import UserNotifications
 
 @Observable
 final class NotificationService {
+    private static let authorizationQueue = DispatchQueue(label: "com.macpgp.notification-authorization")
+    private static var hasRequestedAuthorizationThisSession = false
+
     private let notificationCenter = UNUserNotificationCenter.current()
 
-    init() {
-        requestAuthorization()
+    /// Requests authorization to display notifications when permission has not been decided yet.
+    func requestAuthorizationIfNeeded() {
+        Self.requestAuthorizationIfNeeded(on: notificationCenter)
     }
 
-    /// Requests authorization to display notifications
-    private func requestAuthorization() {
-        notificationCenter.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error = error {
-                print("Notification authorization error: \(error.localizedDescription)")
+    /// Requests authorization to display notifications when permission has not been decided yet.
+    static func requestAuthorizationIfNeeded(on notificationCenter: UNUserNotificationCenter = .current()) {
+        notificationCenter.getNotificationSettings { settings in
+            guard settings.authorizationStatus == .notDetermined else {
+                return
+            }
+
+            authorizationQueue.async {
+                guard !hasRequestedAuthorizationThisSession else {
+                    return
+                }
+
+                hasRequestedAuthorizationThisSession = true
+
+                notificationCenter.requestAuthorization(options: [.alert, .sound, .badge]) { _, error in
+                    if let error = error {
+                        print("Notification authorization error: \(error.localizedDescription)")
+                    }
+                }
             }
         }
     }
@@ -31,31 +49,7 @@ final class NotificationService {
     ///   - title: The notification title
     ///   - message: The notification message body
     func showError(title: String, message: String) {
-        sendNotification(title: title, message: message, identifier: "error", sound: .defaultCritical)
-    }
-
-    /// Displays a backup success notification
-    /// - Parameters:
-    ///   - title: The notification title
-    ///   - message: The notification message body
-    func showBackupSuccess(title: String, message: String) {
-        sendNotification(title: title, message: message, identifier: "backup-success", sound: .default)
-    }
-
-    /// Displays a backup reminder notification
-    /// - Parameters:
-    ///   - title: The notification title
-    ///   - message: The notification message body
-    func showBackupReminder(title: String, message: String) {
-        sendNotification(title: title, message: message, identifier: "backup-reminder", sound: .default)
-    }
-
-    /// Displays a restore success notification
-    /// - Parameters:
-    ///   - title: The notification title
-    ///   - message: The notification message body
-    func showRestoreSuccess(title: String, message: String) {
-        sendNotification(title: title, message: message, identifier: "restore-success", sound: .default)
+        sendNotification(title: title, message: message, identifier: "error", sound: .default)
     }
 
     /// Sends a notification to the user

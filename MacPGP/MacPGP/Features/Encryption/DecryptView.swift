@@ -3,12 +3,12 @@ import SwiftUI
 struct DecryptView: View {
     @Environment(KeyringService.self) private var keyringService
     @Environment(SessionStateManager.self) private var sessionState
+    @Environment(NotificationService.self) private var notificationService
     @State private var passphrase = ""
     @State private var showingPassphrasePrompt = false
     @State private var isProcessing = false
     @State private var errorMessage: String?
     @State private var showingError = false
-    @State private var notificationService = NotificationService()
     @State private var isClipboardOperation = false
 
     private var encryptionService: EncryptionService {
@@ -444,7 +444,7 @@ struct DecryptView: View {
                 }
             } catch {
                 await MainActor.run {
-                    errorMessage = error.localizedDescription
+                    errorMessage = error.userFacingMessage
                     showingError = true
                 }
             }
@@ -458,6 +458,8 @@ struct DecryptView: View {
     }
 
     private func decryptFromClipboard() {
+        notificationService.requestAuthorizationIfNeeded()
+
         // Read encrypted text from clipboard
         guard let clipboardText = NSPasteboard.general.string(forType: .string),
               !clipboardText.isEmpty else {
@@ -544,7 +546,7 @@ struct DecryptView: View {
                 }
             } catch {
                 await MainActor.run {
-                    errorMessage = error.localizedDescription
+                    errorMessage = error.userFacingMessage
                     showingError = true
                 }
             }
@@ -595,5 +597,6 @@ struct DecryptView: View {
     DecryptView()
         .environment(KeyringService())
         .environment(SessionStateManager())
+        .environment(NotificationService())
         .frame(width: 800, height: 600)
 }

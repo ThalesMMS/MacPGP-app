@@ -40,6 +40,7 @@ final class PreferencesManager {
         static let autoSaveKeyring = "autoSaveKeyring"
         static let armorOutput = "armorOutput"
         static let lastBackupDate = "lastBackupDate"
+        static let lastBackupReminderDate = "lastBackupReminderDate"
         static let backupReminderEnabled = "backupReminderEnabled"
         static let backupReminderIntervalDays = "backupReminderIntervalDays"
         static let defaultKeyServer = "defaultKeyServer"
@@ -133,10 +134,15 @@ final class PreferencesManager {
         set { defaults.set(newValue, forKey: Keys.lastBackupDate) }
     }
 
+    var lastBackupReminderDate: Date? {
+        get { defaults.object(forKey: Keys.lastBackupReminderDate) as? Date }
+        set { defaults.set(newValue, forKey: Keys.lastBackupReminderDate) }
+    }
+
     var backupReminderEnabled: Bool {
         get {
             if defaults.object(forKey: Keys.backupReminderEnabled) == nil {
-                return true
+                return false
             }
             return defaults.bool(forKey: Keys.backupReminderEnabled)
         }

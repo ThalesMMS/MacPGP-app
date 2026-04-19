@@ -365,6 +365,20 @@
 "settings.backup_never" = "Never";
 "settings.backup_note" = "Backup Note";
 "settings.backup_note_message" = "Regular backups protect your keys from data loss. Export your keys to a secure location and store them safely.";
+"settings.backup.reminders" = "Backup Reminders";
+"settings.backup.enable_reminders" = "Enable backup reminders";
+"settings.backup.notification_permission_note" = "MacPGP asks for notification permission only when backup reminders are enabled.";
+"settings.backup.remind_every" = "Remind me every";
+"settings.backup.interval.7_days" = "7 days";
+"settings.backup.interval.14_days" = "14 days";
+"settings.backup.interval.30_days" = "30 days";
+"settings.backup.interval.60_days" = "60 days";
+"settings.backup.interval.90_days" = "90 days";
+"settings.backup.status" = "Backup Status";
+"settings.backup.last_backup" = "Last backup";
+"settings.backup.never" = "Never";
+"settings.backup.note_title" = "Backup Note";
+"settings.backup.note_message" = "Regular backups protect your keys from data loss. Export your keys to a secure location and store them safely.";
 "settings.keyserver" = "Keyserver";
 
 /* MARK: - Keyserver Settings */
@@ -422,8 +436,19 @@
 "error.delete_failed" = "Failed to delete key: %@";
 "error.encryption_failed" = "Encryption failed: %@";
 "error.decryption_failed" = "Decryption failed: %@";
+"error.encryption_failed.title" = "Encryption Failed";
+"error.decryption_failed.title" = "Decryption Failed";
 "error.signing_failed" = "Signing failed: %@";
 "error.verification_failed" = "Verification failed: %@";
+"error.clipboard_empty" = "Clipboard Empty";
+"error.no_text_in_clipboard" = "The clipboard does not contain text.";
+"error.no_recipients" = "No Recipients Selected";
+"error.select_recipients_first" = "Select at least one recipient before encrypting.";
+"error.passphrase_required" = "Passphrase Required";
+"error.enter_passphrase_for_signing" = "Enter the signing key passphrase in the Encrypt view.";
+"error.no_secret_keys" = "No Secret Keys";
+"error.no_secret_keys_for_decryption" = "Import or generate a secret key before decrypting.";
+"error.no_valid_passphrase" = "No saved passphrase could decrypt the clipboard text. Open Decrypt and enter the passphrase.";
 
 /* MARK: - OperationError Descriptions */
 "error.key_not_found.description" = "Key \"%@\" was not found in your keyring";
@@ -455,6 +480,12 @@
 "error.recipient_key_missing.description" = "The recipient's public key is missing from your keyring.";
 "error.signer_key_missing.description" = "No private key is available to sign the message.";
 "error.file_access_error.description" = "Unable to access the file at: %@";
+"error.security_scoped_access_denied.description" = "MacPGP no longer has permission to access: %@";
+"error.file_not_found.description" = "The file could not be found: %@";
+"error.permission_denied.description" = "Permission was denied for: %@";
+"error.read_only_volume.description" = "The destination is on a read-only volume: %@";
+"error.disk_full.description" = "There is not enough disk space to write: %@";
+"error.name_too_long.description" = "The file name or path is too long: %@";
 "error.unknown_error.description" = "An unexpected error occurred: %@";
 
 /* MARK: - OperationError Recovery Suggestions */
@@ -478,6 +509,12 @@
 "error.recipient_key_missing.recovery" = "Search for and Import the recipient's public key from a keyserver.";
 "error.signer_key_missing.recovery" = "Generate a key pair to sign messages.";
 "error.file_access_error.recovery" = "Check file permission settings in System Settings > Privacy & Security.";
+"error.security_scoped_access_denied.recovery" = "Please re-select the file or folder, then try again.";
+"error.file_not_found.recovery" = "Choose the file again or restore it to its original location.";
+"error.permission_denied.recovery" = "Check file permissions or choose a different location.";
+"error.read_only_volume.recovery" = "Choose a writable folder and try again.";
+"error.disk_full.recovery" = "Free up disk space or choose a different destination.";
+"error.name_too_long.recovery" = "Rename the file or choose a shorter folder path.";
 "error.unknown_error.recovery" = "Try the operation again. If the problem persists, restart the application.";
 
 /* MARK: - OperationError Failure Reasons */
@@ -510,6 +547,12 @@
 "error.recipient_key_missing.reason" = "The recipient does not have a public key in your keyring.";
 "error.signer_key_missing.reason" = "No signing-capable private key was found.";
 "error.file_access_error.reason" = "The file at %@ may not exist or you may not have permission to access it.";
+"error.security_scoped_access_denied.reason" = "The sandbox access grant for %@ is no longer available.";
+"error.file_not_found.reason" = "No file exists at %@.";
+"error.permission_denied.reason" = "macOS denied access to %@.";
+"error.read_only_volume.reason" = "%@ is on a read-only volume.";
+"error.disk_full.reason" = "The destination for %@ does not have enough free space.";
+"error.name_too_long.reason" = "%@ exceeds the supported file name or path length.";
 "error.unknown_error.reason" = "%@";
 
 /* MARK: - Success Messages */
@@ -519,6 +562,16 @@
 "success.key_imported" = "Key imported successfully";
 "success.key_exported" = "Key exported successfully";
 "success.key_deleted" = "Key deleted successfully";
+"success.encryption_successful" = "Encryption Complete";
+"success.clipboard_encrypted" = "Clipboard contents were encrypted.";
+"success.decryption_successful" = "Decryption Complete";
+"success.clipboard_decrypted" = "Clipboard contents were decrypted.";
+
+/* MARK: - Backup Reminders */
+"BackupReminder.Title" = "Back Up Your Keys";
+"BackupReminder.Body" = "Your backup reminder is due. Create a backup to help protect access to your keys.";
+"BackupReminder.BodyWithLastBackup" = "Your last backup was %d days ago. Create a backup to help protect access to your keys.";
+"BackupReminder.BodyNoBackup" = "Create a backup to help protect access to your keys.";
 
 /* MARK: - Shared Components */
 "qr.unable_to_generate" = "Unable to generate QR code";

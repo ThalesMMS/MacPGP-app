@@ -365,6 +365,20 @@
 "settings.backup_never" = "Jamais";
 "settings.backup_note" = "Note sur la sauvegarde";
 "settings.backup_note_message" = "Des sauvegardes régulières protègent vos clés contre la perte de données. Exportez vos clés vers un emplacement sécurisé et conservez-les en lieu sûr.";
+"settings.backup.reminders" = "Rappels de sauvegarde";
+"settings.backup.enable_reminders" = "Activer les rappels de sauvegarde";
+"settings.backup.notification_permission_note" = "MacPGP demande l'autorisation d'envoyer des notifications uniquement lorsque les rappels de sauvegarde sont activés.";
+"settings.backup.remind_every" = "Me rappeler tous les";
+"settings.backup.interval.7_days" = "7 jours";
+"settings.backup.interval.14_days" = "14 jours";
+"settings.backup.interval.30_days" = "30 jours";
+"settings.backup.interval.60_days" = "60 jours";
+"settings.backup.interval.90_days" = "90 jours";
+"settings.backup.status" = "État de la sauvegarde";
+"settings.backup.last_backup" = "Dernière sauvegarde";
+"settings.backup.never" = "Jamais";
+"settings.backup.note_title" = "Note sur la sauvegarde";
+"settings.backup.note_message" = "Des sauvegardes régulières protègent vos clés contre la perte de données. Exportez vos clés vers un emplacement sécurisé et conservez-les en lieu sûr.";
 "settings.keyserver" = "Serveur de clés";
 
 /* MARK: - Keyserver Settings */
@@ -422,8 +436,19 @@
 "error.delete_failed" = "Échec de la suppression de la clé : %@";
 "error.encryption_failed" = "Échec du chiffrement : %@";
 "error.decryption_failed" = "Échec du déchiffrement : %@";
+"error.encryption_failed.title" = "Échec du chiffrement";
+"error.decryption_failed.title" = "Échec du déchiffrement";
 "error.signing_failed" = "Échec de la signature : %@";
 "error.verification_failed" = "Échec de la vérification : %@";
+"error.clipboard_empty" = "Presse-papiers vide";
+"error.no_text_in_clipboard" = "Le presse-papiers ne contient pas de texte.";
+"error.no_recipients" = "Aucun destinataire sélectionné";
+"error.select_recipients_first" = "Sélectionnez au moins un destinataire avant de chiffrer.";
+"error.passphrase_required" = "Mot de passe requis";
+"error.enter_passphrase_for_signing" = "Entrez le mot de passe de la clé de signature dans la vue Chiffrer.";
+"error.no_secret_keys" = "Aucune clé secrète";
+"error.no_secret_keys_for_decryption" = "Importez ou générez une clé secrète avant de déchiffrer.";
+"error.no_valid_passphrase" = "Aucun mot de passe enregistré n'a permis de déchiffrer le texte du presse-papiers. Ouvrez Déchiffrer et entrez le mot de passe.";
 
 /* MARK: - OperationError Descriptions */
 "error.key_not_found.description" = "La clé «%@» est introuvable dans votre trousseau";
@@ -455,6 +480,12 @@
 "error.recipient_key_missing.description" = "La clé publique du destinataire est manquante dans votre trousseau.";
 "error.signer_key_missing.description" = "Aucune clé privée n'est disponible pour signer le message.";
 "error.file_access_error.description" = "Impossible d'accéder au fichier : %@";
+"error.security_scoped_access_denied.description" = "MacPGP n'a plus l'autorisation d'accéder à : %@";
+"error.file_not_found.description" = "Le fichier est introuvable : %@";
+"error.permission_denied.description" = "Autorisation refusée pour : %@";
+"error.read_only_volume.description" = "La destination se trouve sur un volume en lecture seule : %@";
+"error.disk_full.description" = "Espace disque insuffisant pour écrire : %@";
+"error.name_too_long.description" = "Le nom de fichier ou le chemin est trop long : %@";
 "error.unknown_error.description" = "Une erreur inattendue s'est produite : %@";
 
 /* MARK: - OperationError Recovery Suggestions */
@@ -478,6 +509,12 @@
 "error.recipient_key_missing.recovery" = "Recherchez et importez la clé publique du destinataire depuis un serveur de clés.";
 "error.signer_key_missing.recovery" = "Générez une paire de clés pour signer des messages.";
 "error.file_access_error.recovery" = "Vérifiez les permissions de fichier dans Réglages Système > Confidentialité et Sécurité.";
+"error.security_scoped_access_denied.recovery" = "Sélectionnez à nouveau le fichier ou le dossier, puis réessayez.";
+"error.file_not_found.recovery" = "Choisissez à nouveau le fichier ou restaurez-le à son emplacement d'origine.";
+"error.permission_denied.recovery" = "Vérifiez les permissions du fichier ou choisissez un autre emplacement.";
+"error.read_only_volume.recovery" = "Choisissez un dossier accessible en écriture, puis réessayez.";
+"error.disk_full.recovery" = "Libérez de l'espace disque ou choisissez une autre destination.";
+"error.name_too_long.recovery" = "Renommez le fichier ou choisissez un chemin de dossier plus court.";
 "error.unknown_error.recovery" = "Réessayez l'opération. Si le problème persiste, redémarrez l'application.";
 
 /* MARK: - OperationError Failure Reasons */
@@ -510,6 +547,12 @@
 "error.recipient_key_missing.reason" = "Le destinataire n'a pas de clé publique dans votre trousseau.";
 "error.signer_key_missing.reason" = "Aucune clé privée capable de signer n'a été trouvée.";
 "error.file_access_error.reason" = "Le fichier à %@ n'existe peut-être pas ou vous n'avez pas la permission d'y accéder.";
+"error.security_scoped_access_denied.reason" = "L'autorisation d'accès sandbox pour %@ n'est plus disponible.";
+"error.file_not_found.reason" = "Aucun fichier n'existe à %@.";
+"error.permission_denied.reason" = "macOS a refusé l'accès à %@.";
+"error.read_only_volume.reason" = "%@ se trouve sur un volume en lecture seule.";
+"error.disk_full.reason" = "La destination pour %@ ne dispose pas d'assez d'espace libre.";
+"error.name_too_long.reason" = "%@ dépasse la longueur de nom de fichier ou de chemin prise en charge.";
 "error.unknown_error.reason" = "%@";
 
 
@@ -520,6 +563,16 @@
 "success.key_imported" = "Clé importée avec succès";
 "success.key_exported" = "Clé exportée avec succès";
 "success.key_deleted" = "Clé supprimée avec succès";
+"success.encryption_successful" = "Chiffrement terminé";
+"success.clipboard_encrypted" = "Le contenu du presse-papiers a été chiffré.";
+"success.decryption_successful" = "Déchiffrement terminé";
+"success.clipboard_decrypted" = "Le contenu du presse-papiers a été déchiffré.";
+
+/* MARK: - Backup Reminders */
+"BackupReminder.Title" = "Sauvegarder vos clés";
+"BackupReminder.Body" = "Votre rappel de sauvegarde est arrivé. Créez une sauvegarde pour aider à protéger l'accès à vos clés.";
+"BackupReminder.BodyWithLastBackup" = "Votre dernière sauvegarde date de %d jours. Créez une sauvegarde pour aider à protéger l'accès à vos clés.";
+"BackupReminder.BodyNoBackup" = "Créez une sauvegarde pour aider à protéger l'accès à vos clés.";
 
 /* MARK: - Shared Components */
 "qr.unable_to_generate" = "Impossible de générer le code QR";

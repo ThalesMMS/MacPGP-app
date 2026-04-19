@@ -21,6 +21,12 @@ enum OperationError: LocalizedError {
     case recipientKeyMissing
     case signerKeyMissing
     case fileAccessError(path: String)
+    case securityScopedAccessDenied(path: String)
+    case fileNotFound(path: String)
+    case permissionDenied(path: String)
+    case readOnlyVolume(path: String)
+    case diskFull(path: String)
+    case nameTooLong(path: String)
     case unknownError(message: String)
 
     var errorDescription: String? {
@@ -101,6 +107,18 @@ enum OperationError: LocalizedError {
             return NSLocalizedString("error.signer_key_missing.description", comment: "Error description when signer's private key is missing")
         case .fileAccessError(let path):
             return String(format: NSLocalizedString("error.file_access_error.description", comment: "Error description when unable to access a file at a specific path"), path)
+        case .securityScopedAccessDenied(let path):
+            return String(format: NSLocalizedString("error.security_scoped_access_denied.description", comment: "Error description when sandbox file access permission is no longer available"), path)
+        case .fileNotFound(let path):
+            return String(format: NSLocalizedString("error.file_not_found.description", comment: "Error description when a file is missing"), path)
+        case .permissionDenied(let path):
+            return String(format: NSLocalizedString("error.permission_denied.description", comment: "Error description when file permission is denied"), path)
+        case .readOnlyVolume(let path):
+            return String(format: NSLocalizedString("error.read_only_volume.description", comment: "Error description when writing to a read-only volume"), path)
+        case .diskFull(let path):
+            return String(format: NSLocalizedString("error.disk_full.description", comment: "Error description when the destination disk is full"), path)
+        case .nameTooLong(let path):
+            return String(format: NSLocalizedString("error.name_too_long.description", comment: "Error description when the file name is too long"), path)
         case .unknownError(let message):
             return String(format: NSLocalizedString("error.unknown_error.description", comment: "Error description for unexpected errors"), message)
         }
@@ -148,6 +166,18 @@ enum OperationError: LocalizedError {
             return NSLocalizedString("error.signer_key_missing.recovery", comment: "Recovery suggestion when signer's key is missing")
         case .fileAccessError:
             return NSLocalizedString("error.file_access_error.recovery", comment: "Recovery suggestion when file access fails")
+        case .securityScopedAccessDenied:
+            return NSLocalizedString("error.security_scoped_access_denied.recovery", comment: "Recovery suggestion when sandbox file access permission is no longer available")
+        case .fileNotFound:
+            return NSLocalizedString("error.file_not_found.recovery", comment: "Recovery suggestion when a file is missing")
+        case .permissionDenied:
+            return NSLocalizedString("error.permission_denied.recovery", comment: "Recovery suggestion when file permission is denied")
+        case .readOnlyVolume:
+            return NSLocalizedString("error.read_only_volume.recovery", comment: "Recovery suggestion when writing to a read-only volume")
+        case .diskFull:
+            return NSLocalizedString("error.disk_full.recovery", comment: "Recovery suggestion when the destination disk is full")
+        case .nameTooLong:
+            return NSLocalizedString("error.name_too_long.recovery", comment: "Recovery suggestion when the file name is too long")
         case .unknownError:
             return NSLocalizedString("error.unknown_error.recovery", comment: "Recovery suggestion for unexpected errors")
         }
@@ -231,8 +261,33 @@ enum OperationError: LocalizedError {
             return NSLocalizedString("error.signer_key_missing.reason", comment: "Failure reason when signer's key is missing")
         case .fileAccessError(let path):
             return String(format: NSLocalizedString("error.file_access_error.reason", comment: "Failure reason when file access fails"), path)
+        case .securityScopedAccessDenied(let path):
+            return String(format: NSLocalizedString("error.security_scoped_access_denied.reason", comment: "Failure reason when sandbox file access permission is no longer available"), path)
+        case .fileNotFound(let path):
+            return String(format: NSLocalizedString("error.file_not_found.reason", comment: "Failure reason when a file is missing"), path)
+        case .permissionDenied(let path):
+            return String(format: NSLocalizedString("error.permission_denied.reason", comment: "Failure reason when file permission is denied"), path)
+        case .readOnlyVolume(let path):
+            return String(format: NSLocalizedString("error.read_only_volume.reason", comment: "Failure reason when writing to a read-only volume"), path)
+        case .diskFull(let path):
+            return String(format: NSLocalizedString("error.disk_full.reason", comment: "Failure reason when the destination disk is full"), path)
+        case .nameTooLong(let path):
+            return String(format: NSLocalizedString("error.name_too_long.reason", comment: "Failure reason when the file name is too long"), path)
         case .unknownError(let message):
             return String(format: NSLocalizedString("error.unknown_error.reason", comment: "Failure reason for unexpected errors"), message)
         }
+    }
+}
+
+extension Error {
+    var userFacingMessage: String {
+        var message = localizedDescription
+
+        if let recoverySuggestion = (self as? LocalizedError)?.recoverySuggestion,
+           !recoverySuggestion.isEmpty {
+            message += "\n\n\(recoverySuggestion)"
+        }
+
+        return message
     }
 }

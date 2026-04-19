@@ -33,11 +33,15 @@ final class PGPMetadataExtractor {
     /// - Returns: Metadata extracted from the file
     /// - Throws: Error if file cannot be read or is not encrypted
     func extractMetadata(from url: URL) throws -> Metadata {
-        guard FileManager.default.fileExists(atPath: url.path) else {
+        let data: Data
+        do {
+            data = try SecureScopedFileAccess.readData(from: url)
+        } catch let error as OperationError {
+            throw error
+        } catch {
             throw OperationError.fileAccessError(path: url.path)
         }
 
-        let data = try Data(contentsOf: url)
         return try extractMetadata(from: data, fileURL: url)
     }
 
