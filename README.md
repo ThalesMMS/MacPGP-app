@@ -2,7 +2,7 @@
 
 ![Platform: macOS Tahoe 26.2+](https://img.shields.io/badge/platform-macOS%20Tahoe%2026.2%2B-blue)
 ![UI: SwiftUI](https://img.shields.io/badge/UI-SwiftUI-orange)
-![License: BSD 3-Clause](https://img.shields.io/badge/license-BSD%203--Clause-lightgrey)
+![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-lightgrey)
 
 ![UI Screenshot](screenshot.png)
 
@@ -14,6 +14,7 @@ MacPGP is distributed through the Mac App Store.
 
 - Requires macOS Tahoe 26.2 or later
 - Apple Silicon is recommended. The current vendored OpenPGP bridge is `arm64`-only, so Intel Macs are not a supported build target.
+- Mac App Store: App Store link will be added at launch
 - Release notes: [CHANGELOG.md](CHANGELOG.md)
 
 ## What MacPGP Does
@@ -57,7 +58,8 @@ Development setup and build instructions are in [DEVELOPMENT.md](DEVELOPMENT.md)
 
 ## License
 
-BSD 3-Clause License - see [LICENSE](LICENSE) for details.
+Apache License 2.0 - see [LICENSE](LICENSE) for details. Third-party notices for
+the vendored OpenPGP bridge are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Privacy
 

@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 final class EncryptionService {
     private let keyringService: KeyringService
@@ -51,14 +51,14 @@ final class EncryptionService {
             if let signerKey = signerKey, let passphrase = passphrase {
                 var allKeys = recipientKeys
                 allKeys.append(signerKey)
-                encryptedData = try ObjectivePGP.encrypt(
+                encryptedData = try RNP.encrypt(
                     data,
                     addSignature: true,
                     using: allKeys,
                     passphraseForKey: { _ in passphrase }
                 )
             } else {
-                encryptedData = try ObjectivePGP.encrypt(data, addSignature: false, using: recipientKeys)
+                encryptedData = try RNP.encrypt(data, addSignature: false, using: recipientKeys)
             }
 
             if armored {
@@ -67,7 +67,7 @@ final class EncryptionService {
             }
 
             return encryptedData
-        } catch ObjectivePGPError.missingSigningKey {
+        } catch RNPError.missingSigningKey {
             throw OperationError.signerKeyMissing
         } catch {
             throw OperationError.encryptionFailed(underlying: error)
@@ -154,18 +154,16 @@ final class EncryptionService {
         }
 
         do {
-            let decryptedData = try ObjectivePGP.decrypt(
+            let decryptedData = try RNP.decrypt(
                 data,
                 andVerifySignature: false,
                 using: [rawKey],
                 passphraseForKey: { _ in passphrase }
             )
             return decryptedData
+        } catch RNPError.invalidPassphrase {
+            throw OperationError.invalidPassphrase
         } catch {
-            let nsError = error as NSError
-            if nsError.domain == "ObjectivePGP" && nsError.code == 2 {
-                throw OperationError.invalidPassphrase
-            }
             throw OperationError.decryptionFailed(underlying: error)
         }
     }

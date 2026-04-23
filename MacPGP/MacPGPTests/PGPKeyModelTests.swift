@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 import Testing
 @testable import MacPGP
 
@@ -58,7 +58,7 @@ struct PGPKeyModelTests {
         }
 
         let data = try Data(contentsOf: fixtureURL)
-        let keys = try ObjectivePGP.readKeys(from: data)
+        let keys = try RNP.readKeys(from: data)
 
         guard let key = keys.first else {
             throw FixtureError.emptyFixture(name)

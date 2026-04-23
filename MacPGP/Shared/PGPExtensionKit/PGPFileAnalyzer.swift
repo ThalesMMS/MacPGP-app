@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 /// Analyzes PGP files to determine encryption status and file type without performing decryption
 final class PGPFileAnalyzer {
@@ -153,7 +153,7 @@ final class PGPFileAnalyzer {
                 return .signed
             }
             if content.contains("-----BEGIN PGP MESSAGE-----") {
-                let inspection = try ObjectivePGP.inspect(data)
+                let inspection = try RNP.inspect(data)
                 if inspection.isEncrypted && inspection.isSigned {
                     return .encryptedAndSigned
                 }
@@ -161,11 +161,11 @@ final class PGPFileAnalyzer {
             }
         }
 
-        if let keys = try? ObjectivePGP.readKeys(from: data), !keys.isEmpty {
+        if let keys = try? RNP.readKeys(from: data), !keys.isEmpty {
             return keys.contains(where: \.isSecret) ? .privateKey : .publicKey
         }
 
-        let inspection = try ObjectivePGP.inspect(data)
+        let inspection = try RNP.inspect(data)
         if inspection.isEncrypted && inspection.isSigned {
             return .encryptedAndSigned
         }

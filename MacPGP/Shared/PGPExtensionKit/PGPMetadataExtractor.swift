@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 /// Extracts metadata from PGP encrypted files without performing decryption
 final class PGPMetadataExtractor {
@@ -52,7 +52,7 @@ final class PGPMetadataExtractor {
     /// - Returns: Metadata extracted from the data
     /// - Throws: Error if data is not encrypted or cannot be parsed
     func extractMetadata(from data: Data, fileURL: URL? = nil) throws -> Metadata {
-        let inspection = try ObjectivePGP.inspect(data)
+        let inspection = try RNP.inspect(data)
         guard inspection.isEncrypted else {
             throw OperationError.decryptionFailed(underlying: nil)
         }

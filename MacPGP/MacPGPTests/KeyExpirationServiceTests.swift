@@ -7,7 +7,7 @@
 
 import Testing
 import Foundation
-import ObjectivePGP
+import RNPKit
 @testable import MacPGP
 
 @Suite("KeyExpirationService Tests")
@@ -29,7 +29,7 @@ struct KeyExpirationServiceTests {
         let expirationDate: Date? = days != nil ? Calendar.current.date(byAdding: .day, value: days!, to: Date()) : nil
 
         // We'll create a custom key model using the Key's actual structure
-        // For testing purposes, we use the actual key and rely on ObjectivePGP's expiration handling
+        // For testing purposes, we use the actual key and rely on RNP-backed expiration handling
         return modifiedKey
     }
 

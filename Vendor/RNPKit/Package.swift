@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "ObjectivePGP",
+    name: "RNPKit",
     platforms: [
         .macOS(.v13)
     ],
     products: [
         .library(
-            name: "ObjectivePGP",
-            targets: ["ObjectivePGP"]
+            name: "RNPKit",
+            targets: ["RNPKit"]
         )
     ],
     targets: [
@@ -18,7 +18,7 @@ let package = Package(
             path: "../RNPBridge/RNPBridge.xcframework"
         ),
         .target(
-            name: "ObjectivePGP",
+            name: "RNPKit",
             dependencies: ["RNPBridge"],
             linkerSettings: [
                 .linkedLibrary("bz2"),

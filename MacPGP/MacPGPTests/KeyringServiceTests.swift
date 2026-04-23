@@ -7,7 +7,7 @@
 
 import Testing
 import Foundation
-import ObjectivePGP
+import RNPKit
 @testable import MacPGP
 
 @MainActor
@@ -151,7 +151,7 @@ struct KeyringServiceTests {
         }
     }
 
-    @Test("Raw key lookup returns matching ObjectivePGP key")
+    @Test("Raw key lookup returns matching RNP key")
     func testRawKeyLookup() {
         let service = KeyringService()
 

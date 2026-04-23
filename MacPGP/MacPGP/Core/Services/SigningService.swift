@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 enum VerificationOutcome: Sendable, Equatable {
     case valid
@@ -183,7 +183,7 @@ final class SigningService {
         }
 
         do {
-            var signedData = try ObjectivePGP.sign(
+            var signedData = try RNP.sign(
                 data,
                 detached: detached,
                 using: [snapshot.rawKey],
@@ -197,11 +197,9 @@ final class SigningService {
             }
 
             return signedData
+        } catch RNPError.invalidPassphrase {
+            throw OperationError.invalidPassphrase
         } catch {
-            let nsError = error as NSError
-            if nsError.domain == "ObjectivePGP" && nsError.code == 2 {
-                throw OperationError.invalidPassphrase
-            }
             throw OperationError.signingFailed(underlying: error)
         }
     }
@@ -403,7 +401,7 @@ final class SigningService {
         }
 
         do {
-            try ObjectivePGP.verify(data, withSignature: signature, using: allKeys)
+            try RNP.verify(data, withSignature: signature, using: allKeys)
 
             let signerShortID = extractIssuerKeyID(from: signature ?? data).flatMap { issuerKeyID in
                 snapshots.first {

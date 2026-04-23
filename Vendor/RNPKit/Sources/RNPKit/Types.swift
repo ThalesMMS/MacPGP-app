@@ -193,7 +193,7 @@ public struct Key: Hashable, Sendable {
 
     public func exportPublic() throws -> Data {
         guard let publicKey else {
-            throw ObjectivePGPError.missingPublicKey
+            throw RNPError.missingPublicKey
         }
         return publicKey.exportedData
     }
@@ -204,7 +204,7 @@ public struct Key: Hashable, Sendable {
         reason: String? = nil,
         passphraseForKey: ((Key) -> String?)? = nil
     ) throws -> Data {
-        try RNP.exportRevocation(
+        try RNPBackend.exportRevocation(
             for: self,
             hash: hash,
             reasonCode: reasonCode,
@@ -217,7 +217,7 @@ public struct Key: Hashable, Sendable {
         _ certificate: Data,
         passphraseForKey: ((Key) -> String?)? = nil
     ) throws -> Key {
-        try RNP.applyRevocation(
+        try RNPBackend.applyRevocation(
             certificate,
             to: self,
             passphraseForKey: passphraseForKey
@@ -228,7 +228,7 @@ public struct Key: Hashable, Sendable {
         _ expirationDate: Date?,
         passphraseForKey: ((Key) -> String?)? = nil
     ) throws -> Key {
-        try RNP.setExpiration(
+        try RNPBackend.setExpiration(
             expirationDate,
             for: self,
             passphraseForKey: passphraseForKey
@@ -278,9 +278,12 @@ public struct MessageInspection: Sendable {
     public let outputData: Data?
 }
 
-public enum ObjectivePGPError: Error {
+public enum RNPError: Error, Equatable {
+    public static let errorDomain = "RNPKit"
+
     case missingPublicKey
     case missingSecretKey
     case missingDecryptedOutput
     case missingSigningKey
+    case invalidPassphrase
 }

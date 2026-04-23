@@ -17,7 +17,7 @@ private func rnpPasswordCallback(
         return false
     }
 
-    let box = Unmanaged<RNP.PasswordProviderBox>.fromOpaque(context).takeUnretainedValue()
+    let box = Unmanaged<RNPBackend.PasswordProviderBox>.fromOpaque(context).takeUnretainedValue()
     guard let password = box.password(for: key) else {
         return false
     }
@@ -34,12 +34,9 @@ private func rnpPasswordCallback(
     }
 }
 
-enum RNP {
+enum RNPBackend {
     private static let publicKeyFormat = "GPG"
     private static let secretKeyFormat = "GPG"
-    private static let objectivePGPDomain = "ObjectivePGP"
-    private static let genericErrorCode = 1
-    private static let invalidPassphraseCode = 2
 
     final class PasswordProviderBox {
         let resolver: (Key) -> String?
@@ -49,7 +46,7 @@ enum RNP {
             self.resolver = resolver
             var keysByFingerprint: [String: Key] = [:]
             for key in keys {
-                let fingerprints = (try? RNP.fingerprints(for: key)) ?? [key.fingerprint]
+                let fingerprints = (try? RNPBackend.fingerprints(for: key)) ?? [key.fingerprint]
                 for fingerprint in fingerprints {
                     if let existing = keysByFingerprint[fingerprint], existing.isSecret {
                         continue
@@ -61,7 +58,7 @@ enum RNP {
         }
 
         func password(for handle: OpaquePointer?) -> String? {
-            if let handle, let fingerprint = try? RNP.fingerprint(of: handle), let key = keysByFingerprint[fingerprint] {
+            if let handle, let fingerprint = try? RNPBackend.fingerprint(of: handle), let key = keysByFingerprint[fingerprint] {
                 return resolver(key)
             }
 
@@ -117,7 +114,7 @@ enum RNP {
         } : []
 
         if addSignature && signingKeys.isEmpty {
-            throw ObjectivePGPError.missingSigningKey
+            throw RNPError.missingSigningKey
         }
 
         return try withFFI(keys: keys, passphraseForKey: passphraseForKey) { ffi in
@@ -192,7 +189,7 @@ enum RNP {
         passphraseForKey: ((Key) -> String?)?
     ) throws -> Data {
         guard let signingKey = keys.first(where: { $0.isSecret && $0.capabilities.canSign }) else {
-            throw ObjectivePGPError.missingSigningKey
+            throw RNPError.missingSigningKey
         }
 
         return try withFFI(keys: keys, passphraseForKey: passphraseForKey) { ffi in
@@ -321,7 +318,7 @@ enum RNP {
                     seconds = 0
                 } else {
                     guard rawSeconds <= Double(UInt32.max) else {
-                        throw makeNSError("Expiration interval exceeds supported range")
+                        throw makeError("Expiration interval exceeds supported range")
                     }
                     seconds = UInt32(rawSeconds.rounded(.down))
                 }
@@ -374,7 +371,7 @@ enum RNP {
             }
 
             guard let handle else {
-                throw makeNSError("Key generation did not return a key handle")
+                throw makeError("Key generation did not return a key handle")
             }
             defer { _ = rnp_key_handle_destroy(handle) }
 
@@ -401,7 +398,7 @@ enum RNP {
         try check(rnp_enarmor(input, output, type.rawValue), context: "armor data")
         let armored = try outputData(output)
         guard let string = String(data: armored, encoding: .utf8) else {
-            throw makeNSError("Failed to decode armored data as UTF-8")
+            throw makeError("Failed to decode armored data as UTF-8")
         }
         return string
     }
@@ -824,7 +821,7 @@ enum RNP {
         )
 
         guard let handle else {
-            throw makeNSError(
+            throw makeError(
                 "Key \(fingerprint) was not found",
                 result: rnp_result_t(RNP_ERROR_KEY_NOT_FOUND)
             )
@@ -841,7 +838,7 @@ enum RNP {
         )
 
         guard let defaultHandle else {
-            throw makeNSError(
+            throw makeError(
                 "No default \(usage) key available",
                 result: rnp_result_t(RNP_ERROR_NO_SUITABLE_KEY)
             )
@@ -918,7 +915,7 @@ enum RNP {
         var input: OpaquePointer?
         try data.withUnsafeBytes { rawBuffer in
             guard let baseAddress = rawBuffer.bindMemory(to: UInt8.self).baseAddress else {
-                throw makeNSError("Cannot create RNP input from empty buffer")
+                throw makeError("Cannot create RNP input from empty buffer")
             }
 
             try check(
@@ -1036,18 +1033,21 @@ enum RNP {
 
     private static func check(_ result: rnp_result_t, context: String) throws {
         guard result == RNP_SUCCESS else {
-            throw makeNSError(context, result: result)
+            throw makeError(context, result: result)
         }
     }
 
-    private static func makeNSError(
+    private static func makeError(
         _ context: String,
         result: rnp_result_t = rnp_result_t(RNP_ERROR_GENERIC)
-    ) -> NSError {
-        let code = result == RNP_ERROR_BAD_PASSWORD ? invalidPassphraseCode : genericErrorCode
+    ) -> Error {
+        if result == RNP_ERROR_BAD_PASSWORD {
+            return RNPError.invalidPassphrase
+        }
+
         return NSError(
-            domain: objectivePGPDomain,
-            code: Int(code),
+            domain: RNPError.errorDomain,
+            code: Int(result),
             userInfo: [
                 NSLocalizedDescriptionKey: "\(context) failed (\(result))",
                 "RNPErrorCode": result

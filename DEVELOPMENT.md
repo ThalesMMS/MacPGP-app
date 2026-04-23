@@ -24,7 +24,7 @@
 
 ## Dependencies
 
-- Local `ObjectivePGP` compatibility package backed by the vendored `Vendor/RNPBridge/RNPBridge.xcframework`
+- Local `RNPKit` Swift wrapper backed by the vendored `Vendor/RNPBridge/RNPBridge.xcframework`
 
 ## Project Structure
 

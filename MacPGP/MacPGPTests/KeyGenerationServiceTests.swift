@@ -7,7 +7,7 @@
 
 import Testing
 import Foundation
-import ObjectivePGP
+import RNPKit
 @testable import MacPGP
 
 @Suite("KeyGenerationService Tests")

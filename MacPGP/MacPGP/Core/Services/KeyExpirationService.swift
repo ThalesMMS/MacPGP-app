@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 struct ValidationIssue: Hashable {
     enum Severity: Hashable {
@@ -107,14 +107,14 @@ final class KeyExpirationService {
                 lastError = error
             }
             throw error
-        } catch {
-            let wrapped: OperationError
-            let nsError = error as NSError
-            if nsError.domain == "ObjectivePGP" && nsError.code == 2 {
-                wrapped = .invalidPassphrase
-            } else {
-                wrapped = .unknownError(message: error.localizedDescription)
+        } catch RNPError.invalidPassphrase {
+            let wrapped: OperationError = .invalidPassphrase
+            updateObservableState {
+                lastError = wrapped
             }
+            throw wrapped
+        } catch {
+            let wrapped = OperationError.unknownError(message: error.localizedDescription)
             updateObservableState {
                 lastError = wrapped
             }

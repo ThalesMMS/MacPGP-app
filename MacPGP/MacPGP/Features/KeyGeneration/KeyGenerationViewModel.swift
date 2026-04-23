@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import ObjectivePGP
+import RNPKit
 
 @Observable
 final class KeyGenerationViewModel {

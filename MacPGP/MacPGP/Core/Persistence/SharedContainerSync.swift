@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 enum SharedContainerSync {
     static func syncKeysToContainer(keys: [Key]) throws {
@@ -25,7 +25,7 @@ enum SharedContainerSync {
             return (Data(), [])
         }
 
-        let keys: [Key] = try ObjectivePGP.readKeys(from: data)
+        let keys: [Key] = try RNP.readKeys(from: data)
         let removedSecretFingerprints: [String] = keys.reduce(into: []) { result, key in
             guard key.isSecret else {
                 return

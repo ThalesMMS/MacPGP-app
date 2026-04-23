@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 private enum UploadFailureReason {
     case sanitizeArmoredKey

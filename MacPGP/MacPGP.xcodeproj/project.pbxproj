@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		120351CD2F32F35300E6610B /* ObjectivePGP in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CC2F32F35300E6610B /* ObjectivePGP */; };
-		128C458B2F8E9C83004893D9 /* ObjectivePGP in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CC2F32F35300E6610B /* ObjectivePGP */; };
+		120351CD2F32F35300E6610B /* RNPKit in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CC2F32F35300E6610B /* RNPKit */; };
+		128C458B2F8E9C83004893D9 /* RNPKit in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CC2F32F35300E6610B /* RNPKit */; };
 		12FS00012F32F40000000001 /* FinderSyncExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 12FS00002F32F40000000000 /* FinderSyncExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		12FS000A2F32F40000000010 /* ObjectivePGP in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CC2F32F35300E6610B /* ObjectivePGP */; };
+		12FS000A2F32F40000000010 /* RNPKit in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CC2F32F35300E6610B /* RNPKit */; };
 		12QL00012F32F50000000001 /* QuickLookExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 12QL00002F32F50000000000 /* QuickLookExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		12QL000A2F32F50000000010 /* ObjectivePGP in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CD2F32F35300E6610C /* ObjectivePGP */; };
-		12SE000A2F32F80000000010 /* ObjectivePGP in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CC2F32F35300E6610B /* ObjectivePGP */; };
+		12QL000A2F32F50000000010 /* RNPKit in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CD2F32F35300E6610C /* RNPKit */; };
+		12SE000A2F32F80000000010 /* RNPKit in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CC2F32F35300E6610B /* RNPKit */; };
 		12TH00012F32F60000000001 /* ThumbnailExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 12TH00002F32F60000000000 /* ThumbnailExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -182,7 +182,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				120351CD2F32F35300E6610B /* ObjectivePGP in Frameworks */,
+				120351CD2F32F35300E6610B /* RNPKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -204,7 +204,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				12FS000A2F32F40000000010 /* ObjectivePGP in Frameworks */,
+				12FS000A2F32F40000000010 /* RNPKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -212,7 +212,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				12QL000A2F32F50000000010 /* ObjectivePGP in Frameworks */,
+				12QL000A2F32F50000000010 /* RNPKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -220,7 +220,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				12SE000A2F32F80000000010 /* ObjectivePGP in Frameworks */,
+				12SE000A2F32F80000000010 /* RNPKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,7 +228,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				128C458B2F8E9C83004893D9 /* ObjectivePGP in Frameworks */,
+				128C458B2F8E9C83004893D9 /* RNPKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -289,7 +289,7 @@
 			);
 			name = MacPGP;
 			packageProductDependencies = (
-				120351CC2F32F35300E6610B /* ObjectivePGP */,
+				120351CC2F32F35300E6610B /* RNPKit */,
 			);
 			productName = MacPGP;
 			productReference = 12B269102F32F0C10015EBFF /* MacPGP.app */;
@@ -359,7 +359,7 @@
 			);
 			name = FinderSyncExtension;
 			packageProductDependencies = (
-				120351CC2F32F35300E6610B /* ObjectivePGP */,
+				120351CC2F32F35300E6610B /* RNPKit */,
 			);
 			productName = FinderSyncExtension;
 			productReference = 12FS00002F32F40000000000 /* FinderSyncExtension.appex */;
@@ -383,7 +383,7 @@
 			);
 			name = QuickLookExtension;
 			packageProductDependencies = (
-				120351CD2F32F35300E6610C /* ObjectivePGP */,
+				120351CD2F32F35300E6610C /* RNPKit */,
 			);
 			productName = QuickLookExtension;
 			productReference = 12QL00002F32F50000000000 /* QuickLookExtension.appex */;
@@ -407,7 +407,7 @@
 			);
 			name = ShareExtension;
 			packageProductDependencies = (
-				120351CC2F32F35300E6610B /* ObjectivePGP */,
+				120351CC2F32F35300E6610B /* RNPKit */,
 			);
 			productName = ShareExtension;
 			productReference = 12SE00002F32F80000000000 /* ShareExtension.appex */;
@@ -431,7 +431,7 @@
 			);
 			name = ThumbnailExtension;
 			packageProductDependencies = (
-				120351CC2F32F35300E6610B /* ObjectivePGP */,
+				120351CC2F32F35300E6610B /* RNPKit */,
 			);
 			productName = ThumbnailExtension;
 			productReference = 12TH00002F32F60000000000 /* ThumbnailExtension.appex */;
@@ -487,7 +487,7 @@
 			mainGroup = 12B269072F32F0C10015EBFF;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				120351CB2F32F35300E6610B /* XCLocalSwiftPackageReference "ObjectivePGP" */,
+				120351CB2F32F35300E6610B /* XCLocalSwiftPackageReference "RNPKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 12B269112F32F0C10015EBFF /* Products */;
@@ -1272,22 +1272,22 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		120351CB2F32F35300E6610B /* XCLocalSwiftPackageReference "ObjectivePGP" */ = {
+		120351CB2F32F35300E6610B /* XCLocalSwiftPackageReference "RNPKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Vendor/ObjectivePGP;
+			relativePath = ../Vendor/RNPKit;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		120351CC2F32F35300E6610B /* ObjectivePGP */ = {
+		120351CC2F32F35300E6610B /* RNPKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 120351CB2F32F35300E6610B /* XCLocalSwiftPackageReference "ObjectivePGP" */;
-			productName = ObjectivePGP;
+			package = 120351CB2F32F35300E6610B /* XCLocalSwiftPackageReference "RNPKit" */;
+			productName = RNPKit;
 		};
-		120351CD2F32F35300E6610C /* ObjectivePGP */ = {
+		120351CD2F32F35300E6610C /* RNPKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 120351CB2F32F35300E6610B /* XCLocalSwiftPackageReference "ObjectivePGP" */;
-			productName = ObjectivePGP;
+			package = 120351CB2F32F35300E6610B /* XCLocalSwiftPackageReference "RNPKit" */;
+			productName = RNPKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

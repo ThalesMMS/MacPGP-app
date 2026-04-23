@@ -1,8 +1,8 @@
 import Foundation
 
-public enum ObjectivePGP {
+public enum RNP {
     public static func readKeys(from data: Data) throws -> [Key] {
-        try RNP.readKeys(from: data)
+        try RNPBackend.readKeys(from: data)
     }
 
     public static func readKeys(fromPath path: String) throws -> [Key] {
@@ -15,7 +15,7 @@ public enum ObjectivePGP {
         using keys: [Key],
         passphraseForKey: ((Key) -> String?)? = nil
     ) throws -> Data {
-        try RNP.encrypt(
+        try RNPBackend.encrypt(
             data,
             addSignature: addSignature,
             using: keys,
@@ -30,19 +30,19 @@ public enum ObjectivePGP {
         passphraseForKey: ((Key) -> String?)? = nil
     ) throws -> Data {
         if andVerifySignature {
-            let inspection = try RNP.inspect(
+            let inspection = try RNPBackend.inspect(
                 data,
                 signature: nil,
                 using: keys,
                 passphraseForKey: passphraseForKey
             )
             guard let outputData = inspection.outputData else {
-                throw ObjectivePGPError.missingDecryptedOutput
+                throw RNPError.missingDecryptedOutput
             }
             return outputData
         }
 
-        return try RNP.decrypt(
+        return try RNPBackend.decrypt(
             data,
             using: keys,
             passphraseForKey: passphraseForKey
@@ -55,7 +55,7 @@ public enum ObjectivePGP {
         using keys: [Key],
         passphraseForKey: ((Key) -> String?)? = nil
     ) throws -> Data {
-        try RNP.sign(
+        try RNPBackend.sign(
             data,
             detached: detached,
             using: keys,
@@ -68,7 +68,7 @@ public enum ObjectivePGP {
         withSignature signature: Data? = nil,
         using keys: [Key]
     ) throws {
-        try RNP.verify(data, signature: signature, using: keys)
+        try RNPBackend.verify(data, signature: signature, using: keys)
     }
 
     public static func inspect(
@@ -77,7 +77,7 @@ public enum ObjectivePGP {
         using keys: [Key] = [],
         passphraseForKey: ((Key) -> String?)? = nil
     ) throws -> MessageInspection {
-        try RNP.inspect(
+        try RNPBackend.inspect(
             data,
             signature: signature,
             using: keys,

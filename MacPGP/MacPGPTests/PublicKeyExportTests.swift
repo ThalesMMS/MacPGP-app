@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 import Testing
 @testable import MacPGP
 
@@ -16,7 +16,7 @@ struct PublicKeyExportTests {
         )
 
         let exportedData = try PublicKeyExport.export(secretKey)
-        let exportedKeys = try ObjectivePGP.readKeys(from: exportedData)
+        let exportedKeys = try RNP.readKeys(from: exportedData)
 
         #expect(exportedKeys.count == 1)
         #expect(exportedKeys.first?.isSecret == false)
@@ -38,7 +38,7 @@ struct PublicKeyExportTests {
 
         let legacyProjection = try secretKey.export()
         let cleanup = try SharedContainerSync.sanitizeSharedProjectionData(legacyProjection)
-        let cleanedKeys = try ObjectivePGP.readKeys(from: cleanup.data)
+        let cleanedKeys = try RNP.readKeys(from: cleanup.data)
 
         #expect(cleanup.removedSecretFingerprints == [secretKey.publicKey?.fingerprint.description ?? "unknown"])
         #expect(cleanedKeys.count == 1)

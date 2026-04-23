@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 struct KeyVerificationMetadata: Codable {
     let fingerprint: String
@@ -115,14 +115,14 @@ final class KeyringPersistence: KeyringPersisting {
     func loadKeys() throws -> [Key] {
         let publicKeys: [Key]
         if fileManager.fileExists(atPath: publicKeyringPath.path) {
-            publicKeys = try ObjectivePGP.readKeys(fromPath: publicKeyringPath.path)
+            publicKeys = try RNP.readKeys(fromPath: publicKeyringPath.path)
         } else {
             publicKeys = []
         }
 
         let secretKeys: [Key]
         if fileManager.fileExists(atPath: secretKeyringPath.path) {
-            secretKeys = try ObjectivePGP.readKeys(fromPath: secretKeyringPath.path)
+            secretKeys = try RNP.readKeys(fromPath: secretKeyringPath.path)
         } else {
             secretKeys = []
         }
@@ -216,7 +216,7 @@ final class KeyringPersistence: KeyringPersisting {
     }
 
     func importKey(from data: Data) throws -> [Key] {
-        let keys = try ObjectivePGP.readKeys(from: data)
+        let keys = try RNP.readKeys(from: data)
         if keys.isEmpty {
             throw OperationError.invalidKeyData
         }
@@ -227,7 +227,7 @@ final class KeyringPersistence: KeyringPersisting {
         guard let data = string.data(using: .utf8) else {
             throw OperationError.invalidKeyData
         }
-        return try ObjectivePGP.readKeys(from: data)
+        return try RNP.readKeys(from: data)
     }
 
     func exportKey(_ key: Key, armored: Bool = true) throws -> Data {

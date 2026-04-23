@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 /// Lightweight service provider for the Share Extension
 /// Provides access to encryption functionality without the full app's service layer
@@ -70,7 +70,7 @@ final class ExtensionKeyringService {
                 return
             }
 
-            rawKeys = try ObjectivePGP.readKeys(from: keysData)
+            rawKeys = try RNP.readKeys(from: keysData)
             keys = rawKeys.map { PGPKeyModel(from: $0) }
             keyAvailabilityMessage = nil
             NSLog("ExtensionKeyringService: Loaded \(keys.count) keys")
@@ -155,17 +155,17 @@ final class ExtensionEncryptionService {
             if let signerKey = signerKey, let passphrase = passphrase {
                 var allKeys = recipientKeys
                 allKeys.append(signerKey)
-                encryptedData = try ObjectivePGP.encrypt(
+                encryptedData = try RNP.encrypt(
                     fileData,
                     addSignature: true,
                     using: allKeys,
                     passphraseForKey: { _ in passphrase }
                 )
             } else {
-                encryptedData = try ObjectivePGP.encrypt(fileData, addSignature: false, using: recipientKeys)
+                encryptedData = try RNP.encrypt(fileData, addSignature: false, using: recipientKeys)
             }
             progressCallback?(0.8)
-        } catch ObjectivePGPError.missingSigningKey {
+        } catch RNPError.missingSigningKey {
             throw OperationError.signerKeyMissing
         } catch {
             throw OperationError.encryptionFailed(underlying: error)

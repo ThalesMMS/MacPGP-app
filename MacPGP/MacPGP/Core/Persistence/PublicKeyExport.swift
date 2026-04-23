@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 enum PublicKeyExport {
     static func export(_ key: Key) throws -> Data {

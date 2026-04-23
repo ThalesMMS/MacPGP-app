@@ -1,7 +1,7 @@
 import Cocoa
 import Quartz
 import SwiftUI
-import ObjectivePGP
+import RNPKit
 
 class PreviewViewController: NSViewController, QLPreviewingController {
 
@@ -296,7 +296,7 @@ struct EncryptionMetadataView: View {
                 var lastError: Error?
                 for key in secretKeys {
                     do {
-                        let decrypted = try ObjectivePGP.decrypt(
+                        let decrypted = try RNP.decrypt(
                             encryptedData,
                             andVerifySignature: false,
                             using: [key],
@@ -320,9 +320,8 @@ struct EncryptionMetadataView: View {
                 }
 
                 // If we get here, none of the keys worked
-                let nsError = lastError as? NSError
                 let errorMessage: String
-                if nsError?.domain == "ObjectivePGP" && nsError?.code == 2 {
+                if let rnpError = lastError as? RNPError, rnpError == .invalidPassphrase {
                     errorMessage = "Invalid passphrase. Please try again."
                 } else {
                     errorMessage = "Unable to decrypt. Check your passphrase and keys."
@@ -374,7 +373,7 @@ struct EncryptionMetadataView: View {
             return []
         }
 
-        return try ObjectivePGP.readKeys(from: keysData)
+        return try RNP.readKeys(from: keysData)
     }
 
     private func formatKeyID(_ keyID: String) -> String {

@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 struct KeyGenerationParameters {
     var name: String

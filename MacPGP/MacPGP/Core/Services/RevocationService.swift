@@ -1,5 +1,5 @@
 import Foundation
-import ObjectivePGP
+import RNPKit
 
 enum RevocationReason: Int, CaseIterable {
     case noReason = 0
@@ -96,14 +96,12 @@ final class RevocationService {
         } catch let error as OperationError {
             lastError = error
             throw error
+        } catch RNPError.invalidPassphrase {
+            let wrapped: OperationError = .invalidPassphrase
+            lastError = wrapped
+            throw wrapped
         } catch {
-            let wrapped: OperationError
-            let nsError = error as NSError
-            if nsError.domain == "ObjectivePGP" && nsError.code == 2 {
-                wrapped = .invalidPassphrase
-            } else {
-                wrapped = .unknownError(message: error.localizedDescription)
-            }
+            let wrapped = OperationError.unknownError(message: error.localizedDescription)
             lastError = wrapped
             throw wrapped
         }

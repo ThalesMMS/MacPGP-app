@@ -14,7 +14,7 @@ public final class KeyGenerator {
 
     public func generate(for userID: String, passphrase: String) -> Key {
         do {
-            return try RNP.generateKey(
+            return try RNPBackend.generateKey(
                 algorithm: keyAlgorithm,
                 keyBitsLength: keyBitsLength,
                 userID: userID,
