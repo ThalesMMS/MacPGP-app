@@ -138,15 +138,20 @@ final class KeyringPersistence: KeyringPersisting {
         indexByFingerprint.reserveCapacity(publicKeys.count + secretKeys.count)
 
         for (index, key) in publicKeys.enumerated() {
-            if let fingerprint = key.publicKey?.fingerprint.description(),
+            let fingerprint = key.fingerprint
+            if !fingerprint.isEmpty,
                indexByFingerprint[fingerprint] == nil {
                 indexByFingerprint[fingerprint] = index
             }
         }
 
         for secretKey in secretKeys {
-            guard let fingerprint = secretKey.publicKey?.fingerprint.description() else {
-                if let existingIndex = mergedKeys.firstIndex(where: { $0.publicKey?.fingerprint == nil }) {
+            let fingerprint = secretKey.fingerprint
+            guard !fingerprint.isEmpty else {
+                if let existingIndex = mergedKeys.firstIndex(where: {
+                    let publicFingerprint = $0.publicKey?.fingerprint.rawValue
+                    return publicFingerprint == nil || publicFingerprint?.isEmpty == true
+                }) {
                     mergedKeys[existingIndex] = secretKey
                 } else {
                     mergedKeys.append(secretKey)
@@ -228,7 +233,7 @@ final class KeyringPersistence: KeyringPersisting {
     func exportKey(_ key: Key, armored: Bool = true) throws -> Data {
         let keyData = try key.export()
         if armored {
-            let armoredString = Armor.armored(keyData, as: key.isSecret ? .secretKey : .publicKey)
+            let armoredString = try Armor.armored(keyData, as: key.isSecret ? .secretKey : .publicKey)
             return armoredString.data(using: .utf8) ?? keyData
         } else {
             return keyData
@@ -236,13 +241,9 @@ final class KeyringPersistence: KeyringPersisting {
     }
 
     func exportPublicKey(_ key: Key, armored: Bool = true) throws -> Data {
-        guard key.publicKey != nil else {
-            throw OperationError.noPublicKey
-        }
-
-        let keyData = try key.export()
+        let keyData = try PublicKeyExport.export(key)
         if armored {
-            let armoredString = Armor.armored(keyData, as: .publicKey)
+            let armoredString = try Armor.armored(keyData, as: .publicKey)
             return armoredString.data(using: .utf8) ?? keyData
         } else {
             return keyData
@@ -251,7 +252,7 @@ final class KeyringPersistence: KeyringPersisting {
 
     func deleteKey(withFingerprint fingerprint: String, from keys: inout [Key]) {
         keys.removeAll { key in
-            key.publicKey?.fingerprint.description() == fingerprint
+            key.fingerprint == fingerprint
         }
     }
 

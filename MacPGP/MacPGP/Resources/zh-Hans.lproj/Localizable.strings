@@ -432,6 +432,11 @@
 "error.export_failed" = "导出失败：%@";
 "error.import_failed" = "导入失败：%@";
 "error.upload_failed" = "上传失败：%@";
+"error.upload_failed.reason.sanitize_armored_key" = "无法清洗已装甲的密钥数据";
+"error.upload_failed.reason.armor_key" = "无法将密钥数据转换为装甲格式";
+"error.upload_failed.reason.multiple_keys_bundled" = "检测到捆绑的多把密钥；上传仅接受单把密钥";
+"error.upload_failed.reason.invalid_key_data" = "无效的密钥数据";
+"error.upload_failed.reason.encode_armored_key_data" = "无法编码已装甲的密钥数据";
 "error.refresh_failed" = "刷新失败：%@";
 "error.delete_failed" = "删除密钥失败：%@";
 "error.encryption_failed" = "加密失败：%@";
@@ -577,5 +582,7 @@
 "qr.unable_to_generate" = "无法生成二维码";
 "qr.preview" = "二维码预览";
 "qr.test_fingerprint" = "测试指纹";
+"settings.keys.algorithm_help.ecdsa" = "ECDSA 密钥会生成一个用于加密的 ECDH 子密钥。";
+"settings.keys.algorithm_help.eddsa" = "EdDSA 密钥会生成一个用于加密的 X25519 子密钥。";
 
 /* End of Localizable.strings */

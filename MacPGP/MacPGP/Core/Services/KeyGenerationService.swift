@@ -64,6 +64,15 @@ final class KeyGenerationService {
             passphrase: parameters.passphrase
         )
 
+        if let expirationMonths = parameters.expirationMonths,
+           expirationMonths > 0,
+           let expirationDate = Calendar.current.date(byAdding: .month, value: expirationMonths, to: Date()) {
+            return try key.setExpiration(
+                expirationDate,
+                passphraseForKey: { _ in parameters.passphrase }
+            )
+        }
+
         return key
     }
 

@@ -171,13 +171,62 @@ final class KeyGenerationUITests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         app.openKeyGenerationView()
 
-        // Release builds expose only RSA until ObjectivePGP supports safe ECC generation.
-        XCTAssertTrue(app.staticTexts[AccessibilityIdentifiers.KeyGeneration.algorithmLabel].waitForExistence(timeout: 3))
-        let algorithmValue = app.staticTexts[AccessibilityIdentifiers.KeyGeneration.algorithmValue]
-        XCTAssertTrue(algorithmValue.waitForExistence(timeout: 1))
-        XCTAssertEqual(algorithmValue.label, "RSA")
-        XCTAssertFalse(app.menuItems["ECDSA (Elliptic Curve)"].exists)
-        XCTAssertFalse(app.menuItems["EdDSA (Ed25519)"].exists)
+        let algorithmPicker = app.popUpButtons[AccessibilityIdentifiers.KeyGeneration.algorithmValue]
+        XCTAssertTrue(algorithmPicker.waitForExistence(timeout: 3))
+
+        algorithmPicker.tap()
+        XCTAssertTrue(app.menuItems["RSA"].waitForExistence(timeout: 1))
+        XCTAssertTrue(app.menuItems["ECDSA (Elliptic Curve)"].exists)
+        XCTAssertTrue(app.menuItems["EdDSA (Ed25519)"].exists)
+        app.typeKey(.escape, modifierFlags: [])
+    }
+
+    @MainActor
+    func testKeyGenerationECDSASelectionShowsSupportedCurves() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+        app.openKeyGenerationView()
+
+        let algorithmPicker = app.popUpButtons[AccessibilityIdentifiers.KeyGeneration.algorithmValue]
+        XCTAssertTrue(algorithmPicker.waitForExistence(timeout: 3))
+        algorithmPicker.tap()
+        XCTAssertTrue(app.menuItems["ECDSA (Elliptic Curve)"].waitForExistence(timeout: 1))
+        app.menuItems["ECDSA (Elliptic Curve)"].tap()
+
+        let keySizePicker = app.popUpButtons[AccessibilityIdentifiers.KeyGeneration.keySizePicker]
+        XCTAssertTrue(keySizePicker.waitForExistence(timeout: 1))
+        keySizePicker.tap()
+        XCTAssertTrue(app.menuItems["256 bits"].waitForExistence(timeout: 1))
+        XCTAssertTrue(app.menuItems["384 bits"].exists)
+        XCTAssertTrue(app.menuItems["521 bits"].exists)
+        app.typeKey(.escape, modifierFlags: [])
+    }
+
+    @MainActor
+    func testKeyGenerationEdDSASelectionFixesKeySizeAt256Bits() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+        app.openKeyGenerationView()
+
+        let algorithmPicker = app.popUpButtons[AccessibilityIdentifiers.KeyGeneration.algorithmValue]
+        XCTAssertTrue(algorithmPicker.waitForExistence(timeout: 3))
+        algorithmPicker.tap()
+        XCTAssertTrue(app.menuItems["EdDSA (Ed25519)"].waitForExistence(timeout: 1))
+        app.menuItems["EdDSA (Ed25519)"].tap()
+
+        let keySizePicker = app.popUpButtons[AccessibilityIdentifiers.KeyGeneration.keySizePicker]
+        XCTAssertTrue(keySizePicker.waitForExistence(timeout: 1))
+        XCTAssertFalse(keySizePicker.isEnabled)
+
+        let selectedSize = [
+            keySizePicker.value as? String,
+            keySizePicker.label
+        ].compactMap { $0 }.joined(separator: " ")
+        XCTAssertTrue(selectedSize.contains("256"), "Expected EdDSA key size picker to stay fixed at 256 bits, got \(selectedSize)")
     }
 
     @MainActor

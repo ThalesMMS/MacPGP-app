@@ -432,6 +432,11 @@
 "error.export_failed" = "Export fehlgeschlagen: %@";
 "error.import_failed" = "Import fehlgeschlagen: %@";
 "error.upload_failed" = "Upload fehlgeschlagen: %@";
+"error.upload_failed.reason.sanitize_armored_key" = "Die armored Schlüsseldaten konnten nicht bereinigt werden";
+"error.upload_failed.reason.armor_key" = "Die Schlüsseldaten konnten nicht in das ASCII-Armor-Format umgewandelt werden";
+"error.upload_failed.reason.multiple_keys_bundled" = "Mehrere Schlüssel wurden gebündelt; der Upload akzeptiert nur einen einzelnen Schlüssel";
+"error.upload_failed.reason.invalid_key_data" = "Ungültige Schlüsseldaten";
+"error.upload_failed.reason.encode_armored_key_data" = "Die armored Schlüsseldaten konnten nicht kodiert werden";
 "error.refresh_failed" = "Aktualisierung fehlgeschlagen: %@";
 "error.delete_failed" = "Löschen des Schlüssels fehlgeschlagen: %@";
 "error.encryption_failed" = "Verschlüsselung fehlgeschlagen: %@";
@@ -578,5 +583,7 @@
 "qr.unable_to_generate" = "QR-Code kann nicht generiert werden";
 "qr.preview" = "QR-Code-Vorschau";
 "qr.test_fingerprint" = "Test-Fingerabdruck";
+"settings.keys.algorithm_help.ecdsa" = "ECDSA keys are generated with an ECDH subkey for encryption.";
+"settings.keys.algorithm_help.eddsa" = "EdDSA keys are generated with an X25519 subkey for encryption.";
 
 /* End of Localizable.strings */

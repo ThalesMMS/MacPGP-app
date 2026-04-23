@@ -432,6 +432,11 @@
 "error.export_failed" = "Export failed: %@";
 "error.import_failed" = "Import failed: %@";
 "error.upload_failed" = "Upload failed: %@";
+"error.upload_failed.reason.sanitize_armored_key" = "Failed to sanitize armored key data";
+"error.upload_failed.reason.armor_key" = "Failed to armor key data";
+"error.upload_failed.reason.multiple_keys_bundled" = "Multiple keys bundled; upload only accepts a single key";
+"error.upload_failed.reason.invalid_key_data" = "Invalid key data";
+"error.upload_failed.reason.encode_armored_key_data" = "Failed to encode armored key data";
 "error.refresh_failed" = "Refresh failed: %@";
 "error.delete_failed" = "Failed to delete key: %@";
 "error.encryption_failed" = "Encryption failed: %@";
@@ -577,5 +582,7 @@
 "qr.unable_to_generate" = "Unable to generate QR code";
 "qr.preview" = "QR Code Preview";
 "qr.test_fingerprint" = "Test Fingerprint";
+"settings.keys.algorithm_help.ecdsa" = "ECDSA keys are generated with an ECDH subkey for encryption.";
+"settings.keys.algorithm_help.eddsa" = "EdDSA keys are generated with an X25519 subkey for encryption.";
 
 /* End of Localizable.strings */

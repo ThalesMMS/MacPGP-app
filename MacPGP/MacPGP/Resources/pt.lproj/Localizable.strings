@@ -432,6 +432,11 @@
 "error.export_failed" = "Exportação falhou: %@";
 "error.import_failed" = "Importação falhou: %@";
 "error.upload_failed" = "Envio falhou: %@";
+"error.upload_failed.reason.sanitize_armored_key" = "Falha ao sanitizar os dados da chave armorada";
+"error.upload_failed.reason.armor_key" = "Falha ao aplicar armadura aos dados da chave";
+"error.upload_failed.reason.multiple_keys_bundled" = "Várias chaves foram agrupadas; o envio aceita apenas uma única chave";
+"error.upload_failed.reason.invalid_key_data" = "Dados de chave inválidos";
+"error.upload_failed.reason.encode_armored_key_data" = "Falha ao codificar os dados da chave armorada";
 "error.refresh_failed" = "Atualização falhou: %@";
 "error.delete_failed" = "Falha ao excluir chave: %@";
 "error.encryption_failed" = "Criptografia falhou: %@";
@@ -578,5 +583,7 @@
 "qr.unable_to_generate" = "Não foi possível gerar o código QR";
 "qr.preview" = "Visualização do Código QR";
 "qr.test_fingerprint" = "Impressão Digital de Teste";
+"settings.keys.algorithm_help.ecdsa" = "As chaves ECDSA são geradas com uma subchave ECDH para criptografia.";
+"settings.keys.algorithm_help.eddsa" = "As chaves EdDSA são geradas com uma subchave X25519 para criptografia.";
 
 /* End of Localizable.strings */

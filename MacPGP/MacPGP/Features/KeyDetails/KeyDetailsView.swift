@@ -13,6 +13,8 @@ struct KeyDetailsView: View {
     @State private var showingAlert = false
     @State private var showingFingerprintVerification = false
     @State private var showingTrustLevelPicker = false
+    @State private var showingRevocationManagement = false
+    @State private var showingExpirationEditor = false
     @State private var trustLevelPickerPresentationID = UUID()
 
     init(key: PGPKeyModel, onKeyUpdated: @escaping (PGPKeyModel) -> Void = { _ in }) {
@@ -31,8 +33,6 @@ struct KeyDetailsView: View {
                 Divider()
                 userIDsSection
 
-                // v1.0 keeps expiration handling read-only because ObjectivePGP cannot extend key
-                // expiration reliably yet. The banner warns only and does not expose edit actions.
                 if currentKey.expirationWarningLevel != .none {
                     Divider()
                     ExpirationWarningBanner(key: currentKey)
@@ -78,8 +78,22 @@ struct KeyDetailsView: View {
                     Label("Export", systemImage: "square.and.arrow.up")
                 }
 
-                // Revocation management is intentionally omitted from the release UI until
-                // ObjectivePGP can generate and apply revocation certificates reliably.
+                if currentKey.isSecretKey {
+                    Menu {
+                        if !currentKey.isRevoked {
+                            Button("Edit Expiration...") {
+                                showingExpirationEditor = true
+                            }
+                        }
+
+                        Button("Manage Revocation...") {
+                            showingRevocationManagement = true
+                        }
+                    } label: {
+                        Label("Manage Key", systemImage: "slider.horizontal.3")
+                    }
+                }
+
                 Button(role: .destructive) {
                     showingDeleteConfirmation = true
                 } label: {
@@ -122,6 +136,17 @@ struct KeyDetailsView: View {
         }
         .sheet(isPresented: $showingFingerprintVerification) {
             FingerprintVerificationView(key: currentKey)
+        }
+        .sheet(isPresented: $showingRevocationManagement) {
+            RevocationManagementView(key: currentKey) { updatedKey in
+                onKeyUpdated(updatedKey)
+            }
+        }
+        .sheet(isPresented: $showingExpirationEditor) {
+            KeyExpirationEditorView(key: currentKey) { updatedKey in
+                onKeyUpdated(updatedKey)
+            }
+            .environment(keyringService)
         }
     }
 
@@ -210,6 +235,15 @@ struct KeyDetailsView: View {
                 label: "Expires",
                 value: currentKey.expirationDate?.formatted(date: .abbreviated, time: .omitted) ?? "Never"
             )
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if currentKey.isSecretKey && !currentKey.isRevoked {
+                Button("Edit Expiration...") {
+                    showingExpirationEditor = true
+                }
+                .buttonStyle(.borderless)
+                .padding(.top, 8)
+            }
         }
     }
 
@@ -331,4 +365,159 @@ struct InfoRow: View {
     KeyDetailsView(key: .preview)
         .environment(keyringService)
         .frame(width: 500, height: 600)
+}
+
+private struct KeyExpirationEditorView: View {
+    let key: PGPKeyModel
+    let onUpdated: (PGPKeyModel) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(KeyringService.self) private var keyringService
+    @State private var expirationService = KeyExpirationService.shared
+    @State private var passphrase = ""
+    @State private var selectedDate: Date
+    @State private var errorMessage: String?
+    @State private var isProcessing = false
+    @State private var updateTask: Task<Void, Never>?
+
+    init(key: PGPKeyModel, onUpdated: @escaping (PGPKeyModel) -> Void) {
+        self.key = key
+        self.onUpdated = onUpdated
+
+        let defaultDate = key.expirationDate.flatMap {
+            $0 > Date() ? $0 : nil
+        } ?? Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
+        _selectedDate = State(initialValue: Calendar.current.startOfDay(for: defaultDate))
+    }
+
+    var body: some View {
+        let validationIssues = expirationService.validateExpirationDate(normalizedSelectedDate, forKey: key)
+
+        NavigationStack {
+            Form {
+                Section("Key") {
+                    Text(key.displayName)
+                        .font(.headline)
+                    Text(key.shortKeyID)
+                        .font(.caption)
+                        .fontDesign(.monospaced)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Expiration") {
+                    DatePicker(
+                        "New Expiration Date",
+                        selection: Binding(
+                            get: { selectedDate },
+                            set: { selectedDate = normalizedDate($0) }
+                        ),
+                        in: minimumSelectableDate...,
+                        displayedComponents: [.date]
+                    )
+
+                    ForEach(validationIssues, id: \.self) { issue in
+                        Text(issue.message)
+                            .font(.caption)
+                            .foregroundStyle(issue.severity == .warning ? .orange : .red)
+                    }
+                }
+
+                Section("Passphrase") {
+                    PassphraseField(title: "Passphrase", passphrase: $passphrase)
+                }
+
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Edit Expiration")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        guard !isProcessing else { return }
+                        dismiss()
+                    }
+                    .disabled(isProcessing)
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Update") {
+                        updateExpiration()
+                    }
+                    .disabled(isProcessing || passphrase.isEmpty || hasBlockingValidationIssue)
+                }
+            }
+        }
+        .frame(width: 480, height: 360)
+        .interactiveDismissDisabled(isProcessing)
+        .onDisappear {
+            updateTask?.cancel()
+            updateTask = nil
+        }
+    }
+
+    private var hasBlockingValidationIssue: Bool {
+        expirationService.validateExpirationDate(normalizedSelectedDate, forKey: key)
+            .contains { $0.severity == .error }
+    }
+
+    private var minimumSelectableDate: Date {
+        normalizedDate(Date())
+    }
+
+    private var normalizedSelectedDate: Date {
+        normalizedDate(selectedDate)
+    }
+
+    private func normalizedDate(_ date: Date) -> Date {
+        Calendar.current.startOfDay(for: date)
+    }
+
+    private func updateExpiration() {
+        guard !isProcessing else { return }
+
+        isProcessing = true
+        errorMessage = nil
+
+        let expirationDate = normalizedSelectedDate
+        updateTask = Task { @MainActor in
+            defer {
+                isProcessing = false
+                updateTask = nil
+            }
+
+            do {
+                let updatedKey = try await extendExpirationAndPersist(expirationDate: expirationDate)
+                guard !Task.isCancelled else { return }
+                onUpdated(updatedKey)
+                dismiss()
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                errorMessage = error.userFacingMessage
+            }
+        }
+    }
+
+    private func extendExpirationAndPersist(expirationDate: Date) async throws -> PGPKeyModel {
+        let updatedKey: PGPKeyModel = try await withCheckedThrowingContinuation { continuation in
+            expirationService.extendExpirationAsync(
+                for: key,
+                newExpirationDate: normalizedDate(expirationDate),
+                passphrase: passphrase
+            ) { result in
+                continuation.resume(with: result)
+            }
+        }
+
+        try Task.checkCancellation()
+        try keyringService.replaceKey(updatedKey.rawKey)
+
+        return updatedKey
+    }
 }

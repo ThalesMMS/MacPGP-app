@@ -192,7 +192,7 @@ final class SigningService {
 
             if armored {
                 let armorType: PGPArmorType = detached ? .signature : .message
-                let armoredString = Armor.armored(signedData, as: armorType)
+                let armoredString = try Armor.armored(signedData, as: armorType)
                 signedData = armoredString.data(using: .utf8) ?? signedData
             }
 
@@ -227,7 +227,7 @@ final class SigningService {
                 armored: false
             )
 
-            let armoredSignature = Armor.armored(signatureData, as: .signature)
+            let armoredSignature = try Armor.armored(signatureData, as: .signature)
 
             var result = "-----BEGIN PGP SIGNED MESSAGE-----\n"
             result += "Hash: SHA256\n"
@@ -600,7 +600,9 @@ final class SigningService {
     nonisolated static func extractIssuerKeyID(from signatureData: Data) -> String? {
         let packetData: Data
         if let armoredString = String(data: signatureData, encoding: .utf8),
-           armoredString.hasPrefix("-----BEGIN PGP SIGNATURE-----") || armoredString.hasPrefix("-----BEGIN PGP MESSAGE-----") {
+           armoredString.hasPrefix("-----BEGIN PGP SIGNATURE-----") ||
+           armoredString.hasPrefix("-----BEGIN PGP MESSAGE-----") ||
+           armoredString.hasPrefix("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
             guard let dearmoredData = try? Armor.readArmored(armoredString) else {
                 return nil
             }

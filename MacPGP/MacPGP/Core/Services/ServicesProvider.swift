@@ -114,7 +114,7 @@ final class ServicesProvider: NSObject {
         }
 
         // Get available secret keys for signing
-        let secretKeys = keyringService.secretKeys()
+        let secretKeys = keyringService.signingKeys()
         guard !secretKeys.isEmpty else {
             showError("No secret keys available", description: "Import or generate a key pair to sign messages")
             return

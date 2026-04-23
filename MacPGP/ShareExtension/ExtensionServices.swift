@@ -87,7 +87,7 @@ final class ExtensionKeyringService {
     }
 
     func rawKey(for model: PGPKeyModel) -> Key? {
-        rawKeys.first { $0.publicKey?.fingerprint.description() == model.fingerprint }
+        rawKeys.first { $0.fingerprint == model.fingerprint }
     }
 
     func secretKeys() -> [PGPKeyModel] {
@@ -95,7 +95,7 @@ final class ExtensionKeyringService {
     }
 
     func publicKeys() -> [PGPKeyModel] {
-        keys.filter { !$0.isExpired && !$0.isRevoked }
+        keys.filter { !$0.isExpired && !$0.isRevoked && $0.canEncrypt }
     }
 }
 
@@ -165,6 +165,8 @@ final class ExtensionEncryptionService {
                 encryptedData = try ObjectivePGP.encrypt(fileData, addSignature: false, using: recipientKeys)
             }
             progressCallback?(0.8)
+        } catch ObjectivePGPError.missingSigningKey {
+            throw OperationError.signerKeyMissing
         } catch {
             throw OperationError.encryptionFailed(underlying: error)
         }

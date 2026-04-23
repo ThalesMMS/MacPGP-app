@@ -119,28 +119,18 @@ struct SettingsView: View {
     private var keySettings: some View {
         Form {
             Section(String(localized: "settings.keys.section_title", comment: "Default key generation settings section header")) {
-                // ObjectivePGP key generation is release-supported only for RSA in v1.0.
                 Picker(String(localized: "settings.keys.algorithm", comment: "Label for algorithm picker"), selection: $preferences.defaultKeyAlgorithm) {
-                    ForEach([KeyAlgorithm.rsa]) { algo in
+                    ForEach([KeyAlgorithm.rsa, .ecdsa, .eddsa]) { algo in
                         Text(algo.displayName).tag(algo)
                     }
                 }
-
-                Text(
-                    String(
-                        localized: "settings.keys.algorithm_release_note",
-                        defaultValue: "MacPGP v1.0 creates RSA keys only. Additional algorithms stay hidden until ObjectivePGP supports them reliably.",
-                        comment: "Release note explaining why the algorithm picker exposes only RSA"
-                    )
-                )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
 
                 Picker(String(localized: "settings.keys.key_size", comment: "Label for key size picker"), selection: $preferences.defaultKeySize) {
                     ForEach(preferences.defaultKeyAlgorithm.supportedKeySizes, id: \.self) { size in
                         Text("\(size) bits").tag(size)
                     }
                 }
+                .disabled(preferences.defaultKeyAlgorithm.supportedKeySizes.count == 1)
 
                 Picker(String(localized: "settings.keys.expiration", comment: "Label for expiration picker"), selection: $preferences.defaultKeyExpirationMonths) {
                     Text(String(localized: "settings.keys.expiration.6_months", comment: "6 months expiration option")).tag(6)
@@ -148,6 +138,16 @@ struct SettingsView: View {
                     Text(String(localized: "settings.keys.expiration.2_years", comment: "2 years expiration option")).tag(24)
                     Text(String(localized: "settings.keys.expiration.5_years", comment: "5 years expiration option")).tag(60)
                     Text(String(localized: "settings.keys.expiration.never", comment: "Never expire option")).tag(0)
+                }
+
+                if preferences.defaultKeyAlgorithm == .ecdsa {
+                    Text(String(localized: "settings.keys.algorithm_help.ecdsa", comment: "Help text explaining that ECDSA keys include an encryption subkey"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if preferences.defaultKeyAlgorithm == .eddsa {
+                    Text(String(localized: "settings.keys.algorithm_help.eddsa", comment: "Help text explaining that EdDSA keys include an encryption subkey"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

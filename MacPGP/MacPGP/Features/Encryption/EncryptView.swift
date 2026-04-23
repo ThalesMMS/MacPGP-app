@@ -104,7 +104,7 @@ struct EncryptView: View {
 
             Picker("Signing Key", selection: $state.encryptSignerKey) {
                 Text("Don't sign").tag(nil as PGPKeyModel?)
-                ForEach(keyringService.secretKeys()) { key in
+                ForEach(keyringService.signingKeys()) { key in
                     Text(key.displayName).tag(key as PGPKeyModel?)
                 }
             }

@@ -10,7 +10,7 @@ import Foundation
 import ObjectivePGP
 @testable import MacPGP
 
-@Suite("RevocationService Tests")
+@Suite("RevocationService Tests", .serialized)
 struct RevocationServiceTests {
 
     // MARK: - Test Helpers
@@ -41,6 +41,60 @@ struct RevocationServiceTests {
             keys.append(PGPKeyModel(from: key))
         }
         return keys
+    }
+
+    private func unwrapLastError(from service: RevocationService, context: String) -> OperationError? {
+        guard let lastError = service.lastError else {
+            Issue.record("Expected lastError for \(context)")
+            return nil
+        }
+
+        return lastError
+    }
+
+    private func expectNoSecretKey(_ error: OperationError, context: String) {
+        if case .noSecretKey = error {
+            return
+        }
+
+        Issue.record("Expected OperationError.noSecretKey for \(context), got \(error)")
+    }
+
+    private func expectPassphraseRequired(_ error: OperationError, context: String) {
+        if case .passphraseRequired = error {
+            return
+        }
+
+        Issue.record("Expected OperationError.passphraseRequired for \(context), got \(error)")
+    }
+
+    private func expectInvalidPassphrase(_ error: OperationError, context: String) {
+        if case .invalidPassphrase = error {
+            return
+        }
+
+        Issue.record("Expected OperationError.invalidPassphrase for \(context), got \(error)")
+    }
+
+    private func expectKeyImportFailed(_ error: OperationError, context: String) {
+        if case .keyImportFailed(let underlying) = error {
+            #expect(underlying == nil)
+            return
+        }
+
+        Issue.record("Expected OperationError.keyImportFailed for \(context), got \(error)")
+    }
+
+    @discardableResult
+    private func expectUnknownError(_ error: OperationError, context: String) -> String {
+        if case .unknownError(let message) = error {
+            #expect(!message.isEmpty)
+            #expect(!message.localizedCaseInsensitiveContains("not implemented"))
+            return message
+        }
+
+        Issue.record("Expected OperationError.unknownError for \(context), got \(error)")
+        return ""
     }
 
     // MARK: - Initialization Tests
@@ -97,38 +151,77 @@ struct RevocationServiceTests {
         #expect(RevocationReason.noLongerUsed.rawValue == 3)
     }
 
+    @Test("generateRevocationCertificate returns armored data and applyRevocation marks the key as revoked")
+    func testGenerateAndApplyRevocationCertificate() throws {
+        let service = RevocationService.shared
+        let key = createTestKey(isSecret: true)
+
+        let certificate = try service.generateRevocationCertificate(
+            for: key,
+            reason: .compromised,
+            passphrase: "testpass"
+        )
+
+        #expect(!certificate.isEmpty)
+        let armoredCertificate = String(data: certificate, encoding: .utf8)
+        #expect(armoredCertificate?.contains("BEGIN PGP") == true)
+
+        let importedIdentifier = try service.importRevocationCertificate(data: certificate)
+        #expect(!importedIdentifier.isEmpty)
+
+        let revokedKey = try service.applyRevocation(to: key, certificate: certificate)
+        #expect(revokedKey.isRevoked)
+        #expect(revokedKey.revokedDate != nil)
+    }
+
+    @Test("generateRevocationCertificate fails with invalid passphrase")
+    func testGenerateRevocationCertificateInvalidPassphrase() {
+        let service = RevocationService.shared
+        let key = createTestKey(isSecret: true)
+
+        do {
+            _ = try service.generateRevocationCertificate(
+                for: key,
+                reason: .noReason,
+                passphrase: "wrong-passphrase"
+            )
+            Issue.record("Expected invalid passphrase error")
+        } catch let error as OperationError {
+            expectInvalidPassphrase(error, context: #function)
+        } catch {
+            Issue.record("Expected OperationError.invalidPassphrase, got \(error)")
+        }
+    }
+
     // MARK: - generateRevocationCertificate Error Tests
 
-    @Test("generateRevocationCertificate fails for public-only key", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("generateRevocationCertificate fails for public-only key")
     func testGenerateRevocationCertificatePublicKeyError() {
         let service = RevocationService.shared
         let publicKey = createTestKey(isSecret: false)
 
-        #expect(throws: OperationError.self) {
-            try service.generateRevocationCertificate(
+        do {
+            _ = try service.generateRevocationCertificate(
                 for: publicKey,
                 reason: .noReason,
                 passphrase: "testpass"
             )
+            Issue.record("Expected OperationError.noSecretKey")
+        } catch let error as OperationError {
+            expectNoSecretKey(error, context: #function)
+        } catch {
+            Issue.record("Expected OperationError.noSecretKey, got \(error)")
         }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectNoSecretKey(lastError, context: "\(#function) lastError")
+        }
+
+        #expect(!service.isProcessing)
     }
 
-    @Test("generateRevocationCertificate fails for empty passphrase", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("generateRevocationCertificate fails for empty passphrase")
     func testGenerateRevocationCertificateEmptyPassphrase() {
-        let service = RevocationService.shared
-        let key = createTestKey(isSecret: true)
-
-        #expect(throws: OperationError.self) {
-            try service.generateRevocationCertificate(
-                for: key,
-                reason: .compromised,
-                passphrase: ""
-            )
-        }
-    }
-
-    @Test("generateRevocationCertificate currently throws not implemented error", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
-    func testGenerateRevocationCertificateNotImplemented() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
 
@@ -136,20 +229,44 @@ struct RevocationServiceTests {
             _ = try service.generateRevocationCertificate(
                 for: key,
                 reason: .compromised,
-                passphrase: "testpass"
+                passphrase: ""
             )
-            Issue.record("Expected error to be thrown")
+            Issue.record("Expected OperationError.passphraseRequired")
         } catch let error as OperationError {
-            // Should throw an error about not being implemented
-            if case .unknownError(let message) = error {
-                #expect(message.contains("not yet supported") || message.contains("not implemented"))
-            }
+            expectPassphraseRequired(error, context: #function)
         } catch {
-            Issue.record("Expected OperationError, got \(error)")
+            Issue.record("Expected OperationError.passphraseRequired, got \(error)")
         }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectPassphraseRequired(lastError, context: "\(#function) lastError")
+        }
+
+        #expect(!service.isProcessing)
     }
 
-    @Test("generateRevocationCertificate sets lastError on failure", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("generateRevocationCertificate succeeds for a valid secret key")
+    func testGenerateRevocationCertificateNotImplemented() {
+        let service = RevocationService.shared
+        let key = createTestKey(isSecret: true)
+
+        do {
+            let certificate = try service.generateRevocationCertificate(
+                for: key,
+                reason: .compromised,
+                passphrase: "testpass"
+            )
+
+            #expect(!certificate.isEmpty)
+            #expect(String(data: certificate, encoding: .utf8)?.contains("BEGIN PGP") == true)
+        } catch {
+            Issue.record("Expected revocation generation to succeed, got \(error)")
+        }
+
+        #expect(!service.isProcessing)
+    }
+
+    @Test("generateRevocationCertificate sets lastError on failure")
     func testGenerateRevocationCertificateSetsLastError() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -158,153 +275,165 @@ struct RevocationServiceTests {
             _ = try service.generateRevocationCertificate(
                 for: key,
                 reason: .noReason,
-                passphrase: "testpass"
+                passphrase: "wrong-passphrase"
             )
+            Issue.record("Expected OperationError.invalidPassphrase")
+        } catch let error as OperationError {
+            expectInvalidPassphrase(error, context: #function)
         } catch {
-            // Expected to throw
+            Issue.record("Expected OperationError.invalidPassphrase, got \(error)")
         }
 
-        #expect(service.lastError != nil)
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectInvalidPassphrase(lastError, context: "\(#function) lastError")
+        }
     }
 
-    @Test("generateRevocationCertificate resets isProcessing flag", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("generateRevocationCertificate resets isProcessing flag")
     func testGenerateRevocationCertificateResetsProcessingFlag() {
         let service = RevocationService.shared
-        let key = createTestKey(isSecret: true)
+        let publicKey = createTestKey(isSecret: false)
 
         do {
             _ = try service.generateRevocationCertificate(
-                for: key,
+                for: publicKey,
                 reason: .superseded,
                 passphrase: "testpass"
             )
+            Issue.record("Expected OperationError.noSecretKey")
+        } catch let error as OperationError {
+            expectNoSecretKey(error, context: #function)
         } catch {
-            // Expected to throw
+            Issue.record("Expected OperationError.noSecretKey, got \(error)")
         }
 
         #expect(!service.isProcessing)
     }
 
-    @Test("generateRevocationCertificate accepts all revocation reasons", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("generateRevocationCertificate accepts all revocation reasons")
     func testGenerateRevocationCertificateAllReasons() {
         let service = RevocationService.shared
-        let key = createTestKey(isSecret: true)
 
         for reason in RevocationReason.allCases {
-            do {
-                _ = try service.generateRevocationCertificate(
-                    for: key,
-                    reason: reason,
-                    passphrase: "testpass"
-                )
-            } catch {
-                // Expected to throw (not implemented)
-                // Just verify it doesn't crash with different reasons
-            }
-        }
+            let key = createTestKey(isSecret: true)
+            let certificate = try? service.generateRevocationCertificate(
+                for: key,
+                reason: reason,
+                passphrase: "testpass"
+            )
 
-        // If we got here without crashing, test passes
-        #expect(true)
+            #expect(certificate?.isEmpty == false)
+        }
     }
 
     // MARK: - generateRevocationCertificateAsync Tests
 
-    @Test("generateRevocationCertificateAsync completes on main thread", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("generateRevocationCertificateAsync completes on main thread")
+    @MainActor
     func testGenerateRevocationCertificateAsyncMainThread() async {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
-
-        let expectation = TestExpectation()
-
-        service.generateRevocationCertificateAsync(
-            for: key,
-            reason: .compromised,
-            passphrase: "testpass"
-        ) { result in
-            #expect(Thread.isMainThread)
-            expectation.fulfill()
+        let result = await withCheckedContinuation { continuation in
+            service.generateRevocationCertificateAsync(
+                for: key,
+                reason: .compromised,
+                passphrase: "testpass"
+            ) { result in
+                #expect(Thread.isMainThread)
+                continuation.resume(returning: result)
+            }
         }
 
-        await expectation.fulfillment
+        switch result {
+        case .success(let certificate):
+            #expect(!certificate.isEmpty)
+        case .failure(let error):
+            Issue.record("Expected successful revocation generation, got \(error)")
+        }
     }
 
-    @Test("generateRevocationCertificateAsync returns failure for public key", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("generateRevocationCertificateAsync returns failure for public key")
+    @MainActor
     func testGenerateRevocationCertificateAsyncPublicKeyFailure() async {
         let service = RevocationService.shared
         let publicKey = createTestKey(isSecret: false)
-
-        let expectation = TestExpectation()
-
-        service.generateRevocationCertificateAsync(
-            for: publicKey,
-            reason: .noReason,
-            passphrase: "testpass"
-        ) { result in
-            switch result {
-            case .success:
-                Issue.record("Expected failure for public key")
-            case .failure(let error):
-                if case .noSecretKey = error {
-                    // Expected error
-                } else {
-                    // Any error is acceptable since the operation isn't implemented
-                }
+        let result = await withCheckedContinuation { continuation in
+            service.generateRevocationCertificateAsync(
+                for: publicKey,
+                reason: .noReason,
+                passphrase: "testpass"
+            ) { result in
+                #expect(Thread.isMainThread)
+                continuation.resume(returning: result)
             }
-            expectation.fulfill()
         }
 
-        await expectation.fulfillment
+        switch result {
+        case .success:
+            Issue.record("Expected failure for public key")
+        case .failure(let error):
+            expectNoSecretKey(error, context: #function)
+        }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectNoSecretKey(lastError, context: "\(#function) lastError")
+        }
+        #expect(!service.isProcessing)
     }
 
-    @Test("generateRevocationCertificateAsync handles empty passphrase", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("generateRevocationCertificateAsync handles empty passphrase")
+    @MainActor
     func testGenerateRevocationCertificateAsyncEmptyPassphrase() async {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
-
-        let expectation = TestExpectation()
-
-        service.generateRevocationCertificateAsync(
-            for: key,
-            reason: .noLongerUsed,
-            passphrase: ""
-        ) { result in
-            switch result {
-            case .success:
-                Issue.record("Expected failure for empty passphrase")
-            case .failure(let error):
-                if case .passphraseRequired = error {
-                    // Expected error
-                } else {
-                    // Any error is acceptable
-                }
+        let result = await withCheckedContinuation { continuation in
+            service.generateRevocationCertificateAsync(
+                for: key,
+                reason: .noLongerUsed,
+                passphrase: ""
+            ) { result in
+                #expect(Thread.isMainThread)
+                continuation.resume(returning: result)
             }
-            expectation.fulfill()
         }
 
-        await expectation.fulfillment
+        switch result {
+        case .success:
+            Issue.record("Expected failure for empty passphrase")
+        case .failure(let error):
+            expectPassphraseRequired(error, context: #function)
+        }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectPassphraseRequired(lastError, context: "\(#function) lastError")
+        }
+        #expect(!service.isProcessing)
     }
 
     // MARK: - importRevocationCertificate Tests
 
-    @Test("importRevocationCertificate currently throws not implemented error", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("importRevocationCertificate rejects invalid certificate data")
     func testImportRevocationCertificateNotImplemented() {
         let service = RevocationService.shared
         let testData = Data("test certificate".utf8)
 
         do {
             _ = try service.importRevocationCertificate(data: testData)
-            Issue.record("Expected error to be thrown")
+            Issue.record("Expected OperationError.keyImportFailed")
         } catch let error as OperationError {
-            // Should throw an error about not being implemented
-            if case .unknownError(let message) = error {
-                #expect(message.contains("not yet supported") || message.contains("not implemented"))
-            }
+            expectKeyImportFailed(error, context: #function)
         } catch {
-            Issue.record("Expected OperationError, got \(error)")
+            Issue.record("Expected OperationError.keyImportFailed, got \(error)")
         }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectKeyImportFailed(lastError, context: "\(#function) lastError")
+        }
+
+        #expect(!service.isProcessing)
     }
 
-    @Test("importRevocationCertificate sets lastError on failure", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("importRevocationCertificate sets lastError on failure")
     func testImportRevocationCertificateSetsLastError() {
         let service = RevocationService.shared
         let testData = Data("test".utf8)
@@ -315,24 +444,29 @@ struct RevocationServiceTests {
             // Expected to throw
         }
 
-        #expect(service.lastError != nil)
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectKeyImportFailed(lastError, context: "\(#function) lastError")
+        }
     }
 
-    @Test("importRevocationCertificate resets isProcessing flag", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("importRevocationCertificate resets isProcessing flag")
     func testImportRevocationCertificateResetsProcessingFlag() {
         let service = RevocationService.shared
         let testData = Data("test".utf8)
 
         do {
             _ = try service.importRevocationCertificate(data: testData)
+            Issue.record("Expected OperationError.keyImportFailed")
+        } catch let error as OperationError {
+            expectKeyImportFailed(error, context: #function)
         } catch {
-            // Expected to throw
+            Issue.record("Expected OperationError.keyImportFailed, got \(error)")
         }
 
         #expect(!service.isProcessing)
     }
 
-    @Test("importRevocationCertificate handles empty data", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("importRevocationCertificate handles empty data")
     func testImportRevocationCertificateEmptyData() {
         let service = RevocationService.shared
         let emptyData = Data()
@@ -340,15 +474,16 @@ struct RevocationServiceTests {
         do {
             _ = try service.importRevocationCertificate(data: emptyData)
             Issue.record("Expected error for empty data")
+        } catch let error as OperationError {
+            expectKeyImportFailed(error, context: #function)
         } catch {
-            // Expected to throw
-            #expect(true)
+            Issue.record("Expected OperationError.keyImportFailed, got \(error)")
         }
     }
 
     // MARK: - applyRevocation Tests
 
-    @Test("applyRevocation currently throws not implemented error", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("applyRevocation rejects invalid certificate data")
     func testApplyRevocationNotImplemented() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -356,18 +491,21 @@ struct RevocationServiceTests {
 
         do {
             _ = try service.applyRevocation(to: key, certificate: testData)
-            Issue.record("Expected error to be thrown")
+            Issue.record("Expected OperationError.unknownError")
         } catch let error as OperationError {
-            // Should throw an error about not being implemented
-            if case .unknownError(let message) = error {
-                #expect(message.contains("not yet supported") || message.contains("not implemented"))
-            }
+            _ = expectUnknownError(error, context: #function)
         } catch {
-            Issue.record("Expected OperationError, got \(error)")
+            Issue.record("Expected OperationError.unknownError, got \(error)")
         }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            _ = expectUnknownError(lastError, context: "\(#function) lastError")
+        }
+
+        #expect(!service.isProcessing)
     }
 
-    @Test("applyRevocation sets lastError on failure", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("applyRevocation sets lastError on failure")
     func testApplyRevocationSetsLastError() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -379,10 +517,12 @@ struct RevocationServiceTests {
             // Expected to throw
         }
 
-        #expect(service.lastError != nil)
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            _ = expectUnknownError(lastError, context: "\(#function) lastError")
+        }
     }
 
-    @Test("applyRevocation resets isProcessing flag", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("applyRevocation resets isProcessing flag")
     func testApplyRevocationResetsProcessingFlag() {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
@@ -390,8 +530,11 @@ struct RevocationServiceTests {
 
         do {
             _ = try service.applyRevocation(to: key, certificate: testData)
+            Issue.record("Expected OperationError.unknownError")
+        } catch let error as OperationError {
+            _ = expectUnknownError(error, context: #function)
         } catch {
-            // Expected to throw
+            Issue.record("Expected OperationError.unknownError, got \(error)")
         }
 
         #expect(!service.isProcessing)
@@ -399,41 +542,58 @@ struct RevocationServiceTests {
 
     // MARK: - applyRevocationAsync Tests
 
-    @Test("applyRevocationAsync completes on main thread", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("applyRevocationAsync completes on main thread")
+    @MainActor
     func testApplyRevocationAsyncMainThread() async {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
-        let testData = Data("cert".utf8)
-
-        let expectation = TestExpectation()
-
-        service.applyRevocationAsync(to: key, certificate: testData) { result in
-            #expect(Thread.isMainThread)
-            expectation.fulfill()
+        guard let certificate = try? service.generateRevocationCertificate(
+            for: key,
+            reason: .compromised,
+            passphrase: "testpass"
+        ) else {
+            Issue.record("Expected revocation certificate generation to succeed")
+            return
+        }
+        let result = await withCheckedContinuation { continuation in
+            service.applyRevocationAsync(to: key, certificate: certificate) { result in
+                #expect(Thread.isMainThread)
+                continuation.resume(returning: result)
+            }
         }
 
-        await expectation.fulfillment
+        switch result {
+        case .success(let updatedKey):
+            #expect(updatedKey.isRevoked)
+        case .failure(let error):
+            Issue.record("Expected successful revocation apply, got \(error)")
+        }
     }
 
-    @Test("applyRevocationAsync returns failure for not implemented", .disabled("Revocation workflows postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("applyRevocationAsync returns failure for invalid certificate data")
+    @MainActor
     func testApplyRevocationAsyncFailure() async {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
         let testData = Data("cert".utf8)
-
-        let expectation = TestExpectation()
-
-        service.applyRevocationAsync(to: key, certificate: testData) { result in
-            switch result {
-            case .success:
-                Issue.record("Expected failure, got success")
-            case .failure(let error):
-                #expect(error is OperationError)
+        let result = await withCheckedContinuation { continuation in
+            service.applyRevocationAsync(to: key, certificate: testData) { result in
+                #expect(Thread.isMainThread)
+                continuation.resume(returning: result)
             }
-            expectation.fulfill()
         }
 
-        await expectation.fulfillment
+        switch result {
+        case .success:
+            Issue.record("Expected failure, got success")
+        case .failure(let error):
+            _ = expectUnknownError(error, context: #function)
+        }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            _ = expectUnknownError(lastError, context: "\(#function) lastError")
+        }
+        #expect(!service.isProcessing)
     }
 
     // MARK: - isRevoked Tests
@@ -700,28 +860,5 @@ struct RevocationServiceTests {
         #expect(importedData.count == 1024 * 1024)
 
         try? FileManager.default.removeItem(at: fileURL)
-    }
-}
-
-/// Test expectation helper for async tests
-private class TestExpectation {
-    private var isFulfilled = false
-    private let condition = NSCondition()
-
-    func fulfill() {
-        condition.lock()
-        isFulfilled = true
-        condition.signal()
-        condition.unlock()
-    }
-
-    var fulfillment: Void {
-        get async {
-            condition.lock()
-            while !isFulfilled {
-                condition.wait()
-            }
-            condition.unlock()
-        }
     }
 }

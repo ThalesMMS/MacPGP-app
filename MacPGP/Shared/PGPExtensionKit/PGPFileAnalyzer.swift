@@ -141,52 +141,39 @@ final class PGPFileAnalyzer {
     /// - Returns: The detected file type
     /// - Throws: Error if file type cannot be determined
     private func detectFileType(data: Data, encodingFormat: EncodingFormat) throws -> FileType {
-        do {
-            // Try to parse as encrypted message
-            _ = try ObjectivePGP.decrypt(data, andVerifySignature: false, using: [])
-            // If we got here without a key error, it's likely encrypted
-            // (will fail with missing key error)
-            return .encrypted
-        } catch {
-            // Check error to determine file type
-            let nsError = error as NSError
-
-            // If it's a key-related error, the file is likely encrypted
-            if nsError.domain == "ObjectivePGP" {
-                // Try to detect if it's a key file
-                if encodingFormat == .asciiArmored {
-                    if let content = String(data: data, encoding: .utf8) {
-                        if content.contains("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
-                            return .publicKey
-                        } else if content.contains("-----BEGIN PGP PRIVATE KEY BLOCK-----") {
-                            return .privateKey
-                        } else if content.contains("-----BEGIN PGP SIGNATURE-----") {
-                            return .signed
-                        } else if content.contains("-----BEGIN PGP MESSAGE-----") {
-                            return .encrypted
-                        }
-                    }
-                }
-
-                // For binary format, check packet types
-                if data.count >= 2 {
-                    let firstByte = data[0]
-                    let packetTag = (firstByte & 0x3F) >> 2
-
-                    switch packetTag {
-                    case 6: // Public key packet
-                        return .publicKey
-                    case 5: // Secret key packet
-                        return .privateKey
-                    case 2: // Signature packet
-                        return .signed
-                    case 1, 18: // Encrypted data packets
-                        return .encrypted
-                    default:
-                        break
-                    }
-                }
+        if encodingFormat == .asciiArmored,
+           let content = String(data: data, encoding: .utf8) {
+            if content.contains("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
+                return .publicKey
             }
+            if content.contains("-----BEGIN PGP PRIVATE KEY BLOCK-----") {
+                return .privateKey
+            }
+            if content.contains("-----BEGIN PGP SIGNED MESSAGE-----") || content.contains("-----BEGIN PGP SIGNATURE-----") {
+                return .signed
+            }
+            if content.contains("-----BEGIN PGP MESSAGE-----") {
+                let inspection = try ObjectivePGP.inspect(data)
+                if inspection.isEncrypted && inspection.isSigned {
+                    return .encryptedAndSigned
+                }
+                return inspection.isEncrypted ? .encrypted : .unknown
+            }
+        }
+
+        if let keys = try? ObjectivePGP.readKeys(from: data), !keys.isEmpty {
+            return keys.contains(where: \.isSecret) ? .privateKey : .publicKey
+        }
+
+        let inspection = try ObjectivePGP.inspect(data)
+        if inspection.isEncrypted && inspection.isSigned {
+            return .encryptedAndSigned
+        }
+        if inspection.isEncrypted {
+            return .encrypted
+        }
+        if inspection.isSigned {
+            return .signed
         }
 
         return .unknown

@@ -432,6 +432,11 @@
 "error.export_failed" = "Exportación fallida: %@";
 "error.import_failed" = "Importación fallida: %@";
 "error.upload_failed" = "Carga fallida: %@";
+"error.upload_failed.reason.sanitize_armored_key" = "No se pudieron sanear los datos de la clave armada";
+"error.upload_failed.reason.armor_key" = "No se pudieron convertir los datos de la clave al formato armored";
+"error.upload_failed.reason.multiple_keys_bundled" = "Se agruparon varias claves; la carga solo acepta una única clave";
+"error.upload_failed.reason.invalid_key_data" = "Datos de clave no válidos";
+"error.upload_failed.reason.encode_armored_key_data" = "No se pudieron codificar los datos de la clave armada";
 "error.refresh_failed" = "Actualización fallida: %@";
 "error.delete_failed" = "Error al eliminar clave: %@";
 "error.encryption_failed" = "Cifrado fallido: %@";
@@ -577,5 +582,7 @@
 "qr.unable_to_generate" = "No se pudo generar código QR";
 "qr.preview" = "Vista Previa de Código QR";
 "qr.test_fingerprint" = "Huella Digital de Prueba";
+"settings.keys.algorithm_help.ecdsa" = "Las claves ECDSA se generan con una subclave ECDH para cifrado.";
+"settings.keys.algorithm_help.eddsa" = "Las claves EdDSA se generan con una subclave X25519 para cifrado.";
 
 /* End of Localizable.strings */

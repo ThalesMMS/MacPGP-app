@@ -7,6 +7,7 @@
 
 import Testing
 import Foundation
+import ObjectivePGP
 @testable import MacPGP
 
 // MARK: - Mock URLSession Support
@@ -44,6 +45,27 @@ class MockURLProtocol: URLProtocol {
 
 @Suite("KeyServerService Tests", .serialized)
 struct KeyServerServiceTests {
+    private static let cachedUploadArmoredKeys: (publicKey: String, secretKey: String) = {
+        let keyGenerator = KeyGenerator()
+        keyGenerator.keyBitsLength = 2048
+
+        let key = keyGenerator.generate(for: "upload@example.com", passphrase: "testpass")
+        let publicKeyData = try! PublicKeyExport.export(key)
+        let secretKeyData = try! key.export()
+
+        return (
+            publicKey: try! Armor.armored(publicKeyData, as: .publicKey),
+            secretKey: try! Armor.armored(secretKeyData, as: .secretKey)
+        )
+    }()
+    private static let cachedAlternateArmoredPublicKey: String = {
+        let keyGenerator = KeyGenerator()
+        keyGenerator.keyBitsLength = 2048
+
+        let key = keyGenerator.generate(for: "upload-alt@example.com", passphrase: "testpass")
+        let publicKeyData = try! PublicKeyExport.export(key)
+        return try! Armor.armored(publicKeyData, as: .publicKey)
+    }()
 
     // MARK: - Test Configuration
 
@@ -67,6 +89,40 @@ struct KeyServerServiceTests {
             hostname: "test.keyserver.com",
             protocol: .hkps
         )
+    }
+
+    func createArmoredPublicKey() -> String {
+        Self.cachedUploadArmoredKeys.publicKey
+    }
+
+    func createArmoredSecretKey() -> String {
+        Self.cachedUploadArmoredKeys.secretKey
+    }
+
+    func requestBodyString(from request: URLRequest) -> String {
+        if let body = request.httpBody {
+            return String(data: body, encoding: .utf8) ?? ""
+        }
+
+        guard let stream = request.httpBodyStream else {
+            return ""
+        }
+
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        let bufferSize = 4096
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+
+        while stream.hasBytesAvailable {
+            let bytesRead = stream.read(buffer, maxLength: bufferSize)
+            guard bytesRead > 0 else { break }
+            data.append(buffer, count: bytesRead)
+        }
+
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
     // MARK: - Initialization Tests
@@ -327,9 +383,13 @@ struct KeyServerServiceTests {
         let service = createMockService()
         let server = createTestServer()
 
-        let armoredKey = "-----BEGIN PGP PUBLIC KEY BLOCK-----\ntest\n-----END PGP PUBLIC KEY BLOCK-----"
+        let armoredKey = createArmoredPublicKey()
 
         MockURLProtocol.requestHandler = { request in
+            let body = requestBodyString(from: request)
+            #expect(body.contains("BEGIN PGP PUBLIC KEY BLOCK"))
+            #expect(!body.contains("BEGIN PGP PRIVATE KEY BLOCK"))
+
             let response = HTTPURLResponse(
                 url: request.url!,
                 statusCode: 200,
@@ -350,7 +410,7 @@ struct KeyServerServiceTests {
         let service = createMockService()
         let server = createTestServer()
 
-        let armoredKey = "-----BEGIN PGP PUBLIC KEY BLOCK-----\ntest\n-----END PGP PUBLIC KEY BLOCK-----"
+        let armoredKey = createArmoredPublicKey()
 
         MockURLProtocol.requestHandler = { request in
             let response = HTTPURLResponse(
@@ -422,7 +482,7 @@ struct KeyServerServiceTests {
         let service = createMockService()
         let server = createTestServer()
 
-        let armoredKey = "-----BEGIN PGP PUBLIC KEY BLOCK-----\ntest\n-----END PGP PUBLIC KEY BLOCK-----"
+        let armoredKey = createArmoredPublicKey()
 
         MockURLProtocol.requestHandler = { request in
             #expect(request.url?.path == "/pks/add")
@@ -439,6 +499,63 @@ struct KeyServerServiceTests {
         }
 
         try await service.uploadKey(armoredKey.data(using: .utf8)!, to: server)
+    }
+
+    @Test("Upload sanitizes armored private key payloads to public key data")
+    func testUploadSanitizesPrivateKeyPayload() async throws {
+        let service = createMockService()
+        let server = createTestServer()
+
+        let armoredKey = createArmoredSecretKey()
+
+        MockURLProtocol.requestHandler = { request in
+            let body = requestBodyString(from: request)
+            #expect(body.contains("BEGIN PGP PUBLIC KEY BLOCK"))
+            #expect(!body.contains("BEGIN PGP PRIVATE KEY BLOCK"))
+            #expect(!body.contains("BEGIN PGP SECRET KEY BLOCK"))
+
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, Data())
+        }
+
+        try await service.uploadKey(armoredKey.data(using: .utf8)!, to: server)
+    }
+
+    @Test("Upload rejects bundled key payloads")
+    func testUploadRejectsBundledKeys() async throws {
+        let service = createMockService()
+        let server = createTestServer()
+
+        let firstKey = createArmoredPublicKey()
+        let secondKey = Self.cachedAlternateArmoredPublicKey
+        let bundledKeys = "\(firstKey)\n\(secondKey)"
+
+        MockURLProtocol.requestHandler = { _ in
+            Issue.record("Upload should fail before issuing a network request")
+            throw URLError(.badServerResponse)
+        }
+
+        do {
+            try await service.uploadKey(bundledKeys.data(using: .utf8)!, to: server)
+            Issue.record("Expected uploadFailed error")
+        } catch let error as KeyServerError {
+            if case .uploadFailed(let reason) = error {
+                #expect(!reason.isEmpty)
+            } else {
+                Issue.record("Expected uploadFailed, got \(error)")
+            }
+        }
+
+        if case .uploadFailed(let reason)? = service.lastError {
+            #expect(!reason.isEmpty)
+        } else {
+            Issue.record("Expected lastError to capture bundled key upload failure")
+        }
     }
 
     // MARK: - Error Handling Tests
@@ -538,7 +655,7 @@ struct KeyServerServiceTests {
         let service = createMockService()
         let server = createTestServer()
 
-        let armoredKey = "-----BEGIN PGP PUBLIC KEY BLOCK-----\ntest\n-----END PGP PUBLIC KEY BLOCK-----"
+        let armoredKey = createArmoredPublicKey()
 
         MockURLProtocol.requestHandler = { request in
             #expect(service.isUploading == true)

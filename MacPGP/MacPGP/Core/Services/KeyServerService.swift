@@ -1,6 +1,29 @@
 import Foundation
 import ObjectivePGP
 
+private enum UploadFailureReason {
+    case sanitizeArmoredKey
+    case armorKey
+    case multipleKeysBundled
+    case invalidKeyData
+    case encodeArmoredKeyData
+
+    var localizedDescription: String {
+        switch self {
+        case .sanitizeArmoredKey:
+            return NSLocalizedString("error.upload_failed.reason.sanitize_armored_key", comment: "Reason when armored key data could not be sanitized before upload")
+        case .armorKey:
+            return NSLocalizedString("error.upload_failed.reason.armor_key", comment: "Reason when key data could not be armored before upload")
+        case .multipleKeysBundled:
+            return NSLocalizedString("error.upload_failed.reason.multiple_keys_bundled", comment: "Reason when multiple keys are bundled in a single upload payload")
+        case .invalidKeyData:
+            return NSLocalizedString("error.upload_failed.reason.invalid_key_data", comment: "Reason when uploaded key data cannot be parsed")
+        case .encodeArmoredKeyData:
+            return NSLocalizedString("error.upload_failed.reason.encode_armored_key_data", comment: "Reason when armored key data cannot be encoded for upload")
+        }
+    }
+}
+
 enum KeyServerError: LocalizedError {
     case invalidURL
     case networkError(underlying: Error)
@@ -196,24 +219,20 @@ final class KeyServerService {
             throw KeyServerError.invalidURL
         }
 
-        // Convert binary key data to ASCII armored format for upload
+        let armoredPayload = String(data: keyData, encoding: .utf8)
+        let isArmoredPayload = armoredPayload?.contains("-----BEGIN PGP") == true
+
         let armoredData: Data
-        if let armoredString = String(data: keyData, encoding: .utf8),
-           armoredString.contains("-----BEGIN PGP") {
-            // Already armored
-            armoredData = keyData
-        } else {
-            // Need to armor the key
-            do {
-                let keys = try KeyringPersistence().importKey(from: keyData)
-                guard let firstKey = keys.first else {
-                    throw KeyServerError.uploadFailed(reason: "Invalid key data")
-                }
-                let armoredString = Armor.armored(try firstKey.export(), as: .publicKey)
-                armoredData = armoredString.data(using: .utf8) ?? keyData
-            } catch {
-                throw KeyServerError.uploadFailed(reason: "Failed to armor key data")
-            }
+        do {
+            armoredData = try sanitizedPublicArmoredKeyData(from: keyData)
+        } catch let error as KeyServerError {
+            lastError = error
+            throw error
+        } catch {
+            let reason: UploadFailureReason = isArmoredPayload ? .sanitizeArmoredKey : .armorKey
+            let wrappedError = KeyServerError.uploadFailed(reason: reason.localizedDescription)
+            lastError = wrappedError
+            throw wrappedError
         }
 
         // Prepare form data for HKP upload
@@ -251,6 +270,24 @@ final class KeyServerService {
             lastError = wrappedError
             throw wrappedError
         }
+    }
+
+    private func sanitizedPublicArmoredKeyData(from keyData: Data) throws -> Data {
+        let keys = try KeyringPersistence().importKey(from: keyData)
+        guard keys.count <= 1 else {
+            throw KeyServerError.uploadFailed(reason: UploadFailureReason.multipleKeysBundled.localizedDescription)
+        }
+        guard let firstKey = keys.first else {
+            throw KeyServerError.uploadFailed(reason: UploadFailureReason.invalidKeyData.localizedDescription)
+        }
+
+        let publicKeyData = try PublicKeyExport.export(firstKey)
+        let armoredString = try Armor.armored(publicKeyData, as: .publicKey)
+        guard let armoredData = armoredString.data(using: .utf8) else {
+            throw KeyServerError.uploadFailed(reason: UploadFailureReason.encodeArmoredKeyData.localizedDescription)
+        }
+
+        return armoredData
     }
 
     // MARK: - URL Building

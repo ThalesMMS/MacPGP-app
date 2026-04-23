@@ -27,16 +27,15 @@ struct PreferencesManagerTests {
 
     // MARK: - defaultKeyAlgorithm
 
-    @Test("defaultKeyAlgorithm getter always returns RSA regardless of stored value")
-    func testDefaultKeyAlgorithmGetterAlwaysReturnsRSA() {
+    @Test("defaultKeyAlgorithm getter returns supported stored values")
+    func testDefaultKeyAlgorithmGetterReturnsStoredValue() {
         defer { cleanupAlgorithmKey() }
 
-        // Even if some other value was previously stored, the getter is hardcoded to .rsa
         UserDefaults.standard.set("ECDSA", forKey: TestDefaultsKeys.defaultKeyAlgorithm)
-        #expect(PreferencesManager.shared.defaultKeyAlgorithm == .rsa)
+        #expect(PreferencesManager.shared.defaultKeyAlgorithm == .ecdsa)
 
         UserDefaults.standard.set("EdDSA", forKey: TestDefaultsKeys.defaultKeyAlgorithm)
-        #expect(PreferencesManager.shared.defaultKeyAlgorithm == .rsa)
+        #expect(PreferencesManager.shared.defaultKeyAlgorithm == .eddsa)
     }
 
     @Test("defaultKeyAlgorithm getter returns RSA when no value is stored")
@@ -47,15 +46,17 @@ struct PreferencesManagerTests {
         #expect(PreferencesManager.shared.defaultKeyAlgorithm == .rsa)
     }
 
-    @Test("defaultKeyAlgorithm setter preserves the assigned raw value for future compatibility")
+    @Test("defaultKeyAlgorithm setter persists the assigned algorithm")
     func testDefaultKeyAlgorithmSetterPreservesAssignedRawValueForECDSA() {
-        defer { cleanupAlgorithmKey() }
+        defer {
+            cleanupAlgorithmKey()
+            cleanupKeySizeKey()
+        }
 
-        // The release UI always reads back RSA, but the stored raw value is preserved so
-        // this preference can round-trip once non-RSA algorithms are re-enabled.
         PreferencesManager.shared.defaultKeyAlgorithm = .ecdsa
         let stored = UserDefaults.standard.string(forKey: TestDefaultsKeys.defaultKeyAlgorithm)
         #expect(stored == KeyAlgorithm.ecdsa.rawValue)
+        #expect(PreferencesManager.shared.defaultKeyAlgorithm == .ecdsa)
     }
 
     @Test("defaultKeyAlgorithm setter stores RSA when explicitly set to RSA")
@@ -67,75 +68,125 @@ struct PreferencesManagerTests {
         #expect(stored == KeyAlgorithm.rsa.rawValue)
     }
 
+    @Test("defaultKeyAlgorithm setter normalizes unsupported algorithms to RSA")
+    func testDefaultKeyAlgorithmSetterNormalizesUnsupportedAlgorithm() {
+        defer {
+            cleanupAlgorithmKey()
+            cleanupKeySizeKey()
+        }
+
+        UserDefaults.standard.set(2048, forKey: TestDefaultsKeys.defaultKeySize)
+
+        PreferencesManager.shared.defaultKeyAlgorithm = .dsa
+
+        let storedAlgorithm = UserDefaults.standard.string(forKey: TestDefaultsKeys.defaultKeyAlgorithm)
+        let storedKeySize = UserDefaults.standard.integer(forKey: TestDefaultsKeys.defaultKeySize)
+        #expect(storedAlgorithm == KeyAlgorithm.rsa.rawValue)
+        #expect(storedKeySize == 2048)
+        #expect(PreferencesManager.shared.defaultKeyAlgorithm == .rsa)
+    }
+
     // MARK: - defaultKeySize
 
-    @Test("defaultKeySize returns RSA default when no value is stored")
+    @Test("defaultKeySize returns current algorithm default when no value is stored")
     func testDefaultKeySizeReturnsDefaultWhenNotSet() {
-        defer { cleanupKeySizeKey() }
+        defer {
+            cleanupAlgorithmKey()
+            cleanupKeySizeKey()
+        }
 
+        PreferencesManager.shared.defaultKeyAlgorithm = .rsa
         UserDefaults.standard.removeObject(forKey: TestDefaultsKeys.defaultKeySize)
         #expect(PreferencesManager.shared.defaultKeySize == KeyAlgorithm.rsa.defaultKeySize)
     }
 
-    @Test("defaultKeySize returns stored value when it is a valid RSA key size")
+    @Test("defaultKeySize returns stored value when it is valid for the selected algorithm")
     func testDefaultKeySizeReturnsValidStoredSize() {
-        defer { cleanupKeySizeKey() }
+        defer {
+            cleanupAlgorithmKey()
+            cleanupKeySizeKey()
+        }
 
-        for size in KeyAlgorithm.rsa.supportedKeySizes {
+        PreferencesManager.shared.defaultKeyAlgorithm = .ecdsa
+
+        for size in KeyAlgorithm.ecdsa.supportedKeySizes {
             UserDefaults.standard.set(size, forKey: TestDefaultsKeys.defaultKeySize)
             #expect(PreferencesManager.shared.defaultKeySize == size)
         }
     }
 
-    @Test("defaultKeySize returns RSA default when stored value is not a supported RSA size")
+    @Test("defaultKeySize returns current algorithm default when stored value is unsupported")
     func testDefaultKeySizeReturnsDefaultForUnsupportedStoredValue() {
-        defer { cleanupKeySizeKey() }
+        defer {
+            cleanupAlgorithmKey()
+            cleanupKeySizeKey()
+        }
 
-        // 1024 is not in [2048, 3072, 4096]
+        PreferencesManager.shared.defaultKeyAlgorithm = .eddsa
         UserDefaults.standard.set(1024, forKey: TestDefaultsKeys.defaultKeySize)
-        #expect(PreferencesManager.shared.defaultKeySize == KeyAlgorithm.rsa.defaultKeySize)
+        #expect(PreferencesManager.shared.defaultKeySize == KeyAlgorithm.eddsa.defaultKeySize)
     }
 
-    @Test("defaultKeySize returns RSA default when stored value is zero")
+    @Test("defaultKeySize returns current algorithm default when stored value is zero")
     func testDefaultKeySizeReturnsDefaultForZeroStoredValue() {
-        defer { cleanupKeySizeKey() }
+        defer {
+            cleanupAlgorithmKey()
+            cleanupKeySizeKey()
+        }
 
+        PreferencesManager.shared.defaultKeyAlgorithm = .ecdsa
         UserDefaults.standard.set(0, forKey: TestDefaultsKeys.defaultKeySize)
-        #expect(PreferencesManager.shared.defaultKeySize == KeyAlgorithm.rsa.defaultKeySize)
+        #expect(PreferencesManager.shared.defaultKeySize == KeyAlgorithm.ecdsa.defaultKeySize)
     }
 
-    @Test("defaultKeySize setter persists valid RSA key size")
+    @Test("defaultKeySize setter persists valid size for selected algorithm")
     func testDefaultKeySizeSetterPersistsValidSize() {
-        defer { cleanupKeySizeKey() }
+        defer {
+            cleanupAlgorithmKey()
+            cleanupKeySizeKey()
+        }
 
-        PreferencesManager.shared.defaultKeySize = 2048
-        #expect(UserDefaults.standard.integer(forKey: TestDefaultsKeys.defaultKeySize) == 2048)
+        PreferencesManager.shared.defaultKeyAlgorithm = .ecdsa
+        PreferencesManager.shared.defaultKeySize = 384
+        #expect(UserDefaults.standard.integer(forKey: TestDefaultsKeys.defaultKeySize) == 384)
 
-        PreferencesManager.shared.defaultKeySize = 3072
-        #expect(UserDefaults.standard.integer(forKey: TestDefaultsKeys.defaultKeySize) == 3072)
+        PreferencesManager.shared.defaultKeySize = 521
+        #expect(UserDefaults.standard.integer(forKey: TestDefaultsKeys.defaultKeySize) == 521)
     }
 
-    @Test("defaultKeySize setter normalizes unsupported size to RSA default")
+    @Test("defaultKeySize setter normalizes unsupported size to current algorithm default")
     func testDefaultKeySizeSetterNormalizesInvalidSize() {
-        defer { cleanupKeySizeKey() }
+        defer {
+            cleanupAlgorithmKey()
+            cleanupKeySizeKey()
+        }
 
-        // 512 is not a valid RSA key size
+        PreferencesManager.shared.defaultKeyAlgorithm = .eddsa
         PreferencesManager.shared.defaultKeySize = 512
-        #expect(UserDefaults.standard.integer(forKey: TestDefaultsKeys.defaultKeySize) == KeyAlgorithm.rsa.defaultKeySize)
+        #expect(UserDefaults.standard.integer(forKey: TestDefaultsKeys.defaultKeySize) == KeyAlgorithm.eddsa.defaultKeySize)
     }
 
-    @Test("defaultKeySize setter normalizes non-RSA ECDSA size to RSA default")
-    func testDefaultKeySizeSetterNormalizesECDSASize() {
-        defer { cleanupKeySizeKey() }
+    @Test("changing the default algorithm normalizes incompatible stored size")
+    func testDefaultKeyAlgorithmNormalizesStoredKeySize() {
+        defer {
+            cleanupAlgorithmKey()
+            cleanupKeySizeKey()
+        }
 
-        // 256 is valid for ECDSA but not for RSA
-        PreferencesManager.shared.defaultKeySize = 256
-        #expect(UserDefaults.standard.integer(forKey: TestDefaultsKeys.defaultKeySize) == KeyAlgorithm.rsa.defaultKeySize)
+        UserDefaults.standard.set(4096, forKey: TestDefaultsKeys.defaultKeySize)
+        PreferencesManager.shared.defaultKeyAlgorithm = .eddsa
+
+        #expect(UserDefaults.standard.integer(forKey: TestDefaultsKeys.defaultKeySize) == KeyAlgorithm.eddsa.defaultKeySize)
     }
 
     @Test("defaultKeySize getter returns after round-trip through setter")
     func testDefaultKeySizeRoundTrip() {
-        defer { cleanupKeySizeKey() }
+        defer {
+            cleanupAlgorithmKey()
+            cleanupKeySizeKey()
+        }
+
+        PreferencesManager.shared.defaultKeyAlgorithm = .rsa
 
         for size in KeyAlgorithm.rsa.supportedKeySizes {
             PreferencesManager.shared.defaultKeySize = size

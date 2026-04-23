@@ -315,44 +315,68 @@ struct KeyGenerationServiceTests {
         #expect(userID.contains("Personal"))
     }
 
-    // NOTE: ECDSA and EdDSA tests are commented out due to ObjectivePGP library limitations
-    // The library doesn't properly support these algorithms and causes crashes during key generation
+    @Test("Generate key with ECDSA algorithm")
+    func testGenerateECDSAKey() throws {
+        let service = KeyGenerationService.shared
 
-    // @Test("Generate key with ECDSA algorithm")
-    // func testGenerateECDSAKey() throws {
-    //     let service = KeyGenerationService.shared
-    //
-    //     let params = KeyGenerationParameters(
-    //         name: "Test User",
-    //         email: "test-gen-ecdsa@example.com",
-    //         passphrase: "TestPassword123!",
-    //         algorithm: .ecdsa,
-    //         keySize: 256
-    //     )
-    //
-    //     let key = try service.generateKey(with: params)
-    //
-    //     #expect(key.publicKey != nil)
-    //     #expect(key.secretKey != nil)
-    // }
+        let params = KeyGenerationParameters(
+            name: "Test User",
+            email: "test-gen-ecdsa@example.com",
+            passphrase: "TestPassword123!",
+            algorithm: .ecdsa,
+            keySize: 256
+        )
 
-    // @Test("Generate key with EdDSA algorithm")
-    // func testGenerateEdDSAKey() throws {
-    //     let service = KeyGenerationService.shared
-    //
-    //     let params = KeyGenerationParameters(
-    //         name: "Test User",
-    //         email: "test-gen-eddsa@example.com",
-    //         passphrase: "TestPassword123!",
-    //         algorithm: .eddsa,
-    //         keySize: 256
-    //     )
-    //
-    //     let key = try service.generateKey(with: params)
-    //
-    //     #expect(key.publicKey != nil)
-    //     #expect(key.secretKey != nil)
-    // }
+        let key = try service.generateKey(with: params)
+        let model = PGPKeyModel(from: key)
+
+        #expect(key.publicKey != nil)
+        #expect(key.secretKey != nil)
+        #expect(model.algorithm == .ecdsa)
+        #expect(model.keySize == 256)
+    }
+
+    @Test("Generate ECDSA keys across supported curve sizes", arguments: [256, 384, 521])
+    func testGenerateECDSAKeysForSupportedCurveSizes(keySize: Int) throws {
+        let service = KeyGenerationService.shared
+
+        let params = KeyGenerationParameters(
+            name: "Test User",
+            email: "test-gen-ecdsa-\(keySize)@example.com",
+            passphrase: "TestPassword123!",
+            algorithm: .ecdsa,
+            keySize: keySize
+        )
+
+        let key = try service.generateKey(with: params)
+        let model = PGPKeyModel(from: key)
+
+        #expect(key.publicKey != nil)
+        #expect(key.secretKey != nil)
+        #expect(model.algorithm == .ecdsa)
+        #expect(model.keySize == keySize)
+    }
+
+    @Test("Generate key with EdDSA algorithm")
+    func testGenerateEdDSAKey() throws {
+        let service = KeyGenerationService.shared
+
+        let params = KeyGenerationParameters(
+            name: "Test User",
+            email: "test-gen-eddsa@example.com",
+            passphrase: "TestPassword123!",
+            algorithm: .eddsa,
+            keySize: 256
+        )
+
+        let key = try service.generateKey(with: params)
+        let model = PGPKeyModel(from: key)
+
+        #expect(key.publicKey != nil)
+        #expect(key.secretKey != nil)
+        #expect(model.algorithm == .eddsa)
+        #expect(model.keySize == 256)
+    }
 
     @Test("Generate key with different key sizes")
     func testGenerateKeyWithDifferentSizes() throws {

@@ -50,32 +50,49 @@ final class PreferencesManager {
         static let appLanguage = "appLanguage"
     }
 
-    // Release builds only expose RSA key generation until ObjectivePGP safely supports
-    // additional algorithms. The stored value is ignored for now; persist on set so
-    // the preference round-trips correctly once additional algorithms are re-enabled.
     var defaultKeyAlgorithm: KeyAlgorithm {
-        get { .rsa }
-        set { defaults.set(newValue.rawValue, forKey: Keys.defaultKeyAlgorithm) }
+        get {
+            guard let rawValue = defaults.string(forKey: Keys.defaultKeyAlgorithm),
+                  let algorithm = KeyAlgorithm(rawValue: rawValue),
+                  [.rsa, .ecdsa, .eddsa].contains(algorithm) else {
+                return .rsa
+            }
+            return algorithm
+        }
+        set {
+            let normalizedAlgorithm = Self.normalizedDefaultKeyAlgorithm(newValue)
+            defaults.set(normalizedAlgorithm.rawValue, forKey: Keys.defaultKeyAlgorithm)
+
+            let storedSize = defaults.integer(forKey: Keys.defaultKeySize)
+            if !normalizedAlgorithm.supportedKeySizes.contains(storedSize) {
+                defaults.set(normalizedAlgorithm.defaultKeySize, forKey: Keys.defaultKeySize)
+            }
+        }
     }
 
     var defaultKeySize: Int {
         get {
             let storedSize = defaults.integer(forKey: Keys.defaultKeySize)
-                .nonZeroOr(KeyAlgorithm.rsa.defaultKeySize)
-            return KeyAlgorithm.rsa.supportedKeySizes.contains(storedSize)
+                .nonZeroOr(defaultKeyAlgorithm.defaultKeySize)
+            return defaultKeyAlgorithm.supportedKeySizes.contains(storedSize)
                 ? storedSize
-                : KeyAlgorithm.rsa.defaultKeySize
+                : defaultKeyAlgorithm.defaultKeySize
         }
         set {
-            let normalizedSize = KeyAlgorithm.rsa.supportedKeySizes.contains(newValue)
+            let normalizedSize = defaultKeyAlgorithm.supportedKeySizes.contains(newValue)
                 ? newValue
-                : KeyAlgorithm.rsa.defaultKeySize
+                : defaultKeyAlgorithm.defaultKeySize
             defaults.set(normalizedSize, forKey: Keys.defaultKeySize)
         }
     }
 
     var defaultKeyExpirationMonths: Int {
-        get { defaults.integer(forKey: Keys.defaultKeyExpiration).nonZeroOr(24) }
+        get {
+            if defaults.object(forKey: Keys.defaultKeyExpiration) == nil {
+                return 24
+            }
+            return defaults.integer(forKey: Keys.defaultKeyExpiration)
+        }
         set { defaults.set(newValue, forKey: Keys.defaultKeyExpiration) }
     }
 
@@ -299,6 +316,10 @@ final class PreferencesManager {
     func resetToDefaults() {
         let domain = Bundle.main.bundleIdentifier ?? "com.macpgp"
         defaults.removePersistentDomain(forName: domain)
+    }
+
+    private static func normalizedDefaultKeyAlgorithm(_ algorithm: KeyAlgorithm) -> KeyAlgorithm {
+        [.rsa, .ecdsa, .eddsa].contains(algorithm) ? algorithm : .rsa
     }
 }
 

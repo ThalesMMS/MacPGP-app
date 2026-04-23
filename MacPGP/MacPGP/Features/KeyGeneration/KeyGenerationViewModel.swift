@@ -28,15 +28,25 @@ final class KeyGenerationViewModel {
         self.keyringService = keyringService
 
         let preferences = PreferencesManager.shared
-        self.algorithm = .rsa
-        self.keySize = KeyAlgorithm.rsa.supportedKeySizes.contains(preferences.defaultKeySize)
+        self.algorithm = preferences.defaultKeyAlgorithm
+        self.keySize = algorithm.supportedKeySizes.contains(preferences.defaultKeySize)
             ? preferences.defaultKeySize
-            : KeyAlgorithm.rsa.defaultKeySize
-        self.expirationMonths = preferences.defaultKeyExpirationMonths
+            : algorithm.defaultKeySize
+        self.expirationMonths = preferences.defaultKeyExpirationMonths == 0 ? 24 : preferences.defaultKeyExpirationMonths
+        self.neverExpires = preferences.defaultKeyExpirationMonths == 0
+        self.storeInKeychain = preferences.rememberPassphrase
     }
 
     var availableKeySizes: [Int] {
         algorithm.supportedKeySizes
+    }
+
+    func updateAlgorithm(_ newAlgorithm: KeyAlgorithm) {
+        algorithm = newAlgorithm
+
+        if !algorithm.supportedKeySizes.contains(keySize) {
+            keySize = algorithm.defaultKeySize
+        }
     }
 
     var isValid: Bool {

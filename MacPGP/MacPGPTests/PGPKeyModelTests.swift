@@ -11,14 +11,14 @@ struct PGPKeyModelTests {
     private struct GeneratedKeyFixture {
         let requestedKeySize: Int
         let model: PGPKeyModel
-        let packetCreationDate: Date?
+        let metadataCreationDate: Date
         let startedAt: Date
         let finishedAt: Date
     }
 
     private struct ParsedKeyFixture {
         let model: PGPKeyModel
-        let packetCreationDate: Date?
+        let metadataCreationDate: Date
     }
 
     private enum FixtureError: Error {
@@ -39,20 +39,13 @@ struct PGPKeyModelTests {
         let model = PGPKeyModel(from: key)
         let finishedAt = Date()
 
-        let packetCreationDate = primaryKeyPacket(from: key)?
-            .value(forKey: "createDate") as? Date
-
         return GeneratedKeyFixture(
             requestedKeySize: keySize,
             model: model,
-            packetCreationDate: packetCreationDate,
+            metadataCreationDate: key.metadata.creationDate,
             startedAt: startedAt,
             finishedAt: finishedAt
         )
-    }
-
-    private func primaryKeyPacket(from key: Key) -> NSObject? {
-        key.publicKey?.value(forKey: "primaryKeyPacket") as? NSObject
     }
 
     private func loadArmoredKeyFixture(named name: String) throws -> ParsedKeyFixture {
@@ -73,14 +66,9 @@ struct PGPKeyModelTests {
 
         return ParsedKeyFixture(
             model: PGPKeyModel(from: key),
-            packetCreationDate: primaryKeyPacket(from: key)?.value(forKey: "createDate") as? Date
+            metadataCreationDate: key.metadata.creationDate
         )
     }
-
-    // NOTE: ObjectivePGP key generation for ECDSA and EdDSA remains unstable and is
-    // already documented in KeyGenerationServiceTests. This suite adds fixture-based
-    // EdDSA parsing coverage; ECDSA parsing remains uncovered because the current
-    // dependency checkout does not ship an ECDSA fixture and generation still crashes.
 
     @Test("PGPKeyModel extracts RSA metadata from generated keys", arguments: [2048, 3072, 4096])
     func testExtractsRSAMetadataFromGeneratedKeys(keySize: Int) {
@@ -88,13 +76,9 @@ struct PGPKeyModelTests {
 
         #expect(fixture.model.algorithm == .rsa)
         #expect(fixture.model.keySize == fixture.requestedKeySize)
-        #expect(fixture.packetCreationDate != nil)
-
-        if let packetCreationDate = fixture.packetCreationDate {
-            #expect(fixture.model.creationDate == packetCreationDate)
-            #expect(fixture.model.creationDate >= fixture.startedAt.addingTimeInterval(-1))
-            #expect(fixture.model.creationDate <= fixture.finishedAt.addingTimeInterval(1))
-        }
+        #expect(fixture.model.creationDate == fixture.metadataCreationDate)
+        #expect(fixture.model.creationDate >= fixture.startedAt.addingTimeInterval(-1))
+        #expect(fixture.model.creationDate <= fixture.finishedAt.addingTimeInterval(1))
     }
 
     @Test("PGPKeyModel extracts EdDSA metadata from fixture")
@@ -103,8 +87,8 @@ struct PGPKeyModelTests {
 
         #expect(fixture.model.algorithm == .eddsa)
         #expect(fixture.model.keySize == 256)
-        #expect(fixture.packetCreationDate == Date(timeIntervalSince1970: 1_554_440_750))
-        #expect(fixture.model.creationDate == fixture.packetCreationDate)
+        #expect(fixture.metadataCreationDate == Date(timeIntervalSince1970: 1_554_440_750))
+        #expect(fixture.model.creationDate == fixture.metadataCreationDate)
         #expect(fixture.model.expirationDate == nil)
         #expect(fixture.model.primaryUserID?.name == "Alice")
         #expect(fixture.model.primaryUserID?.comment == "Test ecc key")

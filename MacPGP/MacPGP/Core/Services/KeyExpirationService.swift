@@ -1,6 +1,16 @@
 import Foundation
 import ObjectivePGP
 
+struct ValidationIssue: Hashable {
+    enum Severity: Hashable {
+        case warning
+        case error
+    }
+
+    let message: String
+    let severity: Severity
+}
+
 @Observable
 final class KeyExpirationService {
     static let shared = KeyExpirationService()
@@ -9,6 +19,14 @@ final class KeyExpirationService {
     private(set) var lastError: OperationError?
 
     private init() {}
+
+    private func updateObservableState(_ updates: () -> Void) {
+        if Thread.isMainThread {
+            updates()
+        } else {
+            DispatchQueue.main.sync(execute: updates)
+        }
+    }
 
     /// Returns keys that are expiring within the specified number of days
     /// - Parameters:
@@ -37,56 +55,69 @@ final class KeyExpirationService {
         newExpirationDate: Date,
         passphrase: String
     ) throws -> PGPKeyModel {
-        isProcessing = true
-        lastError = nil
+        updateObservableState {
+            isProcessing = true
+            lastError = nil
+        }
 
         defer {
-            isProcessing = false
+            updateObservableState {
+                isProcessing = false
+            }
         }
 
         // Validate inputs
         guard key.isSecretKey else {
-            lastError = .noSecretKey
+            updateObservableState {
+                lastError = .noSecretKey
+            }
             throw OperationError.noSecretKey
         }
 
         guard newExpirationDate > Date() else {
             let error = OperationError.unknownError(message: "New expiration date must be in the future")
-            lastError = error
+            updateObservableState {
+                lastError = error
+            }
             throw error
         }
 
         guard !passphrase.isEmpty else {
-            lastError = .passphraseRequired
+            updateObservableState {
+                lastError = .passphraseRequired
+            }
             throw OperationError.passphraseRequired
         }
 
         do {
-            // Note: ObjectivePGP does not currently support modifying key expiration dates
-            // This is a placeholder implementation that will need to be enhanced
-            // when ObjectivePGP adds this functionality or when we implement it manually
-            // by manipulating the key packets directly
-
-            // For now, we'll throw an error indicating the feature is not yet implemented
-            let error = OperationError.unknownError(
-                message: "Key expiration modification is not yet supported by the underlying crypto library"
+            let updatedKey = try key.rawKey.setExpiration(
+                newExpirationDate,
+                passphraseForKey: { _ in passphrase }
             )
-            lastError = error
-            throw error
 
-            // TODO: Implement key expiration extension when ObjectivePGP supports it
-            // The implementation would look something like:
-            // 1. Decrypt the secret key with the passphrase
-            // 2. Modify the key's expiration time in the self-signature packet
-            // 3. Re-sign the key with the new expiration date
-            // 4. Update the key in the keyring
-            // 5. Return the updated PGPKeyModel
+            return PGPKeyModel(
+                from: updatedKey,
+                isVerified: key.isVerified,
+                verificationDate: key.verificationDate,
+                verificationMethod: key.verificationMethod,
+                trustLevel: key.trustLevel
+            )
         } catch let error as OperationError {
-            lastError = error
+            updateObservableState {
+                lastError = error
+            }
             throw error
         } catch {
-            let wrapped = OperationError.unknownError(message: error.localizedDescription)
-            lastError = wrapped
+            let wrapped: OperationError
+            let nsError = error as NSError
+            if nsError.domain == "ObjectivePGP" && nsError.code == 2 {
+                wrapped = .invalidPassphrase
+            } else {
+                wrapped = .unknownError(message: error.localizedDescription)
+            }
+            updateObservableState {
+                lastError = wrapped
+            }
             throw wrapped
         }
     }
@@ -145,21 +176,21 @@ final class KeyExpirationService {
     ///   - date: The proposed expiration date
     ///   - forKey: The key to validate against
     /// - Returns: Array of validation issues (empty if valid)
-    func validateExpirationDate(_ date: Date, forKey key: PGPKeyModel) -> [String] {
-        var issues: [String] = []
+    func validateExpirationDate(_ date: Date, forKey key: PGPKeyModel) -> [ValidationIssue] {
+        var issues: [ValidationIssue] = []
 
         if date <= Date() {
-            issues.append("Expiration date must be in the future")
+            issues.append(ValidationIssue(message: "Expiration date must be in the future", severity: .error))
         }
 
         if date <= key.creationDate {
-            issues.append("Expiration date cannot be before key creation date")
+            issues.append(ValidationIssue(message: "Expiration date cannot be before key creation date", severity: .error))
         }
 
         // Warn if expiration is too far in the future (more than 5 years)
         let fiveYearsFromNow = Calendar.current.date(byAdding: .year, value: 5, to: Date()) ?? Date()
         if date > fiveYearsFromNow {
-            issues.append("Warning: Setting expiration more than 5 years in the future is not recommended")
+            issues.append(ValidationIssue(message: "Setting expiration more than 5 years in the future is not recommended", severity: .warning))
         }
 
         return issues

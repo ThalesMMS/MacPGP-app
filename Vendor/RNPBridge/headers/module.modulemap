@@ -1,0 +1,4 @@
+module RNPBridge [system] {
+    umbrella header "RNPBridge.h"
+    export *
+}

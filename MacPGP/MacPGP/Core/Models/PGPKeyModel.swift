@@ -32,6 +32,8 @@ struct PGPKeyModel: Identifiable, Hashable {
     let verificationDate: Date?
     let verificationMethod: FingerprintVerificationMethod?
     let trustLevel: TrustLevel
+    let canEncrypt: Bool
+    let canSign: Bool
     let rawKey: Key
 
     init(from key: Key) {
@@ -70,6 +72,8 @@ struct PGPKeyModel: Identifiable, Hashable {
         self.verificationDate = key.verificationDate
         self.verificationMethod = key.verificationMethod
         self.trustLevel = trustLevel ?? key.trustLevel
+        self.canEncrypt = key.canEncrypt
+        self.canSign = key.canSign
         self.rawKey = key.rawKey
     }
 
@@ -80,32 +84,22 @@ struct PGPKeyModel: Identifiable, Hashable {
         verificationMethod: FingerprintVerificationMethod?,
         trustLevel: TrustLevel = .unknown
     ) {
-        let primaryKeyPacket = key.publicKey?.value(forKey: "primaryKeyPacket") as? NSObject
-        let derivedAlgorithm = Self.mapAlgorithm(from: primaryKeyPacket)
+        let derivedAlgorithm = Self.mapAlgorithm(from: key.metadata.primaryAlgorithm)
 
         self.rawKey = key
-        self.fingerprint = key.publicKey?.fingerprint.description() ?? ""
+        self.fingerprint = key.metadata.fingerprint
         self.id = fingerprint
-        self.shortKeyID = String(fingerprint.suffix(16))
+        self.shortKeyID = key.metadata.shortKeyID
 
         self.algorithm = derivedAlgorithm
-        self.keySize = Self.extractKeySize(from: primaryKeyPacket, algorithm: derivedAlgorithm)
-        self.creationDate = Self.extractCreationDate(from: primaryKeyPacket)
-
-        self.expirationDate = key.expirationDate
-
-        if let expDate = key.expirationDate {
-            self.isExpired = expDate < Date()
-        } else {
-            self.isExpired = false
-        }
+        self.keySize = key.metadata.primaryKeySize
+        self.creationDate = key.metadata.creationDate
+        self.expirationDate = key.metadata.expirationDate
+        self.isExpired = key.metadata.expirationDate.map { $0 < Date() } ?? false
 
         self.isSecretKey = key.isSecret
-
-        // Check for revocation status
-        // Note: ObjectivePGP may not have direct revocation status, so we default to false
-        self.isRevoked = false
-        self.revokedDate = nil
+        self.isRevoked = key.metadata.isRevoked
+        self.revokedDate = key.metadata.revokedDate
 
         // Verification status from parameters
         self.isVerified = isVerified
@@ -115,11 +109,12 @@ struct PGPKeyModel: Identifiable, Hashable {
         // Trust level from parameter
         self.trustLevel = trustLevel
 
-        self.userIDs = key.publicKey?.users.compactMap { user -> KeyIdentity? in
-            let userID = user.userID
+        self.userIDs = key.metadata.userIDs.compactMap { userID -> KeyIdentity? in
             guard !userID.isEmpty else { return nil }
             return KeyIdentity.parse(from: userID)
-        } ?? []
+        }
+        self.canEncrypt = key.metadata.capabilities.canEncrypt
+        self.canSign = key.metadata.capabilities.canSign
     }
 
     var primaryUserID: KeyIdentity? {
@@ -195,100 +190,22 @@ struct PGPKeyModel: Identifiable, Hashable {
         lhs.id == rhs.id
     }
 
-    private static func mapAlgorithm(from packet: NSObject?) -> KeyAlgorithm {
-        guard let algorithm = packet?
-            .value(forKey: "publicKeyAlgorithm") as? NSNumber else {
-            return .unknown
-        }
-
-        // publicKeyAlgorithm stores OpenPGP algorithm IDs from RFC 4880 section 9.1
-        // and RFC 9580 section 9.1: 1/2/3 = RSA, 16/20 = Elgamal, 17 = DSA,
-        // 19 = ECDSA, 22 = EdDSA. See https://www.rfc-editor.org/rfc/rfc4880#section-9.1
-        // and https://www.rfc-editor.org/rfc/rfc9580#section-9.1.
-        switch algorithm.intValue {
-        case 1, 2, 3:
-            return .rsa
-        case 19:
-            return .ecdsa
-        case 22:
-            return .eddsa
-        case 17:
-            return .dsa
-        case 16, 20:
-            return .elgamal
-        default:
-            return .unknown
-        }
-    }
-
-    private static func extractCreationDate(from packet: NSObject?) -> Date {
-        packet?.value(forKey: "createDate") as? Date ?? Date()
-    }
-
-    private static func extractKeySize(from packet: NSObject?, algorithm: KeyAlgorithm) -> Int {
-        guard let packet else {
-            return algorithm.defaultKeySize
-        }
-
+    private static func mapAlgorithm(from algorithm: PublicKeyAlgorithm) -> KeyAlgorithm {
         switch algorithm {
         case .rsa:
-            return mpiBitCount(from: packet, identifier: "N") ?? algorithm.defaultKeySize
+            return .rsa
         case .ecdsa:
-            return ellipticCurveKeySize(from: packet) ?? algorithm.defaultKeySize
+            return .ecdsa
         case .eddsa:
-            return 256
-        case .dsa, .elgamal:
-            return mpiBitCount(from: packet, identifier: "P") ?? algorithm.defaultKeySize
-        case .unknown:
-            return 0
-        }
-    }
-
-    private static func mpiBitCount(from packet: NSObject, identifier: String) -> Int? {
-        guard
-            let mpi = publicMPI(from: packet, identifier: identifier),
-            let bigNum = mpi.value(forKey: "bigNum") as? NSObject,
-            let bitsCount = bigNum.value(forKey: "bitsCount") as? NSNumber,
-            bitsCount.intValue > 0
-        else {
-            return nil
-        }
-
-        return bitsCount.intValue
-    }
-
-    private static func publicMPI(from packet: NSObject, identifier: String) -> NSObject? {
-        let selector = NSSelectorFromString("publicMPI:")
-        guard packet.responds(to: selector) else {
-            return nil
-        }
-
-        return packet.perform(selector, with: identifier)?.takeUnretainedValue() as? NSObject
-    }
-
-    private static func ellipticCurveKeySize(from packet: NSObject) -> Int? {
-        guard
-            let curveOID = packet.value(forKey: "curveOID") as? NSObject,
-            let curveKind = curveOID.value(forKey: "curveKind") as? NSNumber
-        else {
-            return nil
-        }
-
-        // curveKind is ObjectivePGP.PGPCurve.rawValue: 0 = P-256, 1 = P-384,
-        // 2 = P-521, 3 = BrainpoolP256r1, 4 = BrainpoolP512r1, 5 = Ed25519,
-        // 6 = Curve25519. Those raw values collapse to 256 bits for 0/3/5/6,
-        // 384 for 1, 521 for 2, and 512 for 4.
-        switch curveKind.intValue {
-        case 0, 3, 5, 6:
-            return 256
-        case 1:
-            return 384
-        case 2:
-            return 521
-        case 4:
-            return 512
+            return .eddsa
+        case .dsa:
+            return .dsa
+        case .elgamal:
+            return .elgamal
+        case .ecdh, .curve25519, .unknown:
+            return .unknown
         default:
-            return nil
+            return .unknown
         }
     }
 }

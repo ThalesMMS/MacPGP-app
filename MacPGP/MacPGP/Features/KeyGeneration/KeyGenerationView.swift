@@ -56,24 +56,32 @@ struct KeyGenerationView: View {
             }
 
             Section("Key Settings") {
-                // ObjectivePGP key generation is currently reliable only for RSA in the release build.
-                // ECDSA and EdDSA remain disabled until the library can generate them without crashes.
-                HStack {
-                    Text("Algorithm")
-                        .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.algorithmLabel)
-                    Spacer()
-                    Text(vm.algorithm.displayName)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.algorithmValue)
-                }
-
-                if viewModel.algorithm.supportedKeySizes.count > 1 {
-                    Picker("Key Size", selection: $vm.keySize) {
-                        ForEach(viewModel.availableKeySizes, id: \.self) { size in
-                            Text("\(size) bits").tag(size)
-                        }
+                Picker("Algorithm", selection: Binding(
+                    get: { vm.algorithm },
+                    set: { vm.updateAlgorithm($0) }
+                )) {
+                    ForEach([KeyAlgorithm.rsa, .ecdsa, .eddsa]) { algorithm in
+                        Text(algorithm.displayName).tag(algorithm)
                     }
-                    .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.keySizePicker)
+                }
+                .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.algorithmValue)
+
+                Picker("Key Size", selection: $vm.keySize) {
+                    ForEach(viewModel.availableKeySizes, id: \.self) { size in
+                        Text("\(size) bits").tag(size)
+                    }
+                }
+                .disabled(viewModel.availableKeySizes.count == 1)
+                .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.keySizePicker)
+
+                if vm.algorithm == .ecdsa {
+                    Text("Creates an ECDSA primary key with an ECDH subkey for encryption.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if vm.algorithm == .eddsa {
+                    Text("Creates an Ed25519 primary key with an X25519 subkey for encryption.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Toggle("Never expires", isOn: $vm.neverExpires)

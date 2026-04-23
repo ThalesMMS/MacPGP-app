@@ -38,7 +38,6 @@ class ShareViewController: NSViewController {
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
 
-        // UI will be implemented in subtask-2-2 (SwiftUI view)
     }
 
     // MARK: - Extension Context Handling
@@ -99,15 +98,10 @@ class ShareViewController: NSViewController {
         self.fileURLs = urlsToProcess
         NSLog("ShareViewController: Extracted \(fileURLs.count) file(s) to encrypt")
 
-        // Update UI with the files (will be implemented in subtask-2-2)
         updateUIWithFiles()
     }
 
-    /// Updates the UI to show the selected files
-    /// This will be implemented in subtask-2-2 with SwiftUI
     private func updateUIWithFiles() {
-        // Placeholder for UI update
-        // SwiftUI view will be integrated here
     }
 
     // MARK: - Encryption

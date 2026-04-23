@@ -32,6 +32,19 @@ enum RevocationReason: Int, CaseIterable {
             return "No Longer Used"
         }
     }
+
+    var rnpCode: String {
+        switch self {
+        case .noReason:
+            return "no"
+        case .compromised:
+            return "compromised"
+        case .superseded:
+            return "superseded"
+        case .noLongerUsed:
+            return "retired"
+        }
+    }
 }
 
 @Observable
@@ -74,29 +87,23 @@ final class RevocationService {
         }
 
         do {
-            // Note: ObjectivePGP does not currently have a direct API for generating
-            // revocation certificates. This is a placeholder implementation that will
-            // need to be enhanced when ObjectivePGP adds this functionality or when
-            // we implement it manually by creating the appropriate signature packets.
-
-            // For now, we'll throw an error indicating the feature is not yet implemented
-            let error = OperationError.unknownError(
-                message: "Revocation certificate generation is not yet supported by the underlying crypto library"
+            return try key.rawKey.exportRevocation(
+                hash: "SHA256",
+                reasonCode: reason.rnpCode,
+                reason: reason.description,
+                passphraseForKey: { _ in passphrase }
             )
-            lastError = error
-            throw error
-
-            // TODO: Implement revocation certificate generation when ObjectivePGP supports it
-            // The implementation would look something like:
-            // 1. Decrypt the secret key with the passphrase
-            // 2. Create a revocation signature packet with the specified reason
-            // 3. Export the revocation certificate in armored format
-            // 4. Return the certificate data
         } catch let error as OperationError {
             lastError = error
             throw error
         } catch {
-            let wrapped = OperationError.unknownError(message: error.localizedDescription)
+            let wrapped: OperationError
+            let nsError = error as NSError
+            if nsError.domain == "ObjectivePGP" && nsError.code == 2 {
+                wrapped = .invalidPassphrase
+            } else {
+                wrapped = .unknownError(message: error.localizedDescription)
+            }
             lastError = wrapped
             throw wrapped
         }
@@ -149,31 +156,13 @@ final class RevocationService {
             isProcessing = false
         }
 
-        do {
-            // Note: ObjectivePGP does not currently have a direct API for importing
-            // revocation certificates. This is a placeholder implementation.
-
-            // For now, we'll throw an error indicating the feature is not yet implemented
-            let error = OperationError.unknownError(
-                message: "Revocation certificate import is not yet supported by the underlying crypto library"
-            )
+        guard let identifier = SigningService.extractIssuerKeyID(from: data), !identifier.isEmpty else {
+            let error = OperationError.keyImportFailed(underlying: nil)
             lastError = error
             throw error
-
-            // TODO: Implement revocation certificate import when ObjectivePGP supports it
-            // The implementation would look something like:
-            // 1. Parse the revocation certificate data
-            // 2. Extract the key fingerprint and revocation signature
-            // 3. Validate the signature
-            // 4. Return the key fingerprint for matching with keyring
-        } catch let error as OperationError {
-            lastError = error
-            throw error
-        } catch {
-            let wrapped = OperationError.keyImportFailed(underlying: error)
-            lastError = wrapped
-            throw wrapped
         }
+
+        return identifier
     }
 
     /// Applies a revocation certificate to a key
@@ -191,23 +180,20 @@ final class RevocationService {
         }
 
         do {
-            // Note: ObjectivePGP does not currently have a direct API for applying
-            // revocation certificates. This is a placeholder implementation.
+            let updatedKey = try key.rawKey.applyRevocation(certificate)
+            guard updatedKey.isRevoked else {
+                let error = OperationError.unknownError(message: "Revocation certificate did not revoke the key")
+                lastError = error
+                throw error
+            }
 
-            // For now, we'll throw an error indicating the feature is not yet implemented
-            let error = OperationError.unknownError(
-                message: "Applying revocation certificate is not yet supported by the underlying crypto library"
+            return PGPKeyModel(
+                from: updatedKey,
+                isVerified: key.isVerified,
+                verificationDate: key.verificationDate,
+                verificationMethod: key.verificationMethod,
+                trustLevel: key.trustLevel
             )
-            lastError = error
-            throw error
-
-            // TODO: Implement revocation certificate application when ObjectivePGP supports it
-            // The implementation would look something like:
-            // 1. Parse the revocation certificate
-            // 2. Verify the revocation signature matches the key
-            // 3. Merge the revocation signature into the key
-            // 4. Update the key in the keyring
-            // 5. Return the updated PGPKeyModel with isRevoked = true
         } catch let error as OperationError {
             lastError = error
             throw error

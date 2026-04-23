@@ -226,7 +226,7 @@ struct KeyExpirationServiceTests {
         let issues = service.validateExpirationDate(pastDate, forKey: keyModel)
 
         #expect(issues.count > 0)
-        #expect(issues.contains { $0.contains("future") })
+        #expect(issues.contains { $0.message.contains("future") && $0.severity == .error })
     }
 
     @Test("Validation fails for date before key creation")
@@ -244,6 +244,7 @@ struct KeyExpirationServiceTests {
         let issues = service.validateExpirationDate(beforeCreation, forKey: keyModel)
 
         #expect(issues.count > 0)
+        #expect(issues.contains { $0.severity == .error })
     }
 
     @Test("Validation warns for date too far in future")
@@ -260,7 +261,7 @@ struct KeyExpirationServiceTests {
         let issues = service.validateExpirationDate(farFuture, forKey: keyModel)
 
         #expect(issues.count > 0)
-        #expect(issues.contains { $0.contains("5 years") || $0.contains("Warning") })
+        #expect(issues.contains { $0.message.contains("5 years") && $0.severity == .warning })
     }
 
     @Test("Validation passes for valid future date")
@@ -277,7 +278,7 @@ struct KeyExpirationServiceTests {
         let issues = service.validateExpirationDate(validDate, forKey: keyModel)
 
         // Should either have no issues or only warnings (not errors)
-        let hasErrors = issues.contains { !$0.contains("Warning") }
+        let hasErrors = issues.contains { $0.severity == .error }
         #expect(!hasErrors || issues.isEmpty)
     }
 
@@ -293,7 +294,7 @@ struct KeyExpirationServiceTests {
         let issues = service.validateExpirationDate(Date(), forKey: keyModel)
 
         #expect(issues.count > 0)
-        #expect(issues.contains { $0.contains("future") })
+        #expect(issues.contains { $0.message.contains("future") && $0.severity == .error })
     }
 
     @Test("Validation accepts date one year in future")
@@ -310,15 +311,62 @@ struct KeyExpirationServiceTests {
         let issues = service.validateExpirationDate(oneYear, forKey: keyModel)
 
         // Should not have any blocking errors (warnings about 5 years don't apply)
-        let hasBlockingErrors = issues.contains {
-            $0.contains("future") || $0.contains("creation")
-        }
+        let hasBlockingErrors = issues.contains { $0.severity == .error }
         #expect(!hasBlockingErrors)
+    }
+
+    @Test("extendExpiration updates the key expiration date")
+    func testExtendExpirationUpdatesKey() throws {
+        let service = KeyExpirationService.shared
+        let keyGen = KeyGenerator()
+        keyGen.keyBitsLength = 2048
+        let key = keyGen.generate(for: "expires@example.com", passphrase: "testpass")
+        let keyModel = PGPKeyModel(from: key)
+        let newExpirationDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
+
+        let updatedKey = try service.extendExpiration(
+            for: keyModel,
+            newExpirationDate: newExpirationDate,
+            passphrase: "testpass"
+        )
+
+        #expect(updatedKey.expirationDate != nil)
+        if let expirationDate = updatedKey.expirationDate {
+            #expect(abs(expirationDate.timeIntervalSince(newExpirationDate)) < 5)
+        }
+        #expect(!updatedKey.isExpired)
+    }
+
+    @Test("extendExpiration wraps unsupported passphrase failures as unknown error")
+    func testExtendExpirationInvalidPassphrase() {
+        let service = KeyExpirationService.shared
+        let keyGen = KeyGenerator()
+        keyGen.keyBitsLength = 2048
+        let key = keyGen.generate(for: "expires@example.com", passphrase: "testpass")
+        let keyModel = PGPKeyModel(from: key)
+        let newExpirationDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
+
+        do {
+            _ = try service.extendExpiration(
+                for: keyModel,
+                newExpirationDate: newExpirationDate,
+                passphrase: "wrong-passphrase"
+            )
+            Issue.record("Expected wrapped unknown error")
+        } catch let error as OperationError {
+            if case .unknownError(let message) = error {
+                #expect(message.contains("set key expiration failed"))
+            } else {
+                Issue.record("Expected OperationError.unknownError, got \(error)")
+            }
+        } catch {
+            Issue.record("Expected OperationError.unknownError, got \(error)")
+        }
     }
 
     // MARK: - extendExpiration Error Handling Tests
 
-    @Test("extendExpiration fails for public-only key", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("extendExpiration fails for public-only key", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
     func testExtendExpirationPublicKeyError() {
         let service = KeyExpirationService.shared
 
@@ -343,7 +391,7 @@ struct KeyExpirationServiceTests {
         }
     }
 
-    @Test("extendExpiration fails for past date", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("extendExpiration fails for past date", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
     func testExtendExpirationPastDateError() {
         let service = KeyExpirationService.shared
 
@@ -363,7 +411,7 @@ struct KeyExpirationServiceTests {
         }
     }
 
-    @Test("extendExpiration fails for empty passphrase", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("extendExpiration fails for empty passphrase", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
     func testExtendExpirationEmptyPassphraseError() {
         let service = KeyExpirationService.shared
 
@@ -383,7 +431,7 @@ struct KeyExpirationServiceTests {
         }
     }
 
-    @Test("extendExpiration currently throws not implemented error", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("extendExpiration currently throws not implemented error", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
     func testExtendExpirationNotImplemented() {
         let service = KeyExpirationService.shared
 
@@ -411,7 +459,7 @@ struct KeyExpirationServiceTests {
         }
     }
 
-    @Test("extendExpiration sets lastError on failure", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("extendExpiration sets lastError on failure", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
     func testExtendExpirationSetsLastError() {
         let service = KeyExpirationService.shared
 
@@ -435,7 +483,7 @@ struct KeyExpirationServiceTests {
         #expect(service.lastError != nil)
     }
 
-    @Test("extendExpiration resets isProcessing flag", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("extendExpiration resets isProcessing flag", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
     func testExtendExpirationResetsProcessingFlag() {
         let service = KeyExpirationService.shared
 
@@ -461,7 +509,7 @@ struct KeyExpirationServiceTests {
 
     // MARK: - extendExpirationAsync Tests
 
-    @Test("extendExpirationAsync completes on main thread", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("extendExpirationAsync completes on main thread", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
     func testExtendExpirationAsyncMainThread() async {
         let service = KeyExpirationService.shared
 
@@ -486,7 +534,7 @@ struct KeyExpirationServiceTests {
         await expectation.fulfillment
     }
 
-    @Test("extendExpirationAsync returns failure for invalid input", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("extendExpirationAsync returns failure for invalid input", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
     func testExtendExpirationAsyncFailure() async {
         let service = KeyExpirationService.shared
 
@@ -516,7 +564,7 @@ struct KeyExpirationServiceTests {
         await expectation.fulfillment
     }
 
-    @Test("extendExpirationAsync handles empty passphrase", .disabled("Key expiration editing postponed to post-v1.0 per V1_SCOPE.md"))
+    @Test("extendExpirationAsync handles empty passphrase", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
     func testExtendExpirationAsyncEmptyPassphrase() async {
         let service = KeyExpirationService.shared
 

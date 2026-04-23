@@ -21,6 +21,10 @@ struct SignView: View {
             outputPane
         }
         .navigationTitle("Sign")
+        .onAppear(perform: validateSelectedSigner)
+        .onChange(of: signingKeyFingerprints) { _, _ in
+            validateSelectedSigner()
+        }
         .toolbar {
             ToolbarItemGroup {
                 Picker("Mode", selection: $state.signInputMode) {
@@ -96,11 +100,11 @@ struct SignView: View {
             Text("Signing Key")
                 .font(.headline)
 
-            if keyringService.secretKeys().isEmpty {
+            if signingKeys.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                    Text("No secret keys available for signing")
+                    Text("No usable signing key available for signing")
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
@@ -109,7 +113,7 @@ struct SignView: View {
             } else {
                 Picker("Select Key", selection: $state.signSignerKey) {
                     Text("Select a key...").tag(nil as PGPKeyModel?)
-                    ForEach(keyringService.secretKeys()) { key in
+                    ForEach(signingKeys) { key in
                         HStack {
                             Text(key.displayName)
                             if let email = key.email {
@@ -232,8 +236,21 @@ struct SignView: View {
         .frame(minWidth: 300, maxWidth: .infinity)
     }
 
+    private var signingKeys: [PGPKeyModel] {
+        keyringService.signingKeys()
+    }
+
+    private var signingKeyFingerprints: [String] {
+        signingKeys.map(\.fingerprint)
+    }
+
     private var canSign: Bool {
-        sessionState.signSignerKey != nil && (
+        guard let signer = sessionState.signSignerKey,
+              signingKeyFingerprints.contains(signer.fingerprint) else {
+            return false
+        }
+
+        return (
             (sessionState.signInputMode == .text && !sessionState.signInputText.isEmpty) ||
             (sessionState.signInputMode == .file && sessionState.signSelectedFile != nil)
         )
@@ -352,6 +369,16 @@ struct SignView: View {
             await MainActor.run {
                 isProcessing = false
             }
+        }
+    }
+
+    private func validateSelectedSigner() {
+        guard let signer = sessionState.signSignerKey else {
+            return
+        }
+
+        if !signingKeyFingerprints.contains(signer.fingerprint) {
+            sessionState.signSignerKey = nil
         }
     }
 

@@ -1,0 +1,10 @@
+{
+  "name": "RNPBridge",
+  "rnpVersion": "0.18.1",
+  "botanVersion": "3.11.11.1",
+  "jsonCVersion": "0.18",
+  "architectures": [
+    "arm64"
+  ],
+  "buildNotes": "Regenerate with Vendor/RNPBridge/scripts/build-rnp-bridge.sh when the vendored XCFramework changes."
+}

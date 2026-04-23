@@ -62,11 +62,13 @@ final class EncryptionService {
             }
 
             if armored {
-                let armoredString = Armor.armored(encryptedData, as: .message)
+                let armoredString = try Armor.armored(encryptedData, as: .message)
                 encryptedData = armoredString.data(using: .utf8) ?? encryptedData
             }
 
             return encryptedData
+        } catch ObjectivePGPError.missingSigningKey {
+            throw OperationError.signerKeyMissing
         } catch {
             throw OperationError.encryptionFailed(underlying: error)
         }

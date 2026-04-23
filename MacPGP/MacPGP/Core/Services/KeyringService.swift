@@ -39,9 +39,28 @@ final class KeyringService {
 
     func addKey(_ key: Key) throws {
         if let existingIndex = rawKeys.firstIndex(where: {
-            $0.publicKey?.fingerprint == key.publicKey?.fingerprint
+            $0.fingerprint == key.fingerprint
         }) {
             if key.isSecret && !rawKeys[existingIndex].isSecret {
+                rawKeys[existingIndex] = key
+            }
+        } else {
+            rawKeys.append(key)
+        }
+
+        reloadKeysWithVerificationStatus()
+
+        if PreferencesManager.shared.autoSaveKeyring {
+            try saveKeys()
+        }
+    }
+
+    func replaceKey(_ key: Key) throws {
+        if let existingIndex = rawKeys.firstIndex(where: { $0.fingerprint == key.fingerprint }) {
+            let existingKey = rawKeys[existingIndex]
+            if existingKey.isSecret && !key.isSecret {
+                rawKeys[existingIndex] = existingKey
+            } else {
                 rawKeys[existingIndex] = key
             }
         } else {
@@ -61,7 +80,7 @@ final class KeyringService {
 
         for key in importedKeys {
             try addKey(key)
-            if let model = keys.first(where: { $0.fingerprint == key.publicKey?.fingerprint.description() }) {
+            if let model = keys.first(where: { $0.fingerprint == key.fingerprint }) {
                 addedModels.append(model)
             }
         }
@@ -75,7 +94,7 @@ final class KeyringService {
 
         for key in importedKeys {
             try addKey(key)
-            if let model = keys.first(where: { $0.fingerprint == key.publicKey?.fingerprint.description() }) {
+            if let model = keys.first(where: { $0.fingerprint == key.fingerprint }) {
                 addedModels.append(model)
             }
         }
@@ -89,7 +108,7 @@ final class KeyringService {
 
         for key in importedKeys {
             try addKey(key)
-            if let model = keys.first(where: { $0.fingerprint == key.publicKey?.fingerprint.description() }) {
+            if let model = keys.first(where: { $0.fingerprint == key.fingerprint }) {
                 addedModels.append(model)
             }
         }
@@ -136,7 +155,7 @@ final class KeyringService {
     }
 
     func rawKey(for model: PGPKeyModel) -> Key? {
-        rawKeys.first { $0.publicKey?.fingerprint.description() == model.fingerprint }
+        rawKeys.first { $0.fingerprint == model.fingerprint }
     }
 
     func secretKeys() -> [PGPKeyModel] {
@@ -144,11 +163,15 @@ final class KeyringService {
     }
 
     func publicKeys() -> [PGPKeyModel] {
-        keys.filter { !$0.isExpired && !$0.isRevoked }
+        keys.filter { !$0.isExpired && !$0.isRevoked && $0.canEncrypt }
     }
 
     func validKeysForEncryption() -> [PGPKeyModel] {
-        keys.filter { !$0.isExpired && !$0.isRevoked }
+        keys.filter { !$0.isExpired && !$0.isRevoked && $0.canEncrypt }
+    }
+
+    func signingKeys() -> [PGPKeyModel] {
+        keys.filter { $0.isSecretKey && !$0.isExpired && !$0.isRevoked && $0.canSign }
     }
 
     func search(_ query: String) -> [PGPKeyModel] {
@@ -209,7 +232,7 @@ final class KeyringService {
         let metadata = persistence.loadMetadata()
 
         keys = rawKeys.map { key in
-            let fingerprint = key.publicKey?.fingerprint.description() ?? ""
+            let fingerprint = key.fingerprint
 
             // Load verification status
             let verification = metadata.verifications[fingerprint]

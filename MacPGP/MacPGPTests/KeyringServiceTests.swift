@@ -10,6 +10,7 @@ import Foundation
 import ObjectivePGP
 @testable import MacPGP
 
+@MainActor
 @Suite("KeyringService Tests")
 struct KeyringServiceTests {
     @Test("Default test persistence uses a unique keyring directory per instance")
@@ -158,7 +159,7 @@ struct KeyringServiceTests {
             let rawKey = service.rawKey(for: firstKey)
 
             #expect(rawKey != nil)
-            #expect(rawKey?.publicKey?.fingerprint.description() == firstKey.fingerprint)
+            #expect(rawKey?.publicKey?.fingerprint.description == firstKey.fingerprint)
         }
     }
 
@@ -258,7 +259,7 @@ struct KeyringServiceTests {
         keyGen.keyBitsLength = 2048
         let testKey = keyGen.generate(for: "test-import@example.com", passphrase: "test")
         let keyData = try testKey.export()
-        let armoredKey = Armor.armored(keyData, as: .publicKey)
+        let armoredKey = try Armor.armored(keyData, as: .publicKey)
 
         // Import the key
         let imported = try service.importKey(fromArmored: armoredKey)

@@ -3,8 +3,15 @@ import UniformTypeIdentifiers
 
 struct RevocationManagementView: View {
     let key: PGPKeyModel
+    let onKeyUpdated: (PGPKeyModel) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(KeyringService.self) private var keyringService
     @State private var viewModel: RevocationManagementViewModel?
+
+    init(key: PGPKeyModel, onKeyUpdated: @escaping (PGPKeyModel) -> Void = { _ in }) {
+        self.key = key
+        self.onKeyUpdated = onKeyUpdated
+    }
 
     var body: some View {
         Group {
@@ -16,7 +23,11 @@ struct RevocationManagementView: View {
         }
         .onAppear {
             if viewModel == nil {
-                viewModel = RevocationManagementViewModel(key: key)
+                viewModel = RevocationManagementViewModel(
+                    key: key,
+                    keyringService: keyringService,
+                    onKeyUpdated: onKeyUpdated
+                )
             }
         }
     }
@@ -273,9 +284,17 @@ final class RevocationManagementViewModel {
     var successIcon: String = "checkmark.circle"
 
     private let revocationService = RevocationService.shared
+    private let keyringService: KeyringService
+    private let onKeyUpdated: (PGPKeyModel) -> Void
 
-    init(key: PGPKeyModel) {
+    init(
+        key: PGPKeyModel,
+        keyringService: KeyringService,
+        onKeyUpdated: @escaping (PGPKeyModel) -> Void
+    ) {
         self.key = key
+        self.keyringService = keyringService
+        self.onKeyUpdated = onKeyUpdated
     }
 
     var canGenerate: Bool {
@@ -362,15 +381,23 @@ final class RevocationManagementViewModel {
 
         do {
             // First import to validate
-            let fingerprint = try revocationService.importRevocationCertificate(data: certificateData)
+            let signerIdentifier = try revocationService.importRevocationCertificate(data: certificateData)
 
             // Verify it matches our key
-            guard fingerprint == key.fingerprint else {
+            let normalizedFingerprint = Self.normalizedHexIdentifier(key.fingerprint)
+            let normalizedSignerIdentifier = Self.normalizedHexIdentifier(signerIdentifier)
+            let matchesKey =
+                normalizedFingerprint == normalizedSignerIdentifier ||
+                normalizedFingerprint.hasSuffix(normalizedSignerIdentifier)
+
+            guard matchesKey else {
                 throw OperationError.unknownError(message: "Certificate does not match this key")
             }
 
             // Apply the revocation
-            let _ = try revocationService.applyRevocation(to: key, certificate: certificateData)
+            let updatedKey = try revocationService.applyRevocation(to: key, certificate: certificateData)
+            try keyringService.replaceKey(updatedKey.rawKey)
+            onKeyUpdated(updatedKey)
 
             // Show success
             isProcessing = false
@@ -387,6 +414,12 @@ final class RevocationManagementViewModel {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    private static func normalizedHexIdentifier(_ identifier: String) -> String {
+        identifier
+            .uppercased()
+            .filter { $0.isHexDigit }
     }
 }
 
