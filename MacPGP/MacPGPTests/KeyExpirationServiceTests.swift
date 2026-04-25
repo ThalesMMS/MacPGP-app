@@ -10,7 +10,7 @@ import Foundation
 import RNPKit
 @testable import MacPGP
 
-@Suite("KeyExpirationService Tests")
+@Suite("KeyExpirationService Tests", .serialized)
 struct KeyExpirationServiceTests {
 
     // MARK: - Test Helpers
@@ -39,6 +39,65 @@ struct KeyExpirationServiceTests {
         keyGen.keyBitsLength = 2048
         let key = keyGen.generate(for: "testkey@example.com", passphrase: "testpass")
         return PGPKeyModel(from: key)
+    }
+
+    private func createTestKey(
+        email: String = "test@example.com",
+        passphrase: String = "testpass",
+        isSecret: Bool = true
+    ) -> PGPKeyModel {
+        let keyGen = KeyGenerator()
+        keyGen.keyBitsLength = 2048
+        let key = keyGen.generate(for: email, passphrase: passphrase)
+
+        if isSecret {
+            return PGPKeyModel(from: key)
+        }
+
+        let publicKey = key.publicKey!
+        let publicOnlyKey = Key(secretKey: nil, publicKey: publicKey)
+        return PGPKeyModel(from: publicOnlyKey)
+    }
+
+    private func unwrapLastError(from service: KeyExpirationService, context: String) -> OperationError? {
+        guard let lastError = service.lastError else {
+            Issue.record("Expected lastError for \(context)")
+            return nil
+        }
+
+        return lastError
+    }
+
+    private func expectNoSecretKey(_ error: OperationError, context: String) {
+        if case .noSecretKey = error {
+            return
+        }
+
+        Issue.record("Expected OperationError.noSecretKey for \(context), got \(error)")
+    }
+
+    private func expectPassphraseRequired(_ error: OperationError, context: String) {
+        if case .passphraseRequired = error {
+            return
+        }
+
+        Issue.record("Expected OperationError.passphraseRequired for \(context), got \(error)")
+    }
+
+    @discardableResult
+    private func expectUnknownError(
+        _ error: OperationError,
+        containing expectedSubstring: String,
+        context: String
+    ) -> String {
+        if case .unknownError(let message) = error {
+            #expect(message.localizedCaseInsensitiveContains(expectedSubstring))
+            #expect(!message.localizedCaseInsensitiveContains("not implemented"))
+            return message
+        }
+
+        Issue.record("Expected OperationError.unknownError for \(context), got \(error)")
+        return ""
     }
 
     // MARK: - Initialization Tests
@@ -366,142 +425,132 @@ struct KeyExpirationServiceTests {
 
     // MARK: - extendExpiration Error Handling Tests
 
-    @Test("extendExpiration fails for public-only key", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
+    @Test("extendExpiration fails for public-only key")
     func testExtendExpirationPublicKeyError() {
         let service = KeyExpirationService.shared
-
-        // Generate a key and extract only public part
-        let keyGen = KeyGenerator()
-        keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
-
-        // Create public-only version
-        let publicKey = key.publicKey!
-        let publicOnlyKey = Key(secretKey: nil, publicKey: publicKey)
-        let keyModel = PGPKeyModel(from: publicOnlyKey)
-
+        let keyModel = createTestKey(passphrase: "pass", isSecret: false)
         let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
 
-        #expect(throws: OperationError.self) {
-            try service.extendExpiration(
+        do {
+            _ = try service.extendExpiration(
                 for: keyModel,
                 newExpirationDate: futureDate,
                 passphrase: "pass"
             )
+            Issue.record("Expected OperationError.noSecretKey")
+        } catch let error as OperationError {
+            expectNoSecretKey(error, context: #function)
+        } catch {
+            Issue.record("Expected OperationError.noSecretKey, got \(error)")
         }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectNoSecretKey(lastError, context: "\(#function) lastError")
+        }
+        #expect(!service.isProcessing)
     }
 
-    @Test("extendExpiration fails for past date", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
+    @Test("extendExpiration fails for past date")
     func testExtendExpirationPastDateError() {
         let service = KeyExpirationService.shared
+        let keyModel = createTestKey(passphrase: "pass")
+        let pastDate = Date().addingTimeInterval(-86400)
 
-        let keyGen = KeyGenerator()
-        keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
-        let keyModel = PGPKeyModel(from: key)
-
-        let pastDate = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-
-        #expect(throws: OperationError.self) {
-            try service.extendExpiration(
+        do {
+            _ = try service.extendExpiration(
                 for: keyModel,
                 newExpirationDate: pastDate,
                 passphrase: "pass"
             )
+            Issue.record("Expected OperationError.unknownError")
+        } catch let error as OperationError {
+            _ = expectUnknownError(error, containing: "future", context: #function)
+        } catch {
+            Issue.record("Expected OperationError.unknownError, got \(error)")
         }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            _ = expectUnknownError(lastError, containing: "future", context: "\(#function) lastError")
+        }
+        #expect(!service.isProcessing)
     }
 
-    @Test("extendExpiration fails for empty passphrase", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
+    @Test("extendExpiration fails for empty passphrase")
     func testExtendExpirationEmptyPassphraseError() {
         let service = KeyExpirationService.shared
-
-        let keyGen = KeyGenerator()
-        keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
-        let keyModel = PGPKeyModel(from: key)
-
+        let keyModel = createTestKey(passphrase: "pass")
         let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
 
-        #expect(throws: OperationError.self) {
-            try service.extendExpiration(
+        do {
+            _ = try service.extendExpiration(
                 for: keyModel,
                 newExpirationDate: futureDate,
                 passphrase: ""
             )
-        }
-    }
-
-    @Test("extendExpiration currently throws not implemented error", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
-    func testExtendExpirationNotImplemented() {
-        let service = KeyExpirationService.shared
-
-        let keyGen = KeyGenerator()
-        keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
-        let keyModel = PGPKeyModel(from: key)
-
-        let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
-
-        do {
-            _ = try service.extendExpiration(
-                for: keyModel,
-                newExpirationDate: futureDate,
-                passphrase: "pass"
-            )
-            Issue.record("Expected error to be thrown")
+            Issue.record("Expected OperationError.passphraseRequired")
         } catch let error as OperationError {
-            // Should throw an error about not being implemented
-            if case .unknownError(let message) = error {
-                #expect(message.contains("not yet supported") || message.contains("not implemented"))
-            }
+            expectPassphraseRequired(error, context: #function)
         } catch {
-            Issue.record("Expected OperationError, got \(error)")
+            Issue.record("Expected OperationError.passphraseRequired, got \(error)")
         }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectPassphraseRequired(lastError, context: "\(#function) lastError")
+        }
+        #expect(!service.isProcessing)
     }
 
-    @Test("extendExpiration sets lastError on failure", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
+    @Test("extendExpiration sets lastError on failure")
     func testExtendExpirationSetsLastError() {
         let service = KeyExpirationService.shared
-
-        let keyGen = KeyGenerator()
-        keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
-        let keyModel = PGPKeyModel(from: key)
-
-        let pastDate = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-
-        do {
-            _ = try service.extendExpiration(
-                for: keyModel,
-                newExpirationDate: pastDate,
-                passphrase: "pass"
-            )
-        } catch {
-            // Expected to throw
-        }
-
-        #expect(service.lastError != nil)
-    }
-
-    @Test("extendExpiration resets isProcessing flag", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
-    func testExtendExpirationResetsProcessingFlag() {
-        let service = KeyExpirationService.shared
-
-        let keyGen = KeyGenerator()
-        keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
-        let keyModel = PGPKeyModel(from: key)
-
+        let keyModel = createTestKey(passphrase: "pass")
         let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
 
         do {
             _ = try service.extendExpiration(
                 for: keyModel,
                 newExpirationDate: futureDate,
-                passphrase: "pass"
+                passphrase: ""
             )
+            Issue.record("Expected OperationError.passphraseRequired")
+        } catch let error as OperationError {
+            expectPassphraseRequired(error, context: #function)
         } catch {
-            // Expected to throw
+            Issue.record("Expected OperationError.passphraseRequired, got \(error)")
+        }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectPassphraseRequired(lastError, context: "\(#function) lastError")
+        }
+    }
+
+    @Test("extendExpiration resets isProcessing flag")
+    func testExtendExpirationResetsProcessingFlag() throws {
+        let service = KeyExpirationService.shared
+        let successKey = createTestKey(email: "processing-success@example.com", passphrase: "pass")
+        let successDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
+
+        _ = try service.extendExpiration(
+            for: successKey,
+            newExpirationDate: successDate,
+            passphrase: "pass"
+        )
+        #expect(!service.isProcessing)
+
+        let failureKey = createTestKey(email: "processing-failure@example.com", passphrase: "pass")
+        let failureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
+
+        do {
+            _ = try service.extendExpiration(
+                for: failureKey,
+                newExpirationDate: failureDate,
+                passphrase: ""
+            )
+            Issue.record("Expected OperationError.passphraseRequired")
+        } catch let error as OperationError {
+            expectPassphraseRequired(error, context: #function)
+        } catch {
+            Issue.record("Expected OperationError.passphraseRequired, got \(error)")
         }
 
         #expect(!service.isProcessing)
@@ -509,115 +558,95 @@ struct KeyExpirationServiceTests {
 
     // MARK: - extendExpirationAsync Tests
 
-    @Test("extendExpirationAsync completes on main thread", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
+    @Test("extendExpirationAsync completes on main thread")
+    @MainActor
     func testExtendExpirationAsyncMainThread() async {
         let service = KeyExpirationService.shared
+        let keyModel = createTestKey(email: "async-main@example.com", passphrase: "pass")
+        let futureDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
 
-        let keyGen = KeyGenerator()
-        keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
-        let keyModel = PGPKeyModel(from: key)
-
-        let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
-
-        let expectation = TestExpectation()
-
-        service.extendExpirationAsync(
-            for: keyModel,
-            newExpirationDate: futureDate,
-            passphrase: "pass"
-        ) { result in
-            #expect(Thread.isMainThread)
-            expectation.fulfill()
+        let result: Result<PGPKeyModel, OperationError> = await withCheckedContinuation { continuation in
+            service.extendExpirationAsync(
+                for: keyModel,
+                newExpirationDate: futureDate,
+                passphrase: "pass"
+            ) { result in
+                #expect(Thread.isMainThread)
+                continuation.resume(returning: result)
+            }
         }
 
-        await expectation.fulfillment
+        switch result {
+        case .success(let updatedKey):
+            #expect(updatedKey.expirationDate != nil)
+            if let expirationDate = updatedKey.expirationDate {
+                #expect(abs(expirationDate.timeIntervalSince(futureDate)) < 5)
+            }
+        case .failure(let error):
+            Issue.record("Expected successful expiration update, got \(error)")
+        }
+        #expect(!service.isProcessing)
     }
 
-    @Test("extendExpirationAsync returns failure for invalid input", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
+    @Test("extendExpirationAsync returns failure for invalid input")
+    @MainActor
     func testExtendExpirationAsyncFailure() async {
         let service = KeyExpirationService.shared
+        let keyModel = createTestKey(passphrase: "pass")
+        let pastDate = Date().addingTimeInterval(-86400)
 
-        let keyGen = KeyGenerator()
-        keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
-        let keyModel = PGPKeyModel(from: key)
-
-        let pastDate = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-
-        let expectation = TestExpectation()
-
-        service.extendExpirationAsync(
-            for: keyModel,
-            newExpirationDate: pastDate,
-            passphrase: "pass"
-        ) { result in
-            switch result {
-            case .success:
-                Issue.record("Expected failure, got success")
-            case .failure(let error):
-                #expect(error is OperationError)
+        let result: Result<PGPKeyModel, OperationError> = await withCheckedContinuation { continuation in
+            service.extendExpirationAsync(
+                for: keyModel,
+                newExpirationDate: pastDate,
+                passphrase: "pass"
+            ) { result in
+                #expect(Thread.isMainThread)
+                continuation.resume(returning: result)
             }
-            expectation.fulfill()
         }
 
-        await expectation.fulfillment
+        switch result {
+        case .success:
+            Issue.record("Expected failure, got success")
+        case .failure(let error):
+            _ = expectUnknownError(error, containing: "future", context: #function)
+        }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            _ = expectUnknownError(lastError, containing: "future", context: "\(#function) lastError")
+        }
+        #expect(!service.isProcessing)
     }
 
-    @Test("extendExpirationAsync handles empty passphrase", .disabled("Legacy pre-RNP stub; rewrite for shipped expiration editing behavior"))
+    @Test("extendExpirationAsync handles empty passphrase")
+    @MainActor
     func testExtendExpirationAsyncEmptyPassphrase() async {
         let service = KeyExpirationService.shared
-
-        let keyGen = KeyGenerator()
-        keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
-        let keyModel = PGPKeyModel(from: key)
-
+        let keyModel = createTestKey(passphrase: "pass")
         let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
 
-        let expectation = TestExpectation()
-
-        service.extendExpirationAsync(
-            for: keyModel,
-            newExpirationDate: futureDate,
-            passphrase: ""
-        ) { result in
-            switch result {
-            case .success:
-                Issue.record("Expected failure for empty passphrase")
-            case .failure(let error):
-                if case .passphraseRequired = error {
-                    // Expected error
-                } else {
-                    // Any error is acceptable since the operation isn't implemented
-                }
+        let result: Result<PGPKeyModel, OperationError> = await withCheckedContinuation { continuation in
+            service.extendExpirationAsync(
+                for: keyModel,
+                newExpirationDate: futureDate,
+                passphrase: ""
+            ) { result in
+                #expect(Thread.isMainThread)
+                continuation.resume(returning: result)
             }
-            expectation.fulfill()
         }
 
-        await expectation.fulfillment
-    }
-}
-
-/// Test expectation helper for async tests
-private class TestExpectation {
-    private var isFulfilled = false
-    private let condition = NSCondition()
-
-    func fulfill() {
-        condition.lock()
-        isFulfilled = true
-        condition.signal()
-        condition.unlock()
-    }
-
-    var fulfillment: Void {
-        get async {
-            condition.lock()
-            while !isFulfilled {
-                condition.wait()
-            }
-            condition.unlock()
+        switch result {
+        case .success:
+            Issue.record("Expected failure for empty passphrase")
+        case .failure(let error):
+            expectPassphraseRequired(error, context: #function)
         }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectPassphraseRequired(lastError, context: "\(#function) lastError")
+        }
+        #expect(!service.isProcessing)
     }
 }
