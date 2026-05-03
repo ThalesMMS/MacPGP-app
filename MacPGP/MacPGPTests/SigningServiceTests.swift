@@ -450,7 +450,7 @@ struct SigningServiceTests {
         #expect(result.isValid)
     }
 
-    @Test("Verify unsigned data returns invalid")
+    @Test("Verify unsigned malformed data returns verification error")
     func testVerifyUnsignedData() throws {
         let (service, keyring, signerKey) = setupTestEnvironment()
         defer { cleanupTestKeys(keyring: keyring, keys: [signerKey]) }
@@ -460,7 +460,7 @@ struct SigningServiceTests {
         let result = try service.verify(data: unsignedData)
 
         #expect(!result.isValid)
-        #expect(!result.isError)
+        #expect(result.isError)
     }
 
     @Test("Verify without keys returns verification error")

@@ -73,7 +73,7 @@ class ShareViewController: NSViewController {
 
                         if let error = error {
                             NSLog("ShareViewController: Error loading file URL: \(error.localizedDescription)")
-                            showErrorMessage("MacPGP could not load a shared file. Try sharing the file again.")
+                            self.showErrorMessage("MacPGP could not load a shared file. Try sharing the file again.")
                             return
                         }
 

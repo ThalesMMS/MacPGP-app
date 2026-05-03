@@ -29,22 +29,44 @@ final class EncryptionService {
             }
         }
 
+        let (recipientKeys, signerKey) = try encryptionKeys(for: recipients, signedBy: signer)
+
+        return try Self.performEncryption(
+            data: data,
+            recipientKeys: recipientKeys,
+            signerKey: signerKey,
+            passphrase: passphrase,
+            armored: armored
+        )
+    }
+
+    private func encryptionKeys(for recipients: [PGPKeyModel], signedBy signer: PGPKeyModel?) throws -> ([Key], Key?) {
         let recipientKeys = recipients.compactMap { keyringService.rawKey(for: $0) }
         guard recipientKeys.count == recipients.count else {
             throw OperationError.keyNotFound(keyID: "recipient")
         }
 
-        var signerKey: Key?
-        if let signer = signer {
-            guard let key = keyringService.rawKey(for: signer) else {
-                throw OperationError.keyNotFound(keyID: signer.shortKeyID)
-            }
-            guard key.isSecret else {
-                throw OperationError.noSecretKey
-            }
-            signerKey = key
+        guard let signer else {
+            return (recipientKeys, nil)
         }
 
+        guard let signerKey = keyringService.rawKey(for: signer) else {
+            throw OperationError.keyNotFound(keyID: signer.shortKeyID)
+        }
+        guard signerKey.isSecret else {
+            throw OperationError.noSecretKey
+        }
+
+        return (recipientKeys, signerKey)
+    }
+
+    nonisolated private static func performEncryption(
+        data: Data,
+        recipientKeys: [Key],
+        signerKey: Key?,
+        passphrase: String?,
+        armored: Bool
+    ) throws -> Data {
         do {
             var encryptedData: Data
 
@@ -92,6 +114,35 @@ final class EncryptionService {
             passphrase: passphrase,
             armored: armored
         )
+
+        if armored {
+            return String(data: encryptedData, encoding: .utf8) ?? ""
+        } else {
+            return encryptedData.base64EncodedString()
+        }
+    }
+
+    func encryptAsync(
+        message: String,
+        for recipients: [PGPKeyModel],
+        signedBy signer: PGPKeyModel? = nil,
+        passphrase: String? = nil,
+        armored: Bool = true
+    ) async throws -> String {
+        guard let messageData = message.data(using: .utf8) else {
+            throw OperationError.encryptionFailed(underlying: nil)
+        }
+
+        let (recipientKeys, signerKey) = try encryptionKeys(for: recipients, signedBy: signer)
+        let encryptedData = try await Task.detached {
+            try Self.performEncryption(
+                data: messageData,
+                recipientKeys: recipientKeys,
+                signerKey: signerKey,
+                passphrase: passphrase,
+                armored: armored
+            )
+        }.value
 
         if armored {
             return String(data: encryptedData, encoding: .utf8) ?? ""

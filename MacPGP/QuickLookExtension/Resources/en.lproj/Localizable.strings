@@ -1,0 +1,93 @@
+/*
+ * Localizable.strings
+ * QuickLookExtension
+ *
+ * English localization strings for Quick Look previews.
+ */
+
+/* Title shown above decrypted text content in Quick Look. */
+"quicklook_text_content" = "Text Content";
+
+/* Title shown above decrypted image content in Quick Look. */
+"quicklook_image_content" = "Image Content";
+
+/* Format for showing the decrypted image filename near the content title. */
+"quicklook_filename_parenthesized_format" = "(%@)";
+
+/* Title shown when decrypted content is treated as binary in Quick Look. */
+"quicklook_binary_content" = "Binary Content";
+
+/* Label showing the formatted size of decrypted binary preview content. */
+"quicklook_content_size_format" = "Size: %@";
+
+/* Message shown when decrypted content cannot be previewed as text or image. */
+"quicklook_binary_preview_unavailable" = "This file contains binary data that cannot be previewed as text or image.";
+
+/* Header shown when Quick Look is displaying decrypted content. */
+"quicklook_encryption_decrypted_content" = "Decrypted Content";
+
+/* Header shown when Quick Look is displaying encrypted file metadata. */
+"quicklook_encryption_pgp_encrypted_file" = "PGP Encrypted File";
+
+/* Progress label shown while Quick Look decrypts a preview. */
+"quicklook_decrypting" = "Decrypting...";
+
+/* Section title for encryption details in the Quick Look metadata preview. */
+"quicklook_encryption_information_section" = "Encryption Information";
+
+/* Metadata label for the encryption algorithm. */
+"quicklook_algorithm_label" = "Algorithm";
+
+/* Metadata label for integrity protection status. */
+"quicklook_integrity_protection_label" = "Integrity Protection";
+
+/* Metadata value shown when integrity protection is present. */
+"quicklook_integrity_protection_yes_mdc" = "Yes (MDC)";
+
+/* Generic negative metadata value. */
+"quicklook_no" = "No";
+
+/* Metadata label for compression information. */
+"quicklook_compression_label" = "Compression";
+
+/* Section title for recipient key IDs in the Quick Look metadata preview. */
+"quicklook_recipients_section" = "Recipients";
+
+/* Message shown when no recipient metadata is available. */
+"quicklook_no_recipient_information" = "No recipient information available";
+
+/* Section title for file details in the Quick Look metadata preview. */
+"quicklook_file_information_section" = "File Information";
+
+/* Metadata label for the encrypted file size. */
+"quicklook_file_size_label" = "File Size";
+
+/* Metadata label for the original filename stored in encrypted content. */
+"quicklook_original_name_label" = "Original Name";
+
+/* Metadata label for the original creation date. */
+"quicklook_created_label" = "Created";
+
+/* Button label for starting a Quick Look decryption preview. */
+"quicklook_decrypt_preview" = "Decrypt Preview";
+
+/* Title shown when Quick Look decryption cannot be offered. */
+"quicklook_decryption_unavailable_title" = "Decryption Unavailable";
+
+/* Message shown when no shared secret keys are available to Quick Look. */
+"quicklook_decryption_unavailable_no_secret_keys" = "Decryption is unavailable because no shared secret keys are available. Open MacPGP to sync your keyring, then try Quick Look again.";
+
+/* Message shown when Quick Look cannot load shared keys. */
+"quicklook_decryption_unavailable_key_load_failed" = "Decryption is unavailable because shared keys could not be loaded. Open MacPGP to sync your keyring, then try Quick Look again.";
+
+/* Error shown when Quick Look cannot read the encrypted file. */
+"quicklook_read_file_failed" = "Quick Look could not read this file. It may have been moved, deleted, or made unavailable. Reopen the file and try again.";
+
+/* Error shown when the provided passphrase does not unlock the key. */
+"quicklook_invalid_passphrase" = "Invalid passphrase. Please try again.";
+
+/* Error shown when Quick Look cannot decrypt with the available keys and passphrase. */
+"quicklook_unable_to_decrypt_check_passphrase_keys" = "Unable to decrypt. Check your passphrase and keys.";
+
+/* Error shown after an unexpected Quick Look decryption failure. */
+"quicklook_decrypt_preview_failed" = "Unable to decrypt in Quick Look. Open MacPGP to refresh your keys, then try again.";

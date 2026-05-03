@@ -47,30 +47,11 @@ final class ExtensionKeyringService {
 
     func loadKeys() {
         do {
-            let fileManager = FileManager.default
-            guard let containerURL = fileManager.containerURL(
-                forSecurityApplicationGroupIdentifier: SharedConfiguration.appGroupIdentifier
-            ) else {
-                NSLog("ExtensionKeyringService: Shared container unavailable for app group \(SharedConfiguration.appGroupIdentifier)")
+            rawKeys = try SharedKeyringLoader.loadKeys()
+            guard !rawKeys.isEmpty else {
                 clearKeys(message: "Open MacPGP to sync your keyring, then try sharing again.")
                 return
             }
-
-            let keysURL = containerURL.appendingPathComponent(SharedConfiguration.sharedKeysFileName)
-            guard fileManager.fileExists(atPath: keysURL.path) else {
-                NSLog("ExtensionKeyringService: Keys file not found at \(keysURL.path)")
-                clearKeys(message: "Open MacPGP to sync your keyring, then try sharing again.")
-                return
-            }
-
-            let keysData = try Data(contentsOf: keysURL)
-            guard !keysData.isEmpty else {
-                NSLog("ExtensionKeyringService: Keys file is empty at \(keysURL.path)")
-                clearKeys(message: "Open MacPGP to sync your keyring, then try sharing again.")
-                return
-            }
-
-            rawKeys = try RNP.readKeys(from: keysData)
             keys = rawKeys.map { PGPKeyModel(from: $0) }
             keyAvailabilityMessage = nil
             NSLog("ExtensionKeyringService: Loaded \(keys.count) keys")

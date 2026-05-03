@@ -33,12 +33,25 @@ MacPGP is distributed through the Mac App Store.
 
 MacPGP integrates with Finder through three shipping macOS extensions:
 
-- **FinderSyncExtension** - Adds badges for supported encrypted files and Finder context menu actions for supported MacPGP workflows
-- **QuickLookExtension** - Provides metadata previews for supported encrypted files and supports in-preview decryption when the required keys are available
-- **ThumbnailExtension** - Provides custom thumbnails for supported encrypted files
+- **FinderSyncExtension**
+  - Registers mounted, non-hidden volumes with FinderSync; files outside registered FinderSync locations do not receive badges or FinderSync context-menu actions
+  - Shows a lock badge on supported OpenPGP-encrypted files (`.gpg`, `.pgp`, `.asc`) in those registered locations
+  - Adds Finder context menu actions in those registered locations:
+    - **Encrypt with MacPGP** for non-encrypted files
+    - **Decrypt with MacPGP** for encrypted files
+- **QuickLookExtension**
+  - Press Space on a supported encrypted file to see encryption metadata (algorithm, recipients, file info)
+  - Optionally decrypt and preview the content after entering a passphrase (when the required keys are available)
+- **ThumbnailExtension**
+  - Provides custom thumbnails for supported encrypted files (with visual differences for binary vs ASCII-armored files)
 
-**Enabling Extensions:**
-After first launch, enable the shipping extensions in System Settings → Privacy & Security → Extensions → Finder Extensions / Quick Look / Thumbnails.
+### Enabling / Disabling Extensions
+
+After first launch, enable (or disable) the shipping extensions in:
+
+System Settings → Privacy & Security → Extensions → **Finder Extensions** / **Quick Look** / **Thumbnails**
+
+If Finder doesn’t immediately pick up changes, quit and relaunch Finder (or log out and back in).
 
 ## For Developers
 

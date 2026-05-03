@@ -1,19 +1,13 @@
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 
 struct EncryptView: View {
     @Environment(KeyringService.self) private var keyringService
     @Environment(SessionStateManager.self) private var sessionState
     @Environment(NotificationService.self) private var notificationService
-    @State private var passphrase = ""
-    @State private var showingPassphrasePrompt = false
-    @State private var isProcessing = false
-    @State private var errorMessage: String?
-    @State private var showingError = false
 
-    private var encryptionService: EncryptionService {
-        EncryptionService(keyringService: keyringService)
-    }
+    @State private var viewModel: EncryptViewModel? = nil
 
     var body: some View {
         @Bindable var state = sessionState
@@ -35,35 +29,62 @@ struct EncryptView: View {
                 Toggle("Armor", isOn: $state.encryptArmorOutput)
 
                 Button {
-                    encryptFromClipboard()
+                    viewModel?.encryptFromClipboard()
                 } label: {
                     Label("Encrypt from Clipboard", systemImage: "doc.on.clipboard.fill")
                 }
-                .disabled(!canEncryptFromClipboard)
+                .disabled(!(viewModel?.canEncryptFromClipboard ?? false))
 
                 Button {
-                    encrypt()
+                    viewModel?.encrypt()
                 } label: {
                     Label("Encrypt", systemImage: "lock.fill")
                 }
                 .disabled(!canEncrypt)
             }
         }
-        .alert("Passphrase Required", isPresented: $showingPassphrasePrompt) {
-            SecureField("Passphrase", text: $passphrase)
+        .alert("Passphrase Required", isPresented: Binding(
+            get: { viewModel?.showingPassphrasePrompt ?? false },
+            set: { viewModel?.showingPassphrasePrompt = $0 }
+        )) {
+            SecureField("Passphrase", text: Binding(
+                get: { viewModel?.passphrase ?? "" },
+                set: { viewModel?.passphrase = $0 }
+            ))
             Button("Cancel", role: .cancel) {
-                passphrase = ""
+                viewModel?.cancelPassphrasePrompt()
             }
             Button("Encrypt") {
-                encrypt()
+                viewModel?.didSubmitPassphrase()
             }
         } message: {
             Text("Enter passphrase for signing key")
         }
-        .alert("Error", isPresented: $showingError) {
+        .alert(
+            viewModel?.alert?.title ?? "Error",
+            isPresented: Binding(
+                get: { viewModel?.showingAlert ?? false },
+                set: { viewModel?.showingAlert = $0 }
+            )
+        ) {
             Button("OK") {}
         } message: {
-            Text(errorMessage ?? "An error occurred")
+            Text(viewModel?.alert?.message ?? "An error occurred")
+        }
+        .onAppear {
+            if viewModel == nil {
+                viewModel = EncryptViewModel(
+                    keyringService: keyringService,
+                    sessionState: sessionState,
+                    notificationService: notificationService
+                )
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { viewModel?.requestOutputFolderPicker ?? false },
+            set: { viewModel?.requestOutputFolderPicker = $0 }
+        )) {
+            outputFolderPickerSheet
         }
     }
 
@@ -171,7 +192,7 @@ struct EncryptView: View {
                             .font(.caption)
                         Spacer()
                         Button("Change") {
-                            chooseOutputLocation()
+                            viewModel?.requestChoosingOutputLocation()
                         }
                         .buttonStyle(.borderless)
                     }
@@ -180,7 +201,7 @@ struct EncryptView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
                     Button {
-                        chooseOutputLocation()
+                        viewModel?.requestChoosingOutputLocation()
                     } label: {
                         HStack {
                             Image(systemName: "folder.badge.plus")
@@ -204,7 +225,7 @@ struct EncryptView: View {
 
                 if !sessionState.encryptOutputFiles.isEmpty {
                     Button {
-                        revealOutputFiles()
+                        NSWorkspace.shared.activateFileViewerSelecting(sessionState.encryptOutputFiles)
                     } label: {
                         Label(sessionState.encryptOutputFiles.count == 1 ? "Reveal" : "Reveal All", systemImage: "folder")
                     }
@@ -213,7 +234,7 @@ struct EncryptView: View {
 
                 if !sessionState.encryptOutputText.isEmpty || !sessionState.encryptOutputFiles.isEmpty {
                     Button {
-                        copyOutput()
+                        viewModel?.copyOutputToClipboard()
                     } label: {
                         Label(sessionState.encryptOutputFiles.isEmpty ? "Copy" : "Copy Paths", systemImage: "doc.on.doc")
                     }
@@ -221,7 +242,7 @@ struct EncryptView: View {
                 }
             }
 
-            if isProcessing {
+            if viewModel?.isProcessing == true {
                 Spacer()
                 VStack(spacing: 16) {
                     if sessionState.encryptInputMode == .file && sessionState.encryptionProgress > 0 {
@@ -270,180 +291,33 @@ struct EncryptView: View {
         )
     }
 
-    private var canEncryptFromClipboard: Bool {
-        // Only available in text mode with recipients selected
-        sessionState.encryptInputMode == .text &&
-        !sessionState.encryptSelectedRecipients.isEmpty &&
-        NSPasteboard.general.string(forType: .string) != nil
-    }
 
-    private func encrypt() {
-        if sessionState.encryptSignerKey != nil && passphrase.isEmpty {
-            showingPassphrasePrompt = true
-            return
-        }
+    private var outputFolderPickerSheet: some View {
+        VStack(spacing: 16) {
+            Text("Choose Output Folder")
+                .font(.headline)
 
-        isProcessing = true
-        errorMessage = nil
+            Button("Choose…") {
+                let panel = NSOpenPanel()
+                panel.canCreateDirectories = true
+                panel.canChooseFiles = false
+                panel.canChooseDirectories = true
+                panel.prompt = "Choose Output Folder"
+                panel.message = "Select where encrypted files will be saved"
 
-        Task {
-            do {
-                let recipients = Array(sessionState.encryptSelectedRecipients)
-
-                switch sessionState.encryptInputMode {
-                case .text:
-                    let encrypted = try encryptionService.encrypt(
-                        message: sessionState.encryptInputText,
-                        for: recipients,
-                        signedBy: sessionState.encryptSignerKey,
-                        passphrase: passphrase.isEmpty ? nil : passphrase,
-                        armored: sessionState.encryptArmorOutput
-                    )
-                    await MainActor.run {
-                        sessionState.encryptOutputFiles = []
-                        sessionState.encryptOutputText = encrypted
-                    }
-
-                case .file:
-                    guard !sessionState.encryptSelectedFiles.isEmpty else { return }
-
-                    var outputFiles: [URL] = []
-                    let fileCount = sessionState.encryptSelectedFiles.count
-
-                    for (index, fileURL) in sessionState.encryptSelectedFiles.enumerated() {
-                        // Update progress for current file
-                        await MainActor.run {
-                            sessionState.encryptionProgress = 0.0
-                        }
-
-                        // Use async encrypt with progress callback
-                        let outputURL = try await encryptionService.encryptAsync(
-                            file: fileURL,
-                            for: recipients,
-                            signedBy: sessionState.encryptSignerKey,
-                            passphrase: passphrase.isEmpty ? nil : passphrase,
-                            outputURL: sessionState.encryptOutputLocation,
-                            armored: sessionState.encryptArmorOutput,
-                            progressCallback: { progress in
-                                // Calculate overall progress: (completed files + current file progress) / total files
-                                let overallProgress = (Double(index) + progress) / Double(fileCount)
-                                sessionState.encryptionProgress = overallProgress
-                            }
-                        )
-
-                        outputFiles.append(outputURL)
-                    }
-
-                    await MainActor.run {
-                        sessionState.encryptOutputText = ""
-                        sessionState.encryptOutputFiles = outputFiles
-                    }
-                }
-
-                passphrase = ""
-            } catch {
-                await MainActor.run {
-                    errorMessage = error.userFacingMessage
-                    showingError = true
+                if panel.runModal() == .OK {
+                    viewModel?.didChooseOutputLocation(panel.url)
+                } else {
+                    viewModel?.didChooseOutputLocation(nil)
                 }
             }
 
-            await MainActor.run {
-                isProcessing = false
-                sessionState.encryptionProgress = 0.0
+            Button("Cancel", role: .cancel) {
+                viewModel?.didChooseOutputLocation(nil)
             }
         }
-    }
-
-    private func encryptFromClipboard() {
-        notificationService.requestAuthorizationIfNeeded()
-
-        // Read text from clipboard
-        guard let clipboardText = NSPasteboard.general.string(forType: .string),
-              !clipboardText.isEmpty else {
-            errorMessage = "Clipboard is empty or does not contain text"
-            showingError = true
-            return
-        }
-
-        // Check if signing key requires passphrase
-        if sessionState.encryptSignerKey != nil && passphrase.isEmpty {
-            showingPassphrasePrompt = true
-            return
-        }
-
-        isProcessing = true
-        errorMessage = nil
-
-        Task {
-            do {
-                let recipients = Array(sessionState.encryptSelectedRecipients)
-
-                // Encrypt the clipboard text
-                let encrypted = try encryptionService.encrypt(
-                    message: clipboardText,
-                    for: recipients,
-                    signedBy: sessionState.encryptSignerKey,
-                    passphrase: passphrase.isEmpty ? nil : passphrase,
-                    armored: sessionState.encryptArmorOutput
-                )
-
-                // Write encrypted text back to clipboard
-                await MainActor.run {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(encrypted, forType: .string)
-
-                    // Show success notification
-                    notificationService.showSuccess(
-                        title: "Encryption Successful",
-                        message: "Clipboard contents have been encrypted"
-                    )
-
-                    // Update output pane to show what was encrypted
-                    sessionState.encryptOutputFiles = []
-                    sessionState.encryptOutputText = encrypted
-                }
-
-                passphrase = ""
-            } catch {
-                await MainActor.run {
-                    errorMessage = error.userFacingMessage
-                    showingError = true
-                }
-            }
-
-            await MainActor.run {
-                isProcessing = false
-            }
-        }
-    }
-
-    private func copyOutput() {
-        NSPasteboard.general.clearContents()
-        let content: String
-        if !sessionState.encryptOutputFiles.isEmpty {
-            content = sessionState.encryptOutputFiles.map(\.path).joined(separator: "\n")
-        } else {
-            content = sessionState.encryptOutputText
-        }
-        NSPasteboard.general.setString(content, forType: .string)
-    }
-
-    private func revealOutputFiles() {
-        NSWorkspace.shared.activateFileViewerSelecting(sessionState.encryptOutputFiles)
-    }
-
-    private func chooseOutputLocation() {
-        let panel = NSOpenPanel()
-        panel.canCreateDirectories = true
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.prompt = "Choose Output Folder"
-        panel.message = "Select where encrypted files will be saved"
-
-        if panel.runModal() == .OK {
-            sessionState.encryptOutputLocation = panel.url
-        }
+        .padding()
+        .frame(width: 360)
     }
 }
 
