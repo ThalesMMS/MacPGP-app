@@ -1,0 +1,23 @@
+name: Release Guardrails
+
+on:
+  pull_request:
+    branches:
+      - release
+  push:
+    branches:
+      - release
+  workflow_dispatch:
+
+jobs:
+  check-no-shareextension-in-release:
+    name: check-no-shareextension-in-release
+    runs-on: ubuntu-latest
+    env:
+      CONFIGURATION: Release
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check ShareExtension is not embedded in release app target
+        run: bash scripts/check-no-shareextension-in-release.sh MacPGP/MacPGP.xcodeproj/project.pbxproj
