@@ -78,7 +78,7 @@ struct ContentView: View {
         case .verify:
             VerifyView()
         case .keyring, nil:
-            Text(String(localized: "contentview.select_item", comment: "Placeholder text when no sidebar item is selected"))
+            Text(String(localized: "content.select_item", comment: "Placeholder text when no sidebar item is selected"))
                 .foregroundStyle(.secondary)
         }
     }
@@ -91,9 +91,9 @@ struct ContentView: View {
             }
         } else {
             ContentUnavailableView(
-                String(localized: "contentview.no_key_selected", comment: "Title shown when no PGP key is selected"),
+                String(localized: "content.no_key_selected", comment: "Title shown when no PGP key is selected"),
                 systemImage: "key",
-                description: Text(String(localized: "contentview.select_key_description", comment: "Description prompting user to select a key"))
+                description: Text(String(localized: "content.select_key_details", comment: "Description prompting user to select a key"))
             )
         }
     }

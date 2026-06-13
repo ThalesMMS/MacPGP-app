@@ -46,7 +46,6 @@ struct KeyringView: View {
                 keyList(viewModel: viewModel)
             }
         }
-        .searchable(text: $vm.searchText, prompt: "Search keys...")
         .confirmationDialog(
             "Delete Key",
             isPresented: $vm.showingDeleteConfirmation,
@@ -104,34 +103,68 @@ struct KeyringView: View {
     private func toolbar(viewModel: KeyringViewModel) -> some View {
         @Bindable var vm = viewModel
 
-        HStack {
-            Picker(String(localized: "keyring.toolbar.filter", defaultValue: "Filter", comment: "Filter picker label"), selection: $vm.filterType) {
-                ForEach(KeyFilterType.allCases) { filter in
-                    Text(filter.displayName).tag(filter)
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                searchField(text: $vm.searchText)
+
+                Button(action: { showingKeyserverSearch = true }) {
+                    Image(systemName: "globe")
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .frame(width: 28)
+                .help(String(localized: "keyring.search_keyserver", defaultValue: "Search Keyserver", comment: "Tooltip for keyserver search button"))
+                .accessibilityLabel(String(localized: "keyring.search_keyserver", defaultValue: "Search Keyserver", comment: "Accessibility label for keyserver search button"))
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .frame(width: 130)
 
-            Button(action: { showingKeyserverSearch = true }) {
-                Label(String(localized: "keyring.toolbar.search_keyserver", defaultValue: "Search Keyserver", comment: "Button to search key server"), systemImage: "magnifyingglass")
-            }
-            .buttonStyle(.borderless)
-
-            Spacer()
-
-            Picker(String(localized: "keyring.toolbar.sort", defaultValue: "Sort", comment: "Sort picker label"), selection: $vm.sortOrder) {
-                ForEach(KeySortOrder.allCases) { order in
-                    Text(order.displayName).tag(order)
+            HStack(spacing: 8) {
+                Picker(String(localized: "keyring.toolbar.filter", defaultValue: "Filter", comment: "Filter picker label"), selection: $vm.filterType) {
+                    ForEach(KeyFilterType.allCases) { filter in
+                        Text(filter.displayName).tag(filter)
+                    }
                 }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(width: 130)
+
+                Spacer(minLength: 0)
+
+                Picker(String(localized: "keyring.toolbar.sort", defaultValue: "Sort", comment: "Sort picker label"), selection: $vm.sortOrder) {
+                    ForEach(KeySortOrder.allCases) { order in
+                        Text(order.displayName).tag(order)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(width: 90)
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .frame(width: 90)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+    }
+
+    @ViewBuilder
+    private func searchField(text: Binding<String>) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+
+            TextField(String(localized: "keyring.search_placeholder", defaultValue: "Search keys...", comment: "Search field placeholder in keyring"), text: text)
+                .textFieldStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 28)
+        .background {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+        }
     }
 
     @ViewBuilder
