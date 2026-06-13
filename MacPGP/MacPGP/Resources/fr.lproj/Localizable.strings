@@ -483,6 +483,7 @@
 "error.no_public_key.description" = "Aucune clé publique n'est disponible pour cette opération.";
 "error.no_secret_key.description" = "Aucune clé privée n'est disponible pour cette opération.";
 "error.recipient_key_missing.description" = "La clé publique du destinataire est manquante dans votre trousseau.";
+"error.recipient_key_untrusted.description" = "La clé du destinataire \"%@\" est marquée Ne jamais faire confiance et ne peut pas être utilisée pour le chiffrement.";
 "error.signer_key_missing.description" = "Aucune clé privée n'est disponible pour signer le message.";
 "error.file_access_error.description" = "Impossible d'accéder au fichier : %@";
 "error.security_scoped_access_denied.description" = "MacPGP n'a plus l'autorisation d'accéder à : %@";
@@ -512,6 +513,7 @@
 "error.no_public_key.recovery" = "Importez ou recherchez la clé publique depuis un serveur de clés.";
 "error.no_secret_key.recovery" = "Générez une nouvelle paire de clés incluant une clé privée.";
 "error.recipient_key_missing.recovery" = "Recherchez et importez la clé publique du destinataire depuis un serveur de clés.";
+"error.recipient_key_untrusted.recovery" = "Modifiez le niveau de confiance de la clé du destinataire uniquement si vous l'avez vérifiée, ou choisissez une autre clé de destinataire.";
 "error.signer_key_missing.recovery" = "Générez une paire de clés pour signer des messages.";
 "error.file_access_error.recovery" = "Vérifiez les permissions de fichier dans Réglages Système > Confidentialité et Sécurité.";
 "error.security_scoped_access_denied.recovery" = "Sélectionnez à nouveau le fichier ou le dossier, puis réessayez.";
@@ -550,6 +552,7 @@
 "error.no_public_key.reason" = "Aucune clé publique trouvée pour l'identité demandée.";
 "error.no_secret_key.reason" = "Aucune clé privée trouvée dans le trousseau.";
 "error.recipient_key_missing.reason" = "Le destinataire n'a pas de clé publique dans votre trousseau.";
+"error.recipient_key_untrusted.reason" = "La politique de confiance actuelle du trousseau bloque le chiffrement vers cette clé de destinataire.";
 "error.signer_key_missing.reason" = "Aucune clé privée capable de signer n'a été trouvée.";
 "error.file_access_error.reason" = "Le fichier à %@ n'existe peut-être pas ou vous n'avez pas la permission d'y accéder.";
 "error.security_scoped_access_denied.reason" = "L'autorisation d'accès sandbox pour %@ n'est plus disponible.";

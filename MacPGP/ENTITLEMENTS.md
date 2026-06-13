@@ -8,7 +8,7 @@ runtime behavior depends on it.
 
 | Target | Retained entitlements | Rationale |
 | --- | --- | --- |
-| Main App | `com.apple.security.app-sandbox`, `com.apple.security.files.user-selected.read-write`, `com.apple.security.application-groups` | Sandboxing is required for Mac App Store distribution. User-selected read/write access supports encrypt, decrypt, and sign file operations plus backup export. The app group shares key data with key-reading extensions via `keys.pgp`. |
+| Main App | `com.apple.security.app-sandbox`, `com.apple.security.files.user-selected.read-write`, `com.apple.security.application-groups`, `keychain-access-groups` | Sandboxing is required for Mac App Store distribution. User-selected read/write access supports encrypt, decrypt, and sign file operations plus backup export. The app group shares key data with key-reading extensions via `keys.pgp`. The Keychain access group lets stored passphrases use the macOS Data Protection keychain. |
 | ShareExtension | `com.apple.security.app-sandbox`, `com.apple.security.files.user-selected.read-write`, `com.apple.security.application-groups` | Sandboxing is required for Mac App Store distribution. User-selected read/write access lets the extension write `.gpg` output alongside the input file. The app group lets the extension read `keys.pgp` from the shared container. |
 | QuickLookExtension | `com.apple.security.app-sandbox`, `com.apple.security.application-groups` | Sandboxing is required for Mac App Store distribution. The app group lets Quick Look read `keys.pgp` for in-preview decryption. |
 | ThumbnailExtension | `com.apple.security.app-sandbox` | Sandboxing is required for Mac App Store distribution. No file access or app group entitlement is needed because Quick Look thumbnail generation receives file content through system framework delivery. |
@@ -23,6 +23,10 @@ The main app retains:
   encrypt, decrypt, and sign file operations, and for backup export.
 - `com.apple.security.application-groups`: required to share key data with
   ShareExtension and QuickLookExtension through the shared `keys.pgp` file.
+- `keychain-access-groups`: required for passphrase items to use
+  `kSecUseDataProtectionKeychain` on macOS 10.15 and later, where
+  `kSecAttrAccessibleWhenUnlocked` is honored for non-synchronizable generic
+  password items.
 
 ## ShareExtension
 

@@ -176,6 +176,8 @@ struct EncryptDecryptIntegrationTests {
         #expect(FileManager.default.fileExists(atPath: encryptedFile.path))
         #expect(encryptedFile.pathExtension == "asc")
 
+        try FileManager.default.removeItem(at: originalFile)
+
         // Decrypt file
         let decryptedFile = try encryption.decrypt(
             file: encryptedFile,
@@ -219,6 +221,8 @@ struct EncryptDecryptIntegrationTests {
         }
 
         #expect(encryptedFile.pathExtension == "gpg")
+
+        try FileManager.default.removeItem(at: originalFile)
 
         let decryptedFile = try encryption.decrypt(
             file: encryptedFile,

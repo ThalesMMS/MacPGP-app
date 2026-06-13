@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "RNPKit",
     platforms: [
-        .macOS(.v13)
+        .macOS("26.2")
     ],
     products: [
         .library(

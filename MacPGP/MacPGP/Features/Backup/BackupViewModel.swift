@@ -3,6 +3,17 @@ import SwiftUI
 import CryptoKit
 import CommonCrypto
 
+private enum BackupFileFormatError: LocalizedError {
+    case truncatedEncryptedBackup
+
+    var errorDescription: String? {
+        switch self {
+        case .truncatedEncryptedBackup:
+            return "The encrypted backup file is incomplete or corrupted."
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class BackupViewModel {
@@ -17,6 +28,7 @@ final class BackupViewModel {
     var progress: Double = 0
     var errorMessage: String?
     var successMessage: String?
+    var warningMessage: String?
 
     // Restore-specific properties
     var restoreFileURL: URL?
@@ -67,6 +79,7 @@ final class BackupViewModel {
         progress = 0
         errorMessage = nil
         successMessage = nil
+        warningMessage = nil
 
         do {
             // Step 1: Gather keys to backup (20%)
@@ -146,9 +159,7 @@ final class BackupViewModel {
         )
 
         // Calculate checksum of exported data
-        let checksum = SHA256.hash(data: exportedData)
-        let checksumString = checksum.compactMap { String(format: "%02x", $0) }.joined()
-        let backupWithChecksum = backupFormat.withChecksum(checksumString)
+        let backupWithChecksum = backupFormat.withChecksum(checksumHex(for: exportedData))
 
         // Create JSON structure: metadata + keys
         let encoder = JSONEncoder()
@@ -251,6 +262,7 @@ final class BackupViewModel {
         isProcessing = true
         errorMessage = nil
         successMessage = nil
+        warningMessage = nil
         validatedBackup = nil
         previewKeys = []
         restoreContentsValidated = false
@@ -271,6 +283,8 @@ final class BackupViewModel {
             } else {
                 // Unencrypted backup - parse metadata
                 let backup = try parseBackupMetadata(from: data)
+                let keyData = try extractKeysFromBackup(data)
+                try validateChecksum(for: backup, keyData: keyData)
                 validatedBackup = backup
                 previewKeys = backup.keyFingerprints
                 restoreContentsValidated = true
@@ -289,6 +303,7 @@ final class BackupViewModel {
     /// - Returns: `true` if decryption and metadata validation succeed, `false` otherwise.
     func decryptAndValidateBackup() async -> Bool {
         successMessage = nil
+        warningMessage = nil
         validatedBackup = nil
         previewKeys = []
         restoreContentsValidated = false
@@ -314,6 +329,8 @@ final class BackupViewModel {
             let encryptedData = try SecureScopedFileAccess.readData(from: restoreFileURL)
             let decryptedData = try decryptBackup(data: encryptedData, passphrase: restorePassphrase)
             let backup = try parseBackupMetadata(from: decryptedData)
+            let keyData = try extractKeysFromBackup(decryptedData)
+            try validateChecksum(for: backup, keyData: keyData)
 
             validatedBackup = backup
             previewKeys = backup.keyFingerprints
@@ -363,6 +380,7 @@ final class BackupViewModel {
         progress = 0
         errorMessage = nil
         successMessage = nil
+        warningMessage = nil
 
         do {
             // Step 1: Read backup file (20%)
@@ -376,7 +394,11 @@ final class BackupViewModel {
             progress = 0.4
 
             // Step 3: Extract keys from backup (60%)
+            let backup = try parseBackupMetadata(from: data)
             let keyData = try extractKeysFromBackup(data)
+            try validateChecksum(for: backup, keyData: keyData)
+            validatedBackup = backup
+            previewKeys = backup.keyFingerprints
             progress = 0.6
 
             // Step 4: Import keys (80%)
@@ -400,14 +422,21 @@ final class BackupViewModel {
             throw OperationError.passphraseRequired
         }
 
-        // Extract header
-        guard let header = String(data: data.prefix(14), encoding: .utf8), header == "MACPGP-ENC-V1\n" else {
+        let encryptedBackupHeader = "MACPGP-ENC-V1\n".data(using: .utf8)!
+        let headerLength = encryptedBackupHeader.count
+        let saltLength = 16
+        let minimumSealedBoxLength = 12 + 16
+        let minimumEncryptedBackupLength = headerLength + saltLength + minimumSealedBoxLength
+
+        guard data.prefix(headerLength) == encryptedBackupHeader else {
             throw OperationError.decryptionFailed(underlying: nil)
         }
 
+        guard data.count >= minimumEncryptedBackupLength else {
+            throw BackupFileFormatError.truncatedEncryptedBackup
+        }
+
         // Extract salt (16 bytes after header)
-        let headerLength = 14
-        let saltLength = 16
         let salt = data.subdata(in: headerLength..<(headerLength + saltLength))
 
         // Extract encrypted data (everything after salt)
@@ -442,6 +471,24 @@ final class BackupViewModel {
         return keysData
     }
 
+    private func validateChecksum(for backup: BackupFormat, keyData: Data) throws {
+        guard let expectedChecksum = backup.checksum else {
+            warningMessage = "Backup checksum is missing. This backup may be from an older MacPGP version; integrity could not be verified."
+            return
+        }
+
+        let actualChecksum = checksumHex(for: keyData)
+        guard actualChecksum == expectedChecksum else {
+            throw OperationError.unknownError(message: "Backup checksum mismatch. The backup contents may be corrupted or modified.")
+        }
+    }
+
+    private func checksumHex(for data: Data) -> String {
+        SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
     // MARK: - Helper Methods
 
     func toggleKeySelection(_ fingerprint: String) {
@@ -469,6 +516,7 @@ final class BackupViewModel {
         backupDescription = ""
         errorMessage = nil
         successMessage = nil
+        warningMessage = nil
         progress = 0
     }
 
@@ -482,6 +530,7 @@ final class BackupViewModel {
         restoreContentsValidated = false
         errorMessage = nil
         successMessage = nil
+        warningMessage = nil
         progress = 0
     }
 }

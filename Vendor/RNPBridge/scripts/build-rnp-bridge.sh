@@ -7,6 +7,7 @@ BUILD_ROOT="$BRIDGE_ROOT/build/arm64"
 HEADERS_ROOT="$BRIDGE_ROOT/headers"
 XCFRAMEWORK_PATH="$BRIDGE_ROOT/RNPBridge.xcframework"
 HOMEBREW_PREFIX="${HOMEBREW_PREFIX:-${BREW_PREFIX:-}}"
+MAX_MINOS="${RNPBRIDGE_MAX_MINOS:-26.2}"
 
 if [[ -z "$HOMEBREW_PREFIX" ]]; then
   HOMEBREW_PREFIX="$(brew --prefix 2>/dev/null || true)"
@@ -17,7 +18,9 @@ if [[ -z "$HOMEBREW_PREFIX" ]]; then
   exit 1
 fi
 
-mkdir -p "$BUILD_ROOT" "$HEADERS_ROOT/rnp"
+mkdir -p "$BUILD_ROOT"
+rm -rf "$HEADERS_ROOT/rnp"
+mkdir -p "$HEADERS_ROOT/rnp"
 
 cp "$HOMEBREW_PREFIX/opt/rnp/include/rnp/"*.h "$HEADERS_ROOT/rnp/"
 
@@ -34,3 +37,5 @@ xcodebuild -create-xcframework \
   -library "$BUILD_ROOT/libRNPBridge.a" \
   -headers "$HEADERS_ROOT" \
   -output "$XCFRAMEWORK_PATH"
+
+"$BRIDGE_ROOT/scripts/check-rnp-bridge-minos.sh" "$MAX_MINOS" "$XCFRAMEWORK_PATH/macos-arm64/libRNPBridge.a"

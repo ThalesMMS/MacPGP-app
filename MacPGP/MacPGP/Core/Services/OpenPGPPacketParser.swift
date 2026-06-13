@@ -18,10 +18,8 @@ internal enum OpenPGPPacketParser {
     static func extractIssuerKeyID(from signatureData: Data) -> String? {
         let packetData: Data
         if let armoredString = String(data: signatureData, encoding: .utf8),
-           armoredString.hasPrefix("-----BEGIN PGP SIGNATURE-----") ||
-           armoredString.hasPrefix("-----BEGIN PGP MESSAGE-----") ||
-           armoredString.hasPrefix("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
-            guard let dearmoredData = try? Armor.readArmored(armoredString) else {
+           let normalizedArmoredString = PGPArmorDetector.normalizedArmoredText(from: armoredString) {
+            guard let dearmoredData = try? Armor.readArmored(normalizedArmoredString) else {
                 return nil
             }
             packetData = dearmoredData

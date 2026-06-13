@@ -1,7 +1,7 @@
 import Foundation
 import RNPKit
 
-enum RevocationReason: Int, CaseIterable {
+enum RevocationReason: Int, CaseIterable, Sendable {
     case noReason = 0
     case compromised = 1
     case superseded = 2
@@ -47,6 +47,7 @@ enum RevocationReason: Int, CaseIterable {
     }
 }
 
+@MainActor
 @Observable
 final class RevocationService {
     static let shared = RevocationService()
@@ -75,33 +76,14 @@ final class RevocationService {
             isProcessing = false
         }
 
-        // Validate inputs
-        guard key.isSecretKey else {
-            lastError = .noSecretKey
-            throw OperationError.noSecretKey
-        }
-
-        guard !passphrase.isEmpty else {
-            lastError = .passphraseRequired
-            throw OperationError.passphraseRequired
-        }
-
         do {
-            return try key.rawKey.exportRevocation(
-                hash: "SHA256",
-                reasonCode: reason.rnpCode,
-                reason: reason.description,
-                passphraseForKey: { _ in passphrase }
+            return try Self.generateRevocationCertificateData(
+                for: key,
+                reason: reason,
+                passphrase: passphrase
             )
-        } catch let error as OperationError {
-            lastError = error
-            throw error
-        } catch RNPError.invalidPassphrase {
-            let wrapped: OperationError = .invalidPassphrase
-            lastError = wrapped
-            throw wrapped
         } catch {
-            let wrapped = OperationError.unknownError(message: error.localizedDescription)
+            let wrapped = Self.operationError(from: error)
             lastError = wrapped
             throw wrapped
         }
@@ -112,41 +94,47 @@ final class RevocationService {
     ///   - key: The key model to generate revocation certificate for
     ///   - reason: The reason for revocation
     ///   - passphrase: The passphrase to unlock the secret key
-    ///   - completion: Completion handler with result containing certificate data
+    /// - Returns: Data containing the armored revocation certificate
+    /// - Throws: OperationError if the operation fails
     func generateRevocationCertificateAsync(
         for key: PGPKeyModel,
         reason: RevocationReason,
-        passphrase: String,
-        completion: @escaping (Result<Data, OperationError>) -> Void
-    ) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let certificate = try self.generateRevocationCertificate(
+        passphrase: String
+    ) async throws -> Data {
+        isProcessing = true
+        lastError = nil
+
+        defer {
+            isProcessing = false
+        }
+
+        do {
+            return try await Task.detached(priority: .userInitiated) {
+                try Self.generateRevocationCertificateData(
                     for: key,
                     reason: reason,
                     passphrase: passphrase
                 )
-
-                DispatchQueue.main.async {
-                    completion(.success(certificate))
-                }
-            } catch let error as OperationError {
-                DispatchQueue.main.async {
-                    completion(.failure(error))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(.unknownError(message: error.localizedDescription)))
-                }
-            }
+            }.value
+        } catch {
+            let wrapped = Self.operationError(from: error)
+            lastError = wrapped
+            throw wrapped
         }
     }
 
-    /// Imports a revocation certificate from data
-    /// - Parameter data: The revocation certificate data (armored or binary)
-    /// - Returns: The key fingerprint that the revocation applies to
+    /// Imports a revocation certificate from data and verifies it targets a local key.
+    /// - Parameters:
+    ///   - data: The revocation certificate data (armored or binary)
+    ///   - keyringService: The keyring used to verify the certificate issuer is local
+    ///   - expectedKey: Optional key the caller intends to revoke
+    /// - Returns: The local key fingerprint that the revocation applies to
     /// - Throws: OperationError if the operation fails
-    func importRevocationCertificate(data: Data) throws -> String {
+    func importRevocationCertificate(
+        data: Data,
+        keyringService: KeyringService,
+        expectedKey: PGPKeyModel? = nil
+    ) throws -> String {
         isProcessing = true
         lastError = nil
 
@@ -160,7 +148,20 @@ final class RevocationService {
             throw error
         }
 
-        return identifier
+        guard let matchingKey = localKey(matching: identifier, in: keyringService) else {
+            let error = OperationError.keyNotFound(keyID: identifier)
+            lastError = error
+            throw error
+        }
+
+        if let expectedKey,
+           Self.normalizedHexIdentifier(matchingKey.fingerprint) != Self.normalizedHexIdentifier(expectedKey.fingerprint) {
+            let error = OperationError.unknownError(message: "Certificate does not match this key")
+            lastError = error
+            throw error
+        }
+
+        return matchingKey.fingerprint
     }
 
     /// Applies a revocation certificate to a key
@@ -178,25 +179,9 @@ final class RevocationService {
         }
 
         do {
-            let updatedKey = try key.rawKey.applyRevocation(certificate)
-            guard updatedKey.isRevoked else {
-                let error = OperationError.unknownError(message: "Revocation certificate did not revoke the key")
-                lastError = error
-                throw error
-            }
-
-            return PGPKeyModel(
-                from: updatedKey,
-                isVerified: key.isVerified,
-                verificationDate: key.verificationDate,
-                verificationMethod: key.verificationMethod,
-                trustLevel: key.trustLevel
-            )
-        } catch let error as OperationError {
-            lastError = error
-            throw error
+            return try Self.applyRevocationData(to: key, certificate: certificate)
         } catch {
-            let wrapped = OperationError.unknownError(message: error.localizedDescription)
+            let wrapped = Self.operationError(from: error)
             lastError = wrapped
             throw wrapped
         }
@@ -206,31 +191,27 @@ final class RevocationService {
     /// - Parameters:
     ///   - key: The key model to revoke
     ///   - certificate: The revocation certificate data
-    ///   - completion: Completion handler with result containing updated key model
+    /// - Returns: Updated PGPKeyModel with revocation applied
+    /// - Throws: OperationError if the operation fails
     func applyRevocationAsync(
         to key: PGPKeyModel,
-        certificate: Data,
-        completion: @escaping (Result<PGPKeyModel, OperationError>) -> Void
-    ) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let updatedKey = try self.applyRevocation(
-                    to: key,
-                    certificate: certificate
-                )
+        certificate: Data
+    ) async throws -> PGPKeyModel {
+        isProcessing = true
+        lastError = nil
 
-                DispatchQueue.main.async {
-                    completion(.success(updatedKey))
-                }
-            } catch let error as OperationError {
-                DispatchQueue.main.async {
-                    completion(.failure(error))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(.unknownError(message: error.localizedDescription)))
-                }
-            }
+        defer {
+            isProcessing = false
+        }
+
+        do {
+            return try await Task.detached(priority: .userInitiated) {
+                try Self.applyRevocationData(to: key, certificate: certificate)
+            }.value
+        } catch {
+            let wrapped = Self.operationError(from: error)
+            lastError = wrapped
+            throw wrapped
         }
     }
 
@@ -297,6 +278,86 @@ final class RevocationService {
             let wrapped = OperationError.fileAccessError(path: url.path)
             lastError = wrapped
             throw wrapped
+        }
+    }
+
+    private func localKey(matching identifier: String, in keyringService: KeyringService) -> PGPKeyModel? {
+        return keyringService.keys.first { key in
+            Self.identifier(identifier, matchesFingerprint: key.fingerprint, shortKeyID: key.shortKeyID)
+        }
+    }
+
+    nonisolated static func identifier(_ identifier: String, matchesFingerprint fingerprint: String, shortKeyID: String) -> Bool {
+        let normalizedIdentifier = normalizedHexIdentifier(identifier)
+
+        return normalizedHexIdentifier(fingerprint) == normalizedIdentifier ||
+            normalizedHexIdentifier(shortKeyID) == normalizedIdentifier
+    }
+
+    private nonisolated static func normalizedHexIdentifier(_ identifier: String) -> String {
+        identifier
+            .uppercased()
+            .filter { $0.isHexDigit }
+    }
+
+    private nonisolated static func generateRevocationCertificateData(
+        for key: PGPKeyModel,
+        reason: RevocationReason,
+        passphrase: String
+    ) throws -> Data {
+        guard key.isSecretKey else {
+            throw OperationError.noSecretKey
+        }
+
+        guard !passphrase.isEmpty else {
+            throw OperationError.passphraseRequired
+        }
+
+        do {
+            return try key.rawKey.exportRevocation(
+                hash: "SHA256",
+                reasonCode: reason.rnpCode,
+                reason: reason.description,
+                passphraseForKey: { _ in passphrase }
+            )
+        } catch {
+            throw operationError(from: error)
+        }
+    }
+
+    private nonisolated static func applyRevocationData(
+        to key: PGPKeyModel,
+        certificate: Data
+    ) throws -> PGPKeyModel {
+        do {
+            let updatedKey = try key.rawKey.applyRevocation(certificate)
+            guard updatedKey.isRevoked else {
+                throw OperationError.unknownError(message: "Revocation certificate did not revoke the key")
+            }
+
+            return PGPKeyModel(
+                from: updatedKey,
+                isVerified: key.isVerified,
+                verificationDate: key.verificationDate,
+                verificationMethod: key.verificationMethod,
+                trustLevel: key.trustLevel
+            )
+        } catch {
+            throw operationError(from: error)
+        }
+    }
+
+    private nonisolated static func operationError(from error: Error) -> OperationError {
+        if let operationError = error as? OperationError {
+            return operationError
+        }
+
+        do {
+            throw error
+        } catch RNPError.invalidPassphrase {
+            return .invalidPassphrase
+        } catch {
+            return .unknownError(message: error.localizedDescription)
         }
     }
 }

@@ -5,9 +5,6 @@ class FinderSync: FIFinderSync {
 
     private let fileAnalyzer = PGPFileAnalyzer()
     private let encryptedBadgeIdentifier = "com.macpgp.finder.encrypted"
-    private let mainAppBundleIdentifier = "com.macpgp.MacPGP"
-    private let appGroupIdentifier = "group.com.macpgp.shared"
-    private let finderSyncErrorsKey = "com.macpgp.finderSync.errors"
 
     override init() {
         super.init()
@@ -52,7 +49,7 @@ class FinderSync: FIFinderSync {
         }
 
         // Check if the file is encrypted
-        if fileAnalyzer.isEncrypted(fileAt: url) {
+        if fileAnalyzer.isEncryptedHeader(fileAt: url) {
             finderSync.setBadgeIdentifier(encryptedBadgeIdentifier, for: url)
         } else {
             finderSync.setBadgeIdentifier("", for: url)
@@ -79,7 +76,7 @@ class FinderSync: FIFinderSync {
 
         // Check if any selected files are encrypted PGP files
         let hasEncryptedFiles = selectedItems.contains { url in
-            PGPFileAnalyzer.isPGPFile(url: url) && fileAnalyzer.isEncrypted(fileAt: url)
+            PGPFileAnalyzer.isPGPFile(url: url) && fileAnalyzer.isEncryptedHeader(fileAt: url)
         }
 
         // Add "Decrypt with MacPGP" menu item for encrypted files
@@ -128,7 +125,7 @@ class FinderSync: FIFinderSync {
 
         // Filter to only encrypted PGP files
         let encryptedFiles = selectedItems.filter { url in
-            PGPFileAnalyzer.isPGPFile(url: url) && fileAnalyzer.isEncrypted(fileAt: url)
+            PGPFileAnalyzer.isPGPFile(url: url) && fileAnalyzer.isEncryptedHeader(fileAt: url)
         }
 
         guard !encryptedFiles.isEmpty else {
@@ -171,30 +168,18 @@ class FinderSync: FIFinderSync {
 
         if containingAppURL.pathExtension == "app",
            FileManager.default.fileExists(atPath: containingAppURL.path),
-           Bundle(url: containingAppURL)?.bundleIdentifier == mainAppBundleIdentifier {
+           Bundle(url: containingAppURL)?.bundleIdentifier == SharedConfiguration.mainAppBundleIdentifier {
             return containingAppURL
         }
 
-        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: mainAppBundleIdentifier)
+        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: SharedConfiguration.mainAppBundleIdentifier)
     }
 
     private func forwardErrorToContainingApp(title: String, message: String) {
         NSLog("Finder Sync error: \(title) - \(message)")
 
-        guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {
+        if !FinderSyncErrorQueue.enqueue(title: title, message: message) {
             NSLog("Failed to open app group defaults for Finder Sync error forwarding")
-            return
         }
-
-        let payload: [String: Any] = [
-            "id": UUID().uuidString,
-            "title": title,
-            "message": message,
-            "createdAt": Date().timeIntervalSince1970
-        ]
-
-        var pendingErrors = defaults.array(forKey: finderSyncErrorsKey) as? [[String: Any]] ?? []
-        pendingErrors.append(payload)
-        defaults.set(Array(pendingErrors.suffix(20)), forKey: finderSyncErrorsKey)
     }
 }

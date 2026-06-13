@@ -1,11 +1,33 @@
 import Foundation
 import RNPKit
 
+private struct DecryptionKeySnapshot: @unchecked Sendable {
+    let rawKey: Key
+    let isSecret: Bool
+}
+
+private struct TryDecryptionKeySnapshot: @unchecked Sendable {
+    let model: PGPKeyModel
+    let rawKey: Key
+}
+
+private struct TryDecryptionResult: @unchecked Sendable {
+    let decryptedData: Data
+    let key: PGPKeyModel
+}
+
+private struct TryDecryptionFileResult: @unchecked Sendable {
+    let outputURL: URL
+    let key: PGPKeyModel
+}
+
 final class EncryptionService {
     private let keyringService: KeyringService
+    private let trustService: TrustService
 
     init(keyringService: KeyringService) {
         self.keyringService = keyringService
+        self.trustService = TrustService(keyringService: keyringService)
     }
 
     func encrypt(
@@ -17,16 +39,6 @@ final class EncryptionService {
     ) throws -> Data {
         guard !recipients.isEmpty else {
             throw OperationError.recipientKeyMissing
-        }
-
-        // Validate recipient keys are not expired or revoked
-        for recipient in recipients {
-            if recipient.isRevoked {
-                throw OperationError.keyRevoked
-            }
-            if recipient.isExpired {
-                throw OperationError.keyExpired
-            }
         }
 
         let (recipientKeys, signerKey) = try encryptionKeys(for: recipients, signedBy: signer)
@@ -41,7 +53,8 @@ final class EncryptionService {
     }
 
     private func encryptionKeys(for recipients: [PGPKeyModel], signedBy signer: PGPKeyModel?) throws -> ([Key], Key?) {
-        let recipientKeys = recipients.compactMap { keyringService.rawKey(for: $0) }
+        let validatedRecipients = try validatedRecipientsForEncryption(recipients)
+        let recipientKeys = validatedRecipients.compactMap { keyringService.rawKey(for: $0) }
         guard recipientKeys.count == recipients.count else {
             throw OperationError.keyNotFound(keyID: "recipient")
         }
@@ -58,6 +71,57 @@ final class EncryptionService {
         }
 
         return (recipientKeys, signerKey)
+    }
+
+    private func validatedRecipientsForEncryption(_ recipients: [PGPKeyModel]) throws -> [PGPKeyModel] {
+        guard !recipients.isEmpty else {
+            throw OperationError.recipientKeyMissing
+        }
+
+        return try recipients.map { recipient in
+            let currentRecipient = keyringService.key(withFingerprint: recipient.fingerprint) ?? recipient
+            guard trustService.isKeyValidForEncryption(currentRecipient) else {
+                throw encryptionValidationError(for: currentRecipient)
+            }
+            return currentRecipient
+        }
+    }
+
+    private func encryptionValidationError(for recipient: PGPKeyModel) -> OperationError {
+        if recipient.isRevoked {
+            return .keyRevoked
+        }
+
+        if recipient.isExpired {
+            return .keyExpired
+        }
+
+        if recipient.trustLevel == .never {
+            return .recipientKeyUntrusted(keyID: recipient.shortKeyID)
+        }
+
+        return .encryptionFailed(underlying: nil)
+    }
+
+    private func decryptionSnapshot(for key: PGPKeyModel) throws -> DecryptionKeySnapshot {
+        guard let rawKey = keyringService.rawKey(for: key) else {
+            throw OperationError.keyNotFound(keyID: key.shortKeyID)
+        }
+
+        return DecryptionKeySnapshot(
+            rawKey: rawKey,
+            isSecret: rawKey.isSecret
+        )
+    }
+
+    private func tryDecryptionSnapshots() -> [TryDecryptionKeySnapshot] {
+        keyringService.secretKeys().compactMap { keyModel in
+            guard let rawKey = keyringService.rawKey(for: keyModel) else {
+                return nil
+            }
+
+            return TryDecryptionKeySnapshot(model: keyModel, rawKey: rawKey)
+        }
     }
 
     nonisolated private static func performEncryption(
@@ -89,11 +153,43 @@ final class EncryptionService {
             }
 
             return encryptedData
+        } catch RNPError.invalidPassphrase {
+            throw OperationError.invalidPassphrase
         } catch RNPError.missingSigningKey {
             throw OperationError.signerKeyMissing
         } catch {
             throw OperationError.encryptionFailed(underlying: error)
         }
+    }
+
+    nonisolated private static func performDecryption(
+        data: Data,
+        using snapshot: DecryptionKeySnapshot,
+        passphrase: String
+    ) throws -> Data {
+        guard snapshot.isSecret else {
+            throw OperationError.noSecretKey
+        }
+
+        return try PGPDecryption.decrypt(data: data, using: snapshot.rawKey, passphrase: passphrase)
+    }
+
+    nonisolated private static func performTryDecryption(
+        data: Data,
+        using snapshots: [TryDecryptionKeySnapshot],
+        passphrase: String
+    ) throws -> TryDecryptionResult {
+        let result = try PGPDecryption.decrypt(
+            data: data,
+            usingAnySecretKeyIn: snapshots.map(\.rawKey),
+            passphrase: passphrase
+        )
+
+        guard let snapshot = snapshots.first(where: { $0.rawKey.fingerprint == result.key.fingerprint }) else {
+            throw OperationError.keyNotFound(keyID: result.key.shortKeyID)
+        }
+
+        return TryDecryptionResult(decryptedData: result.decryptedData, key: snapshot.model)
     }
 
     func encrypt(
@@ -184,8 +280,8 @@ final class EncryptionService {
         )
         progressCallback?(0.7)
 
-        let outputPath = resolvedEncryptedOutputURL(for: file, outputURL: outputURL, armored: armored)
-        try writeData(encryptedData, to: outputPath, scopedBy: outputURL)
+        let outputPath = Self.resolvedEncryptedOutputURL(for: file, outputURL: outputURL, armored: armored)
+        try Self.writeData(encryptedData, to: outputPath, scopedBy: outputURL)
 
         progressCallback?(1.0)
         return outputPath
@@ -196,27 +292,8 @@ final class EncryptionService {
         using key: PGPKeyModel,
         passphrase: String
     ) throws -> Data {
-        guard let rawKey = keyringService.rawKey(for: key) else {
-            throw OperationError.keyNotFound(keyID: key.shortKeyID)
-        }
-
-        guard rawKey.isSecret else {
-            throw OperationError.noSecretKey
-        }
-
-        do {
-            let decryptedData = try RNP.decrypt(
-                data,
-                andVerifySignature: false,
-                using: [rawKey],
-                passphraseForKey: { _ in passphrase }
-            )
-            return decryptedData
-        } catch RNPError.invalidPassphrase {
-            throw OperationError.invalidPassphrase
-        } catch {
-            throw OperationError.decryptionFailed(underlying: error)
-        }
+        let snapshot = try decryptionSnapshot(for: key)
+        return try Self.performDecryption(data: data, using: snapshot, passphrase: passphrase)
     }
 
     func decrypt(
@@ -242,9 +319,20 @@ final class EncryptionService {
         using key: PGPKeyModel,
         passphrase: String
     ) async throws -> String {
-        try await Task.detached {
-            try self.decrypt(message: message, using: key, passphrase: passphrase)
+        guard let messageData = message.data(using: .utf8) else {
+            throw OperationError.decryptionFailed(underlying: nil)
+        }
+
+        let snapshot = try decryptionSnapshot(for: key)
+        let decryptedData = try await Task.detached {
+            try Self.performDecryption(data: messageData, using: snapshot, passphrase: passphrase)
         }.value
+
+        guard let decryptedString = String(data: decryptedData, encoding: .utf8) else {
+            throw OperationError.decryptionFailed(underlying: nil)
+        }
+
+        return decryptedString
     }
 
     /// Decrypts a file using the specified PGP key and writes the decrypted bytes to disk.
@@ -271,9 +359,9 @@ final class EncryptionService {
         let decryptedData = try decrypt(data: fileData, using: key, passphrase: passphrase)
         progressCallback?(0.7)
 
-        let outputPath = resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
+        let outputPath = Self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
 
-        try writeData(decryptedData, to: outputPath, scopedBy: outputURL)
+        try Self.writeData(decryptedData, to: outputPath, scopedBy: outputURL)
         progressCallback?(1.0)
         return outputPath
     }
@@ -297,23 +385,24 @@ final class EncryptionService {
         armored: Bool = false,
         progressCallback: (@Sendable (Double) -> Void)? = nil
     ) async throws -> URL {
-        try await Task.detached {
-            await MainActor.run { progressCallback?(0.0) }
+        progressCallback?(0.0)
+        let (recipientKeys, signerKey) = try encryptionKeys(for: recipients, signedBy: signer)
+        let outputPath = Self.resolvedEncryptedOutputURL(for: file, outputURL: outputURL, armored: armored)
 
+        return try await Task.detached {
             let fileData = try SecureScopedFileAccess.readData(from: file)
             await MainActor.run { progressCallback?(0.3) }
 
-            let encryptedData = try self.encrypt(
+            let encryptedData = try Self.performEncryption(
                 data: fileData,
-                for: recipients,
-                signedBy: signer,
+                recipientKeys: recipientKeys,
+                signerKey: signerKey,
                 passphrase: passphrase,
                 armored: armored
             )
             await MainActor.run { progressCallback?(0.7) }
 
-            let outputPath = self.resolvedEncryptedOutputURL(for: file, outputURL: outputURL, armored: armored)
-            try self.writeData(encryptedData, to: outputPath, scopedBy: outputURL)
+            try Self.writeData(encryptedData, to: outputPath, scopedBy: outputURL)
 
             await MainActor.run { progressCallback?(1.0) }
             return outputPath
@@ -335,18 +424,18 @@ final class EncryptionService {
         outputURL: URL? = nil,
         progressCallback: (@Sendable (Double) -> Void)? = nil
     ) async throws -> URL {
-        try await Task.detached {
-            await MainActor.run { progressCallback?(0.0) }
+        progressCallback?(0.0)
+        let snapshot = try decryptionSnapshot(for: key)
+        let outputPath = Self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
 
+        return try await Task.detached {
             let fileData = try SecureScopedFileAccess.readData(from: file)
             await MainActor.run { progressCallback?(0.3) }
 
-            let decryptedData = try self.decrypt(data: fileData, using: key, passphrase: passphrase)
+            let decryptedData = try Self.performDecryption(data: fileData, using: snapshot, passphrase: passphrase)
             await MainActor.run { progressCallback?(0.7) }
 
-            let outputPath = self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
-
-            try self.writeData(decryptedData, to: outputPath, scopedBy: outputURL)
+            try Self.writeData(decryptedData, to: outputPath, scopedBy: outputURL)
             await MainActor.run { progressCallback?(1.0) }
             return outputPath
         }.value
@@ -357,28 +446,24 @@ final class EncryptionService {
     ///   - data: Encrypted input bytes to attempt decryption on.
     ///   - passphrase: Passphrase to use when unlocking secret keys.
     /// - Returns: A tuple `(Data, PGPKeyModel)` where `Data` is the decrypted bytes and `PGPKeyModel` is the secret key that successfully decrypted the data.
-    /// - Throws: `OperationError.decryptionFailed(underlying: nil)` if none of the secret keys can decrypt the data.
+    /// - Throws: `OperationError.invalidPassphrase` when matching keys reject the passphrase, otherwise `OperationError.decryptionFailed` if none of the secret keys can decrypt the data.
     func tryDecrypt(data: Data, passphrase: String) throws -> (Data, PGPKeyModel) {
-        let secretKeys = keyringService.secretKeys()
+        let result = try Self.performTryDecryption(
+            data: data,
+            using: tryDecryptionSnapshots(),
+            passphrase: passphrase
+        )
 
-        for keyModel in secretKeys {
-            do {
-                let decrypted = try decrypt(data: data, using: keyModel, passphrase: passphrase)
-                return (decrypted, keyModel)
-            } catch OperationError.invalidPassphrase {
-                continue
-            } catch {
-                continue
-            }
-        }
-
-        throw OperationError.decryptionFailed(underlying: nil)
+        return (result.decryptedData, result.key)
     }
 
     func tryDecryptAsync(data: Data, passphrase: String) async throws -> (Data, PGPKeyModel) {
-        try await Task.detached {
-            try self.tryDecrypt(data: data, passphrase: passphrase)
+        let snapshots = tryDecryptionSnapshots()
+        let result = try await Task.detached {
+            try Self.performTryDecryption(data: data, using: snapshots, passphrase: passphrase)
         }.value
+
+        return (result.decryptedData, result.key)
     }
 
     /// Attempts decryption of the file by trying available secret keys and writes the decrypted bytes to disk.
@@ -403,8 +488,8 @@ final class EncryptionService {
         let (decryptedData, key) = try tryDecrypt(data: fileData, passphrase: passphrase)
         progressCallback?(0.7)
 
-        let resolvedOutputURL = resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
-        try writeData(decryptedData, to: resolvedOutputURL, scopedBy: outputURL)
+        let resolvedOutputURL = Self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
+        try Self.writeData(decryptedData, to: resolvedOutputURL, scopedBy: outputURL)
 
         progressCallback?(1.0)
         return (resolvedOutputURL, key)
@@ -424,31 +509,38 @@ final class EncryptionService {
         outputURL: URL? = nil,
         progressCallback: (@Sendable (Double) -> Void)? = nil
     ) async throws -> (URL, PGPKeyModel) {
-        try await Task.detached {
-            await MainActor.run { progressCallback?(0.0) }
-
+        progressCallback?(0.0)
+        let snapshots = tryDecryptionSnapshots()
+        let resolvedOutputURL = Self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
+        let result = try await Task.detached {
             let fileData = try SecureScopedFileAccess.readData(from: file)
             await MainActor.run { progressCallback?(0.3) }
 
-            let (decryptedData, key) = try self.tryDecrypt(data: fileData, passphrase: passphrase)
+            let decryptionResult = try Self.performTryDecryption(
+                data: fileData,
+                using: snapshots,
+                passphrase: passphrase
+            )
             await MainActor.run { progressCallback?(0.7) }
 
-            let resolvedOutputURL = self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
-            try self.writeData(decryptedData, to: resolvedOutputURL, scopedBy: outputURL)
+            try Self.writeData(decryptionResult.decryptedData, to: resolvedOutputURL, scopedBy: outputURL)
 
             await MainActor.run { progressCallback?(1.0) }
-            return (resolvedOutputURL, key)
+            return TryDecryptionFileResult(outputURL: resolvedOutputURL, key: decryptionResult.key)
         }.value
+
+        return (result.outputURL, result.key)
     }
 
     /// Resolves the destination URL for an encrypted output file.
     /// - Parameters:
     ///   - file: The original input file URL to be encrypted.
     ///   - outputURL: Optional user-provided output URL; if `nil` a default is derived from `file`.
-    ///   - armored: If `true` use the `"asc"` extension; otherwise use `"gpg"`.
+    ///   - armored: If `true` use the `.asc` extension; otherwise use `.gpg`.
     /// - Returns: The final output `URL` to write the encrypted data to. If `outputURL` is `nil` returns `file` with the chosen extension; if `outputURL` is a directory appends `file`'s basename and the chosen extension; otherwise returns `outputURL` as-is.
-    private func resolvedEncryptedOutputURL(for file: URL, outputURL: URL?, armored: Bool) -> URL {
-        let defaultOutputURL = file.appendingPathExtension(armored ? "asc" : "gpg")
+    private static func resolvedEncryptedOutputURL(for file: URL, outputURL: URL?, armored: Bool) -> URL {
+        let outputExtension = PGPFileExtensions.encryptedOutputExtension(armored: armored)
+        let defaultOutputURL = file.appendingPathExtension(outputExtension)
 
         guard let outputURL else {
             return defaultOutputURL
@@ -460,7 +552,7 @@ final class EncryptionService {
 
         return outputURL
             .appendingPathComponent(file.lastPathComponent)
-            .appendingPathExtension(armored ? "asc" : "gpg")
+            .appendingPathExtension(outputExtension)
     }
 
     /// Determine the filesystem URL where a decrypted version of `file` should be written.
@@ -468,7 +560,7 @@ final class EncryptionService {
     ///   - file: The original file URL being decrypted; used to derive a default output filename when none is provided or when `outputURL` is a directory.
     ///   - outputURL: An optional desired output location. If `nil`, the default decrypted output URL is returned. If `outputURL` is a directory, the default filename for the decrypted file is appended; otherwise `outputURL` is returned as-is.
     /// - Returns: The resolved destination URL for the decrypted file.
-    private func resolvedDecryptedOutputURL(for file: URL, outputURL: URL?) -> URL {
+    private static func resolvedDecryptedOutputURL(for file: URL, outputURL: URL?) -> URL {
         let defaultOutputURL = defaultDecryptedOutputURL(for: file)
 
         guard let outputURL else {
@@ -484,18 +576,14 @@ final class EncryptionService {
 
     /// Produces the default output URL for a decrypted file.
     /// - Parameter file: The original encrypted file URL.
-    /// - Returns: The URL with the `.asc`, `.gpg`, or `.pgp` extension removed if present; otherwise the URL with the `.decrypted` extension appended.
-    private func defaultDecryptedOutputURL(for file: URL) -> URL {
-        if ["asc", "gpg", "pgp"].contains(file.pathExtension.lowercased()) {
-            return file.deletingPathExtension()
-        }
-
-        return file.appendingPathExtension("decrypted")
+    /// - Returns: The URL with a supported PGP extension removed if present; otherwise the URL with the `.decrypted` extension appended.
+    private static func defaultDecryptedOutputURL(for file: URL) -> URL {
+        PGPFileExtensions.defaultDecryptedOutputURL(for: file)
     }
 
     /// Determines whether the given URL refers to a directory on disk.
     /// - Returns: `true` if the URL is a directory, `false` otherwise.
-    private func isDirectoryURL(_ url: URL) -> Bool {
+    private static func isDirectoryURL(_ url: URL) -> Bool {
         if url.hasDirectoryPath {
             return true
         }
@@ -504,11 +592,11 @@ final class EncryptionService {
         return resourceValues?.isDirectory == true
     }
 
-    private func writeData(_ data: Data, to outputPath: URL, scopedBy outputURL: URL?) throws {
+    nonisolated private static func writeData(_ data: Data, to outputPath: URL, scopedBy outputURL: URL?) throws {
         let scopedURL = outputURL ?? outputPath
 
         try SecureScopedFileAccess.withSecurityScopedAccess(to: scopedURL) { _ in
-            try SecureScopedFileAccess.writeData(data, to: outputPath)
+            try SecureScopedFileAccess.writeData(data, to: outputPath, options: .withoutOverwriting)
         }
     }
 }

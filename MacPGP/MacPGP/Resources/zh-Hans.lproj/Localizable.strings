@@ -483,6 +483,7 @@
 "error.no_public_key.description" = "此操作没有可用的公钥。";
 "error.no_secret_key.description" = "此操作没有可用的私钥。";
 "error.recipient_key_missing.description" = "收件人的公钥在您的密钥环中缺失。";
+"error.recipient_key_untrusted.description" = "收件人密钥“%@”已标记为永不信任，不能用于加密。";
 "error.signer_key_missing.description" = "没有可用的私钥来签署消息。";
 "error.file_access_error.description" = "无法访问文件：%@";
 "error.security_scoped_access_denied.description" = "MacPGP 不再有权限访问：%@";
@@ -512,6 +513,7 @@
 "error.no_public_key.recovery" = "从密钥服务器导入或搜索公钥。";
 "error.no_secret_key.recovery" = "生成包含私钥的新密钥对。";
 "error.recipient_key_missing.recovery" = "从密钥服务器搜索并导入收件人的公钥。";
+"error.recipient_key_untrusted.recovery" = "只有在您已验证该收件人密钥后才更改其信任级别，或选择另一个收件人密钥。";
 "error.signer_key_missing.recovery" = "生成密钥对以签署消息。";
 "error.file_access_error.recovery" = "在系统设置 > 隐私与安全中检查文件权限设置。";
 "error.security_scoped_access_denied.recovery" = "请重新选择文件或文件夹，然后再试。";
@@ -550,6 +552,7 @@
 "error.no_public_key.reason" = "未找到所请求身份的公钥。";
 "error.no_secret_key.reason" = "密钥环中未找到私钥。";
 "error.recipient_key_missing.reason" = "收件人在您的密钥环中没有公钥。";
+"error.recipient_key_untrusted.reason" = "当前密钥环信任策略阻止对此收件人密钥加密。";
 "error.signer_key_missing.reason" = "未找到具有签名能力的私钥。";
 "error.file_access_error.reason" = "%@ 处的文件可能不存在或您可能没有访问权限。";
 "error.security_scoped_access_denied.reason" = "%@ 的沙盒访问授权不再可用。";

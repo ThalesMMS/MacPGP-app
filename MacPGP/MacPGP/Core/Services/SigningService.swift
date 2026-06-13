@@ -147,10 +147,9 @@ internal final class SigningService {
         let outputPath: URL
         if let output = outputURL {
             outputPath = output
-        } else if detached {
-            outputPath = file.appendingPathExtension(armored ? "asc" : "sig")
         } else {
-            outputPath = file.appendingPathExtension(armored ? "asc" : "gpg")
+            let outputExtension = PGPFileExtensions.signedOutputExtension(detached: detached, armored: armored)
+            outputPath = file.appendingPathExtension(outputExtension)
         }
 
         try SecureScopedFileAccess.writeData(signedData, to: outputPath)

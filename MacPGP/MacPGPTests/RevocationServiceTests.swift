@@ -10,6 +10,7 @@ import Foundation
 import RNPKit
 @testable import MacPGP
 
+@MainActor
 @Suite("RevocationService Tests", .serialized)
 struct RevocationServiceTests {
 
@@ -41,6 +42,16 @@ struct RevocationServiceTests {
             keys.append(PGPKeyModel(from: key))
         }
         return keys
+    }
+
+    private func createKeyringService(containing keys: [PGPKeyModel] = []) throws -> KeyringService {
+        let service = KeyringService()
+
+        for key in keys {
+            try service.addKey(key.rawKey)
+        }
+
+        return service
     }
 
     private func unwrapLastError(from service: RevocationService, context: String) -> OperationError? {
@@ -83,6 +94,15 @@ struct RevocationServiceTests {
         }
 
         Issue.record("Expected OperationError.keyImportFailed for \(context), got \(error)")
+    }
+
+    private func expectKeyNotFound(_ error: OperationError, context: String) {
+        if case .keyNotFound(let keyID) = error {
+            #expect(!keyID.isEmpty)
+            return
+        }
+
+        Issue.record("Expected OperationError.keyNotFound for \(context), got \(error)")
     }
 
     @discardableResult
@@ -155,6 +175,7 @@ struct RevocationServiceTests {
     func testGenerateAndApplyRevocationCertificate() throws {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
+        let keyringService = try createKeyringService(containing: [key])
 
         let certificate = try service.generateRevocationCertificate(
             for: key,
@@ -166,8 +187,12 @@ struct RevocationServiceTests {
         let armoredCertificate = String(data: certificate, encoding: .utf8)
         #expect(armoredCertificate?.contains("BEGIN PGP") == true)
 
-        let importedIdentifier = try service.importRevocationCertificate(data: certificate)
-        #expect(!importedIdentifier.isEmpty)
+        let revokedFingerprint = try service.importRevocationCertificate(
+            data: certificate,
+            keyringService: keyringService,
+            expectedKey: key
+        )
+        #expect(revokedFingerprint == key.fingerprint)
 
         let revokedKey = try service.applyRevocation(to: key, certificate: certificate)
         #expect(revokedKey.isRevoked)
@@ -333,21 +358,16 @@ struct RevocationServiceTests {
     func testGenerateRevocationCertificateAsyncMainThread() async {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
-        let result = await withCheckedContinuation { continuation in
-            service.generateRevocationCertificateAsync(
+
+        do {
+            let certificate = try await service.generateRevocationCertificateAsync(
                 for: key,
                 reason: .compromised,
                 passphrase: "testpass"
-            ) { result in
-                #expect(Thread.isMainThread)
-                continuation.resume(returning: result)
-            }
-        }
-
-        switch result {
-        case .success(let certificate):
+            )
+            #expect(Thread.isMainThread)
             #expect(!certificate.isEmpty)
-        case .failure(let error):
+        } catch {
             Issue.record("Expected successful revocation generation, got \(error)")
         }
     }
@@ -357,22 +377,19 @@ struct RevocationServiceTests {
     func testGenerateRevocationCertificateAsyncPublicKeyFailure() async {
         let service = RevocationService.shared
         let publicKey = createTestKey(isSecret: false)
-        let result = await withCheckedContinuation { continuation in
-            service.generateRevocationCertificateAsync(
+
+        do {
+            _ = try await service.generateRevocationCertificateAsync(
                 for: publicKey,
                 reason: .noReason,
                 passphrase: "testpass"
-            ) { result in
-                #expect(Thread.isMainThread)
-                continuation.resume(returning: result)
-            }
-        }
-
-        switch result {
-        case .success:
+            )
             Issue.record("Expected failure for public key")
-        case .failure(let error):
+        } catch let error as OperationError {
+            #expect(Thread.isMainThread)
             expectNoSecretKey(error, context: #function)
+        } catch {
+            Issue.record("Expected OperationError.noSecretKey, got \(error)")
         }
 
         if let lastError = unwrapLastError(from: service, context: #function) {
@@ -386,22 +403,19 @@ struct RevocationServiceTests {
     func testGenerateRevocationCertificateAsyncEmptyPassphrase() async {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
-        let result = await withCheckedContinuation { continuation in
-            service.generateRevocationCertificateAsync(
+
+        do {
+            _ = try await service.generateRevocationCertificateAsync(
                 for: key,
                 reason: .noLongerUsed,
                 passphrase: ""
-            ) { result in
-                #expect(Thread.isMainThread)
-                continuation.resume(returning: result)
-            }
-        }
-
-        switch result {
-        case .success:
+            )
             Issue.record("Expected failure for empty passphrase")
-        case .failure(let error):
+        } catch let error as OperationError {
+            #expect(Thread.isMainThread)
             expectPassphraseRequired(error, context: #function)
+        } catch {
+            Issue.record("Expected OperationError.passphraseRequired, got \(error)")
         }
 
         if let lastError = unwrapLastError(from: service, context: #function) {
@@ -415,10 +429,11 @@ struct RevocationServiceTests {
     @Test("importRevocationCertificate rejects invalid certificate data")
     func testImportRevocationCertificateNotImplemented() {
         let service = RevocationService.shared
+        let keyringService = KeyringService()
         let testData = Data("test certificate".utf8)
 
         do {
-            _ = try service.importRevocationCertificate(data: testData)
+            _ = try service.importRevocationCertificate(data: testData, keyringService: keyringService)
             Issue.record("Expected OperationError.keyImportFailed")
         } catch let error as OperationError {
             expectKeyImportFailed(error, context: #function)
@@ -436,10 +451,11 @@ struct RevocationServiceTests {
     @Test("importRevocationCertificate sets lastError on failure")
     func testImportRevocationCertificateSetsLastError() {
         let service = RevocationService.shared
+        let keyringService = KeyringService()
         let testData = Data("test".utf8)
 
         do {
-            _ = try service.importRevocationCertificate(data: testData)
+            _ = try service.importRevocationCertificate(data: testData, keyringService: keyringService)
         } catch {
             // Expected to throw
         }
@@ -452,10 +468,11 @@ struct RevocationServiceTests {
     @Test("importRevocationCertificate resets isProcessing flag")
     func testImportRevocationCertificateResetsProcessingFlag() {
         let service = RevocationService.shared
+        let keyringService = KeyringService()
         let testData = Data("test".utf8)
 
         do {
-            _ = try service.importRevocationCertificate(data: testData)
+            _ = try service.importRevocationCertificate(data: testData, keyringService: keyringService)
             Issue.record("Expected OperationError.keyImportFailed")
         } catch let error as OperationError {
             expectKeyImportFailed(error, context: #function)
@@ -469,15 +486,98 @@ struct RevocationServiceTests {
     @Test("importRevocationCertificate handles empty data")
     func testImportRevocationCertificateEmptyData() {
         let service = RevocationService.shared
+        let keyringService = KeyringService()
         let emptyData = Data()
 
         do {
-            _ = try service.importRevocationCertificate(data: emptyData)
+            _ = try service.importRevocationCertificate(data: emptyData, keyringService: keyringService)
             Issue.record("Expected error for empty data")
         } catch let error as OperationError {
             expectKeyImportFailed(error, context: #function)
         } catch {
             Issue.record("Expected OperationError.keyImportFailed, got \(error)")
+        }
+    }
+
+    @Test("importRevocationCertificate returns matching local key fingerprint")
+    func testImportRevocationCertificateMatchesLocalKey() throws {
+        let service = RevocationService.shared
+        let key = createTestKey(isSecret: true)
+        let keyringService = try createKeyringService(containing: [key])
+        let certificate = try service.generateRevocationCertificate(
+            for: key,
+            reason: .compromised,
+            passphrase: "testpass"
+        )
+
+        let revokedFingerprint = try service.importRevocationCertificate(
+            data: certificate,
+            keyringService: keyringService,
+            expectedKey: key
+        )
+
+        #expect(revokedFingerprint == key.fingerprint)
+    }
+
+    @Test("revocation identifier matching rejects arbitrary fingerprint suffix")
+    func testRevocationIdentifierMatchingRejectsArbitraryFingerprintSuffix() {
+        let identifier = "A1B2C3D4"
+        let fingerprintWithSameSuffix = "00112233445566778899AABBCCDDEEFFA1B2C3D4"
+
+        #expect(!RevocationService.identifier(identifier, matchesFingerprint: fingerprintWithSameSuffix, shortKeyID: "1122334455667788"))
+        #expect(RevocationService.identifier(identifier, matchesFingerprint: identifier, shortKeyID: "1122334455667788"))
+        #expect(RevocationService.identifier(identifier, matchesFingerprint: "00112233445566778899AABBCCDDEEFF00112233", shortKeyID: identifier))
+    }
+
+    @Test("importRevocationCertificate rejects certificate without local key")
+    func testImportRevocationCertificateRejectsMissingLocalKey() throws {
+        let service = RevocationService.shared
+        let key = createTestKey(isSecret: true)
+        let keyringService = try createKeyringService()
+        let certificate = try service.generateRevocationCertificate(
+            for: key,
+            reason: .compromised,
+            passphrase: "testpass"
+        )
+
+        do {
+            _ = try service.importRevocationCertificate(data: certificate, keyringService: keyringService)
+            Issue.record("Expected OperationError.keyNotFound")
+        } catch let error as OperationError {
+            expectKeyNotFound(error, context: #function)
+        } catch {
+            Issue.record("Expected OperationError.keyNotFound, got \(error)")
+        }
+
+        if let lastError = unwrapLastError(from: service, context: #function) {
+            expectKeyNotFound(lastError, context: "\(#function) lastError")
+        }
+    }
+
+    @Test("importRevocationCertificate rejects certificate for different selected key")
+    func testImportRevocationCertificateRejectsDifferentExpectedKey() throws {
+        let service = RevocationService.shared
+        let revokedKey = createTestKey(isSecret: true)
+        let selectedKey = createTestKey(isSecret: true)
+        let keyringService = try createKeyringService(containing: [revokedKey, selectedKey])
+        let certificate = try service.generateRevocationCertificate(
+            for: revokedKey,
+            reason: .compromised,
+            passphrase: "testpass"
+        )
+
+        do {
+            _ = try service.importRevocationCertificate(
+                data: certificate,
+                keyringService: keyringService,
+                expectedKey: selectedKey
+            )
+            Issue.record("Expected OperationError.unknownError")
+        } catch let error as OperationError {
+            let message = expectUnknownError(error, context: #function)
+            #expect(message.localizedCaseInsensitiveContains("does not match"))
+        } catch {
+            Issue.record("Expected OperationError.unknownError, got \(error)")
         }
     }
 
@@ -555,17 +655,11 @@ struct RevocationServiceTests {
             Issue.record("Expected revocation certificate generation to succeed")
             return
         }
-        let result = await withCheckedContinuation { continuation in
-            service.applyRevocationAsync(to: key, certificate: certificate) { result in
-                #expect(Thread.isMainThread)
-                continuation.resume(returning: result)
-            }
-        }
-
-        switch result {
-        case .success(let updatedKey):
+        do {
+            let updatedKey = try await service.applyRevocationAsync(to: key, certificate: certificate)
+            #expect(Thread.isMainThread)
             #expect(updatedKey.isRevoked)
-        case .failure(let error):
+        } catch {
             Issue.record("Expected successful revocation apply, got \(error)")
         }
     }
@@ -576,18 +670,14 @@ struct RevocationServiceTests {
         let service = RevocationService.shared
         let key = createTestKey(isSecret: true)
         let testData = Data("cert".utf8)
-        let result = await withCheckedContinuation { continuation in
-            service.applyRevocationAsync(to: key, certificate: testData) { result in
-                #expect(Thread.isMainThread)
-                continuation.resume(returning: result)
-            }
-        }
-
-        switch result {
-        case .success:
+        do {
+            _ = try await service.applyRevocationAsync(to: key, certificate: testData)
             Issue.record("Expected failure, got success")
-        case .failure(let error):
+        } catch let error as OperationError {
+            #expect(Thread.isMainThread)
             _ = expectUnknownError(error, context: #function)
+        } catch {
+            Issue.record("Expected OperationError.unknownError, got \(error)")
         }
 
         if let lastError = unwrapLastError(from: service, context: #function) {

@@ -453,7 +453,7 @@ declare -A EXPECTED_AREAS=(
     ["EXT-FINDER"]="FinderSyncExtension"
     ["EXT-QL"]="QuickLookExtension"
     ["EXT-THUMB"]="ThumbnailExtension"
-    ["EXT-SHARE"]="ShareExtension exclusion"
+    ["EXT-SHARE"]="ShareExtension"
     ["EXT-CROSS"]="Cross-extension data flow"
     ["CROSS-E2E"]="Full encrypt/decrypt/sign workflow"
     ["CROSS-BACKUP"]="Backup/restore integration"
@@ -604,12 +604,14 @@ FinderSyncExtension.appex
 QuickLookExtension.appex
 ### EXT-THUMB: ThumbnailExtension
 ThumbnailExtension.appex
-### EXT-SHARE: ShareExtension Exclusion
-ShareExtension.appex must not be present in release bundle
-scripts/check-no-shareextension-in-release.sh
+### EXT-SHARE: ShareExtension
+ShareExtension.appex is present.
+The share sheet presents the MacPGP encryption UI.
+scripts/check-shareextension-in-release.sh
 #49
-#### EXT-SHARE-1.1: Release Bundle Does Not Embed ShareExtension
-#### EXT-SHARE-1.2: Release Guardrail Script
+#### EXT-SHARE-1.1: Release Bundle Embeds ShareExtension
+#### EXT-SHARE-1.2: Share-Sheet Encryption Flow
+#### EXT-SHARE-1.3: Release Guardrail Script
 ### EXT-CROSS: Cross-Extension Integration
 
 ## Part 5: Cross-Cutting Scenarios
@@ -636,7 +638,7 @@ scripts/check-no-shareextension-in-release.sh
 **Acceptance criteria**
 ### Final Release QA Sign-Off
 All critical paths pass.
-ShareExtension exclusion verified.
+ShareExtension release flow verified.
 QA lead approval recorded with date.
 
 #### Decrypt Service
@@ -725,7 +727,7 @@ cat > "$TRACKING_GUIDE" << 'EOF'
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | IS-FRESH | Fresh install verification | Fresh | Empty | | | | |
 | CORE-KEY | Key management | Fresh | Empty | | | | |
-| EXT-SHARE | ShareExtension exclusion | Release candidate | N/A | | | | |
+| EXT-SHARE | ShareExtension | Release candidate | N/A | | | | |
 | QA-BUGS | Bugs found and sign-off | Release candidate | Empty | | | | |
 EOF
 
@@ -857,6 +859,50 @@ assert_current_test_block_structure "#### B-1.2: Bad" 2 0 > /dev/null
 t_assert_eq "assert_current_test_block_structure accumulates TEST_BLOCK_COUNT even for failing block" "2" "$TEST_BLOCK_COUNT"
 t_assert_eq "assert_current_test_block_structure accumulates STEPS_COUNT for failing block (1+2=3)" "3" "$STEPS_COUNT"
 t_assert_eq "assert_current_test_block_structure accumulates EXPECTED_COUNT for failing block (1+0=1)" "1" "$EXPECTED_COUNT"
+
+# ---------------------------------------------------------------------------
+# === structure-checks.sh: run_structure_checks ===
+# ---------------------------------------------------------------------------
+
+echo ""
+echo "=== run_structure_checks ==="
+
+write_structure_checks_fixture() {
+    local path="$1"
+    local nested_checklist_line="$2"
+
+    {
+        echo "# Manual Testing Guide Fixture"
+        echo ""
+        echo "$nested_checklist_line"
+        for i in {1..50}; do
+            echo "- [ ] Fixture checklist item $i"
+        done
+        echo ""
+        echo "#### CORE-1.1: Fixture Test"
+        echo "**Steps:**"
+        echo "- [ ] Perform the fixture step"
+        echo "**Expected:**"
+        echo "- [ ] Observe the fixture result"
+    } > "$path"
+}
+
+reset_module_state
+GUIDE="$TMPDIR_ROOT/structure-indented-checked.md"
+write_structure_checks_fixture "$GUIDE" "  - [x] Nested checked item"
+run_structure_checks > /dev/null
+t_assert_eq "run_structure_checks fails indented pre-checked checklist items" "1" "$FAIL"
+if [[ "$FAIL" -eq 1 && "${FAILURES[0]:-}" == *"pre-checked checklist items"* ]]; then
+    t_pass "run_structure_checks failure message reports pre-checked checklist items"
+else
+    t_fail "run_structure_checks failure message should report pre-checked checklist items"
+fi
+
+reset_module_state
+GUIDE="$TMPDIR_ROOT/structure-indented-unchecked.md"
+write_structure_checks_fixture "$GUIDE" "  - [ ] Nested unchecked item"
+run_structure_checks > /dev/null
+t_assert_eq "run_structure_checks allows indented unchecked checklist items" "0" "$FAIL"
 
 # ---------------------------------------------------------------------------
 # Final report

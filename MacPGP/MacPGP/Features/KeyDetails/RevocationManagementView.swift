@@ -44,6 +44,14 @@ struct RevocationManagementView: View {
             }
         }
         .frame(width: 550, height: 600)
+        .fileExporter(
+            isPresented: $vm.showingExportSheet,
+            document: PGPKeyDocument(data: viewModel.exportData ?? Data()),
+            contentType: .data,
+            defaultFilename: viewModel.exportFileName
+        ) { result in
+            viewModel.handleExportResult(result)
+        }
     }
 
     @ViewBuilder
@@ -97,7 +105,9 @@ struct RevocationManagementView: View {
                         )
 
                         Button("Generate Certificate") {
-                            viewModel.generateCertificate()
+                            Task {
+                                await viewModel.generateCertificate()
+                            }
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(!viewModel.canGenerate || viewModel.isProcessing)
@@ -158,14 +168,6 @@ struct RevocationManagementView: View {
                 processingOverlay(viewModel: viewModel)
             }
         }
-        .fileExporter(
-            isPresented: $vm.showingExportSheet,
-            document: PGPKeyDocument(data: viewModel.exportData ?? Data()),
-            contentType: .data,
-            defaultFilename: viewModel.exportFileName
-        ) { result in
-            viewModel.handleExportResult(result)
-        }
         .fileImporter(
             isPresented: $vm.showingImportPicker,
             allowedContentTypes: [.data, .text],
@@ -178,7 +180,9 @@ struct RevocationManagementView: View {
             isPresented: $vm.showingApplyConfirmation
         ) {
             Button("Apply Revocation", role: .destructive) {
-                viewModel.applyRevocation()
+                Task {
+                    await viewModel.applyRevocation()
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -252,6 +256,7 @@ struct RevocationManagementView: View {
     }
 }
 
+@MainActor
 @Observable
 final class RevocationManagementViewModel {
     let key: PGPKeyModel
@@ -301,18 +306,21 @@ final class RevocationManagementViewModel {
         !generatePassphrase.isEmpty && key.isSecretKey && !key.isRevoked
     }
 
-    func generateCertificate() {
+    func generateCertificate() async {
         guard canGenerate else { return }
 
         isProcessing = true
         processingMessage = "Generating revocation certificate..."
         errorMessage = nil
 
+        let reason = selectedReason
+        let passphrase = generatePassphrase
+
         do {
-            let certificate = try revocationService.generateRevocationCertificate(
+            let certificate = try await revocationService.generateRevocationCertificateAsync(
                 for: key,
-                reason: selectedReason,
-                passphrase: generatePassphrase
+                reason: reason,
+                passphrase: passphrase
             )
 
             // Prepare for export
@@ -372,7 +380,7 @@ final class RevocationManagementViewModel {
         }
     }
 
-    func applyRevocation() {
+    func applyRevocation() async {
         guard let certificateData = selectedCertificateData else { return }
 
         isProcessing = true
@@ -380,22 +388,14 @@ final class RevocationManagementViewModel {
         errorMessage = nil
 
         do {
-            // First import to validate
-            let signerIdentifier = try revocationService.importRevocationCertificate(data: certificateData)
-
-            // Verify it matches our key
-            let normalizedFingerprint = Self.normalizedHexIdentifier(key.fingerprint)
-            let normalizedSignerIdentifier = Self.normalizedHexIdentifier(signerIdentifier)
-            let matchesKey =
-                normalizedFingerprint == normalizedSignerIdentifier ||
-                normalizedFingerprint.hasSuffix(normalizedSignerIdentifier)
-
-            guard matchesKey else {
-                throw OperationError.unknownError(message: "Certificate does not match this key")
-            }
+            _ = try revocationService.importRevocationCertificate(
+                data: certificateData,
+                keyringService: keyringService,
+                expectedKey: key
+            )
 
             // Apply the revocation
-            let updatedKey = try revocationService.applyRevocation(to: key, certificate: certificateData)
+            let updatedKey = try await revocationService.applyRevocationAsync(to: key, certificate: certificateData)
             try keyringService.replaceKey(updatedKey.rawKey)
             onKeyUpdated(updatedKey)
 
@@ -414,12 +414,6 @@ final class RevocationManagementViewModel {
                 errorMessage = error.localizedDescription
             }
         }
-    }
-
-    private static func normalizedHexIdentifier(_ identifier: String) -> String {
-        identifier
-            .uppercased()
-            .filter { $0.isHexDigit }
     }
 }
 

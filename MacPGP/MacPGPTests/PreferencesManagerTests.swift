@@ -8,6 +8,9 @@ struct PreferencesManagerTests {
         static let defaultKeySize = "defaultKeySize"
         static let defaultKeyAlgorithm = "defaultKeyAlgorithm"
         static let backupReminderEnabled = "backupReminderEnabled"
+        static let passphraseTimeout = "passphraseTimeout"
+        static let appLanguage = "appLanguage"
+        static let appleLanguages = "AppleLanguages"
     }
 
     // MARK: - Helpers
@@ -23,6 +26,30 @@ struct PreferencesManagerTests {
 
     private func cleanupBackupReminderEnabledKey() {
         UserDefaults.standard.removeObject(forKey: TestDefaultsKeys.backupReminderEnabled)
+    }
+
+    private func cleanupPassphraseTimeoutKey() {
+        UserDefaults.standard.removeObject(forKey: TestDefaultsKeys.passphraseTimeout)
+    }
+
+    private func preservingLanguageDefaults(_ body: () -> Void) {
+        let originalAppLanguage = UserDefaults.standard.object(forKey: TestDefaultsKeys.appLanguage)
+        let originalAppleLanguages = UserDefaults.standard.object(forKey: TestDefaultsKeys.appleLanguages)
+
+        defer {
+            restore(originalAppLanguage, forKey: TestDefaultsKeys.appLanguage)
+            restore(originalAppleLanguages, forKey: TestDefaultsKeys.appleLanguages)
+        }
+
+        body()
+    }
+
+    private func restore(_ value: Any?, forKey key: String) {
+        if let value {
+            UserDefaults.standard.set(value, forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
     }
 
     // MARK: - defaultKeyAlgorithm
@@ -213,5 +240,62 @@ struct PreferencesManagerTests {
 
         PreferencesManager.shared.backupReminderEnabled = false
         #expect(PreferencesManager.shared.backupReminderEnabled == false)
+    }
+
+    // MARK: - passphraseTimeoutMinutes
+
+    @Test("passphraseTimeoutMinutes defaults to 10 when unset")
+    func testPassphraseTimeoutDefaultsToTenWhenUnset() {
+        defer { cleanupPassphraseTimeoutKey() }
+
+        UserDefaults.standard.removeObject(forKey: TestDefaultsKeys.passphraseTimeout)
+
+        #expect(PreferencesManager.shared.passphraseTimeoutMinutes == 10)
+    }
+
+    @Test("passphraseTimeoutMinutes preserves zero as never clear")
+    func testPassphraseTimeoutPreservesZero() {
+        defer { cleanupPassphraseTimeoutKey() }
+
+        PreferencesManager.shared.passphraseTimeoutMinutes = 0
+
+        #expect(PreferencesManager.shared.passphraseTimeoutMinutes == 0)
+    }
+
+    @Test("passphraseTimeoutMinutes preserves positive timeout values")
+    func testPassphraseTimeoutPreservesPositiveValues() {
+        defer { cleanupPassphraseTimeoutKey() }
+
+        for timeout in [5, 10, 30, 60] {
+            PreferencesManager.shared.passphraseTimeoutMinutes = timeout
+            #expect(PreferencesManager.shared.passphraseTimeoutMinutes == timeout)
+        }
+    }
+
+    // MARK: - appLanguage
+
+    @Test("appLanguage getter does not mutate appLanguage or AppleLanguages defaults")
+    func appLanguageGetterDoesNotMutateLanguageDefaults() {
+        preservingLanguageDefaults {
+            let sentinelAppleLanguages = ["zz-Test"]
+            UserDefaults.standard.removeObject(forKey: TestDefaultsKeys.appLanguage)
+            UserDefaults.standard.set(sentinelAppleLanguages, forKey: TestDefaultsKeys.appleLanguages)
+
+            let language = PreferencesManager.shared.appLanguage
+
+            #expect(AppLanguage.allCases.contains(language))
+            #expect(UserDefaults.standard.object(forKey: TestDefaultsKeys.appLanguage) == nil)
+            #expect(UserDefaults.standard.stringArray(forKey: TestDefaultsKeys.appleLanguages) == sentinelAppleLanguages)
+        }
+    }
+
+    @Test("appLanguage setter persists preference and applies AppleLanguages")
+    func appLanguageSetterPersistsAndAppliesLanguage() {
+        preservingLanguageDefaults {
+            PreferencesManager.shared.appLanguage = .german
+
+            #expect(UserDefaults.standard.string(forKey: TestDefaultsKeys.appLanguage) == AppLanguage.german.rawValue)
+            #expect(UserDefaults.standard.stringArray(forKey: TestDefaultsKeys.appleLanguages) == [AppLanguage.german.rawValue])
+        }
     }
 }

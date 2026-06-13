@@ -401,6 +401,7 @@ struct KeyGenerationServiceTests {
     // MARK: - Async Key Generation Tests
 
     @Test("Generate key async successfully")
+    @MainActor
     func testGenerateKeyAsync() async throws {
         let service = KeyGenerationService.shared
 
@@ -412,34 +413,20 @@ struct KeyGenerationServiceTests {
             keySize: 2048
         )
 
-        let result = await withCheckedContinuation { continuation in
-            var progressValues: [Double] = []
-
-            service.generateKeyAsync(
-                with: params,
-                progress: { progress in
-                    progressValues.append(progress)
-                },
-                completion: { result in
-                    continuation.resume(returning: (result, progressValues))
-                }
-            )
+        var progressValues: [Double] = []
+        let key = try await service.generateKeyAsync(with: params) { progress in
+            progressValues.append(progress)
         }
 
-        switch result.0 {
-        case .success(let key):
-            #expect(key.publicKey != nil)
-            #expect(key.secretKey != nil)
-        case .failure(let error):
-            Issue.record("Key generation failed: \(error)")
-        }
-
-        #expect(result.1.count > 0)
-        #expect(result.1.contains(0.1))
-        #expect(result.1.contains(1.0))
+        #expect(key.publicKey != nil)
+        #expect(key.secretKey != nil)
+        #expect(progressValues.count > 0)
+        #expect(progressValues.contains(0.1))
+        #expect(progressValues.contains(1.0))
     }
 
     @Test("Generate key async reports progress")
+    @MainActor
     func testGenerateKeyAsyncProgress() async throws {
         let service = KeyGenerationService.shared
 
@@ -451,28 +438,20 @@ struct KeyGenerationServiceTests {
             keySize: 2048
         )
 
-        let result = await withCheckedContinuation { continuation in
-            var initialProgressReceived = false
-            var finalProgressReceived = false
+        var initialProgressReceived = false
+        var finalProgressReceived = false
 
-            service.generateKeyAsync(
-                with: params,
-                progress: { progress in
-                    if progress == 0.1 {
-                        initialProgressReceived = true
-                    }
-                    if progress == 1.0 {
-                        finalProgressReceived = true
-                    }
-                },
-                completion: { _ in
-                    continuation.resume(returning: (initialProgressReceived, finalProgressReceived))
-                }
-            )
+        _ = try await service.generateKeyAsync(with: params) { progress in
+            if progress == 0.1 {
+                initialProgressReceived = true
+            }
+            if progress == 1.0 {
+                finalProgressReceived = true
+            }
         }
 
-        #expect(result.0)
-        #expect(result.1)
+        #expect(initialProgressReceived)
+        #expect(finalProgressReceived)
     }
 
     @Test("KeyGenerationService is singleton")

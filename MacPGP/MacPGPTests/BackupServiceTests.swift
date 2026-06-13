@@ -7,6 +7,7 @@
 
 import Testing
 import Foundation
+import CryptoKit
 import RNPKit
 @testable import MacPGP
 
@@ -191,6 +192,175 @@ struct BackupServiceTests {
         #expect(viewModel.successMessage == nil)
         #expect(viewModel.validatedBackup == nil)
         #expect(viewModel.previewKeys.isEmpty)
+    }
+
+    @Test("Validate unencrypted backup rejects checksum mismatch")
+    @MainActor
+    func testValidateUnencryptedBackupRejectsChecksumMismatch() async throws {
+        let keyringService = KeyringService()
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
+        defer { try? FileManager.default.removeItem(at: backupFile) }
+
+        let originalKeyData = "original key data".data(using: .utf8)!
+        let tamperedKeyData = "tampered key data".data(using: .utf8)!
+        let backupData = try makeBackupData(keyData: tamperedKeyData, checksumSource: originalKeyData)
+        try backupData.write(to: backupFile)
+
+        await viewModel.validateBackup(url: backupFile)
+
+        #expect(viewModel.restoreContentsValidated == false)
+        #expect(viewModel.validatedBackup == nil)
+        #expect(viewModel.previewKeys.isEmpty)
+        #expect(viewModel.errorMessage?.contains("checksum") == true)
+    }
+
+    @Test("Validate unencrypted backup without checksum emits non-blocking warning")
+    @MainActor
+    func testValidateUnencryptedBackupWithoutChecksumEmitsWarning() async throws {
+        let keyringService = KeyringService()
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
+        defer { try? FileManager.default.removeItem(at: backupFile) }
+
+        let backupData = try makeBackupData(keyData: "legacy key data".data(using: .utf8)!)
+        try backupData.write(to: backupFile)
+
+        await viewModel.validateBackup(url: backupFile)
+
+        #expect(viewModel.errorMessage == nil)
+        #expect(viewModel.restoreContentsValidated)
+        #expect(viewModel.warningMessage?.localizedCaseInsensitiveContains("checksum") == true)
+        #expect(viewModel.warningMessage?.localizedCaseInsensitiveContains("integrity") == true)
+    }
+
+    @Test("Decrypt and validate encrypted backup rejects checksum mismatch")
+    @MainActor
+    func testDecryptAndValidateEncryptedBackupRejectsChecksumMismatch() async throws {
+        let keyringService = KeyringService()
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
+        defer { try? FileManager.default.removeItem(at: backupFile) }
+
+        let originalKeyData = "original encrypted key data".data(using: .utf8)!
+        let tamperedKeyData = "tampered encrypted key data".data(using: .utf8)!
+        let plainBackup = try makeBackupData(
+            keyData: tamperedKeyData,
+            checksumSource: originalKeyData,
+            encryptionType: .aes256
+        )
+        let encryptedBackup = try viewModel.encryptBackup(data: plainBackup, passphrase: "test123")
+        try encryptedBackup.write(to: backupFile)
+
+        await viewModel.validateBackup(url: backupFile)
+        viewModel.restorePassphrase = "test123"
+        let didValidate = await viewModel.decryptAndValidateBackup()
+
+        #expect(!didValidate)
+        #expect(viewModel.restoreContentsValidated == false)
+        #expect(viewModel.validatedBackup == nil)
+        #expect(viewModel.previewKeys.isEmpty)
+        #expect(viewModel.errorMessage?.contains("checksum") == true)
+    }
+
+    @Test("Decrypt and validate encrypted backup without checksum emits non-blocking warning")
+    @MainActor
+    func testDecryptAndValidateEncryptedBackupWithoutChecksumEmitsWarning() async throws {
+        let keyringService = KeyringService()
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
+        defer { try? FileManager.default.removeItem(at: backupFile) }
+
+        let plainBackup = try makeBackupData(
+            keyData: "legacy encrypted key data".data(using: .utf8)!,
+            encryptionType: .aes256
+        )
+        let encryptedBackup = try viewModel.encryptBackup(data: plainBackup, passphrase: "test123")
+        try encryptedBackup.write(to: backupFile)
+
+        await viewModel.validateBackup(url: backupFile)
+        viewModel.restorePassphrase = "test123"
+        let didValidate = await viewModel.decryptAndValidateBackup()
+
+        #expect(didValidate)
+        #expect(viewModel.errorMessage == nil)
+        #expect(viewModel.restoreContentsValidated)
+        #expect(viewModel.warningMessage?.localizedCaseInsensitiveContains("checksum") == true)
+        #expect(viewModel.warningMessage?.localizedCaseInsensitiveContains("integrity") == true)
+    }
+
+    @Test("Decrypt and validate encrypted backup rejects truncated encrypted payloads")
+    @MainActor
+    func testDecryptAndValidateEncryptedBackupRejectsTruncatedEncryptedPayloads() async throws {
+        let header = "MACPGP-ENC-V1\n".data(using: .utf8)!
+        let salt = Data(repeating: 0xA5, count: 16)
+        let nonce = Data(repeating: 0x5A, count: 12)
+        let truncatedPayloads = [
+            header,
+            header + Data(salt.prefix(15)),
+            header + salt,
+            header + salt + nonce
+        ]
+
+        for truncatedPayload in truncatedPayloads {
+            let keyringService = KeyringService()
+            let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
+            let tempDir = FileManager.default.temporaryDirectory
+            let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
+            defer { try? FileManager.default.removeItem(at: backupFile) }
+
+            try truncatedPayload.write(to: backupFile)
+            await viewModel.validateBackup(url: backupFile)
+            viewModel.restorePassphrase = "test123"
+
+            let didValidate = await viewModel.decryptAndValidateBackup()
+
+            #expect(!didValidate)
+            #expect(viewModel.restoreContentsValidated == false)
+            #expect(viewModel.validatedBackup == nil)
+            #expect(viewModel.previewKeys.isEmpty)
+            #expect(viewModel.errorMessage?.contains("Unable to decrypt backup") == true)
+            #expect(viewModel.errorMessage?.contains("encrypted backup file is incomplete or corrupted") == true)
+        }
+    }
+
+    @Test("Restore rechecks checksum before import")
+    @MainActor
+    func testRestoreBackupRejectsChecksumMismatchBeforeImport() async throws {
+        let keyringService = KeyringService()
+        let viewModel = BackupViewModel(keyringService: keyringService, backupReminderService: nil)
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
+        defer { try? FileManager.default.removeItem(at: backupFile) }
+
+        let originalKeyData = "original restore key data".data(using: .utf8)!
+        let tamperedKeyData = "tampered restore key data".data(using: .utf8)!
+        let backupFormat = BackupFormat(
+            keyFingerprints: ["ABC123DEF456"],
+            encryptionType: .none,
+            createdBy: "restore-checksum@example.com"
+        ).withChecksum(checksumHex(for: originalKeyData))
+        let backupData = try makeBackupData(metadata: backupFormat, keyData: tamperedKeyData)
+        try backupData.write(to: backupFile)
+
+        viewModel.restoreFileURL = backupFile
+        viewModel.validatedBackup = backupFormat
+        viewModel.restoreContentsValidated = true
+
+        await viewModel.restoreBackup()
+
+        #expect(viewModel.errorMessage?.contains("checksum") == true)
+        #expect(viewModel.successMessage == nil)
+        #expect(viewModel.progress < 0.8)
     }
 
     @Test("Validate invalid backup file")
@@ -477,5 +647,45 @@ struct BackupServiceTests {
         #expect(!result)
         #expect(viewModel.errorMessage?.contains("Passphrase is required") == true)
         #expect(viewModel.restoreContentsValidated == false)
+    }
+
+    private func makeBackupData(
+        keyData: Data,
+        checksumSource: Data? = nil,
+        encryptionType: BackupEncryptionType = .none
+    ) throws -> Data {
+        var backupFormat = BackupFormat(
+            keyFingerprints: ["ABC123DEF456"],
+            encryptionType: encryptionType,
+            createdBy: "test@example.com"
+        )
+
+        if let checksumSource {
+            backupFormat = backupFormat.withChecksum(checksumHex(for: checksumSource))
+        }
+
+        return try makeBackupData(metadata: backupFormat, keyData: keyData)
+    }
+
+    private func makeBackupData(metadata backupFormat: BackupFormat, keyData: Data) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        encoder.dateEncodingStrategy = .iso8601
+        let metadataJSON = try encoder.encode(backupFormat)
+
+        var backupData = Data()
+        backupData.append("-----BEGIN MACPGP BACKUP-----\n".data(using: .utf8)!)
+        backupData.append(metadataJSON)
+        backupData.append("\n-----END MACPGP BACKUP METADATA-----\n".data(using: .utf8)!)
+        backupData.append(keyData)
+        backupData.append("-----END MACPGP BACKUP-----\n".data(using: .utf8)!)
+
+        return backupData
+    }
+
+    private func checksumHex(for data: Data) -> String {
+        SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
 }

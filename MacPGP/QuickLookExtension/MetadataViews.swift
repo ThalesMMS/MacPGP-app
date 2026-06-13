@@ -23,25 +23,6 @@ struct MetadataSection<Content: View>: View {
     }
 }
 
-struct MetadataRow: View {
-    let label: LocalizedStringKey
-    let value: String
-
-    var body: some View {
-        HStack(alignment: .top) {
-            HStack(spacing: 0) {
-                Text(label)
-                Text(":")
-            }
-                .foregroundColor(.secondary)
-                .frame(width: 140, alignment: .leading)
-            Text(value)
-                .foregroundColor(.primary)
-            Spacer()
-        }
-    }
-}
-
 struct DecryptionUnavailableView: View {
     let message: String
 

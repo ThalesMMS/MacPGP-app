@@ -57,6 +57,8 @@ final class EncryptViewModel {
     }
 
     func encryptFromClipboard() {
+        guard !isProcessing else { return }
+
         notificationService.requestAuthorizationIfNeeded()
 
         guard let clipboardText = NSPasteboard.general.string(forType: .string),
@@ -123,6 +125,7 @@ final class EncryptViewModel {
 
                 await MainActor.run {
                     guard encryptionRunID == runID else { return }
+                    cachePassphrase(signingPassphrase, for: signer)
                     passphrase = ""
                 }
             } catch is CancellationError {
@@ -130,6 +133,7 @@ final class EncryptViewModel {
             } catch {
                 await MainActor.run {
                     guard encryptionRunID == runID else { return }
+                    clearSigningPassphraseIfInvalid(signer: signer, attemptedPassphrase: signingPassphrase, error: error)
                     showAlert(CryptoUserFacingError.from(error))
                 }
             }
@@ -137,6 +141,8 @@ final class EncryptViewModel {
     }
 
     func encrypt() {
+        guard !isProcessing else { return }
+
         switch sessionState.encryptInputMode {
         case .text:
             encryptText()
@@ -172,12 +178,18 @@ final class EncryptViewModel {
     }
 
     func cancelEncryption() {
-        encryptionTask?.cancel()
-        encryptionTask = nil
-        isProcessing = false
+        let activeTask = encryptionTask
+        activeTask?.cancel()
+
+        if activeTask == nil {
+            encryptionRunID = nil
+            isProcessing = false
+        }
     }
 
     private func encryptText() {
+        guard !isProcessing else { return }
+
         notificationService.requestAuthorizationIfNeeded()
 
         guard !sessionState.encryptSelectedRecipients.isEmpty else {
@@ -241,6 +253,7 @@ final class EncryptViewModel {
 
                 await MainActor.run {
                     guard encryptionRunID == runID else { return }
+                    cachePassphrase(signingPassphrase, for: signer)
                     passphrase = ""
                 }
             } catch is CancellationError {
@@ -248,6 +261,7 @@ final class EncryptViewModel {
             } catch {
                 await MainActor.run {
                     guard encryptionRunID == runID else { return }
+                    clearSigningPassphraseIfInvalid(signer: signer, attemptedPassphrase: signingPassphrase, error: error)
                     showAlert(CryptoUserFacingError.from(error))
                 }
             }
@@ -255,6 +269,8 @@ final class EncryptViewModel {
     }
 
     private func encryptFiles() {
+        guard !isProcessing else { return }
+
         notificationService.requestAuthorizationIfNeeded()
 
         guard !sessionState.encryptSelectedRecipients.isEmpty else {
@@ -341,6 +357,7 @@ final class EncryptViewModel {
 
                 await MainActor.run {
                     guard encryptionRunID == runID else { return }
+                    cachePassphrase(usePassphrase, for: signer)
                     passphrase = ""
                 }
             } catch is CancellationError {
@@ -360,6 +377,7 @@ final class EncryptViewModel {
                 await MainActor.run {
                     guard encryptionRunID == runID else { return }
                     sessionState.encryptOutputFiles = []
+                    clearSigningPassphraseIfInvalid(signer: signer, attemptedPassphrase: usePassphrase, error: error)
                     showAlert(CryptoUserFacingError.from(error))
                 }
             }
@@ -385,12 +403,18 @@ final class EncryptViewModel {
         resume: @escaping () -> Void
     ) {
         showingPassphrasePrompt = false
+
+        if let cached = PassphraseCache.shared.passphrase(for: signerKey) {
+            passphrase = cached
+            resume()
+            return
+        }
+
         let requestID = UUID()
         passphraseRequestID = requestID
-        let keyID = signerKey.shortKeyID
 
         DispatchQueue.global(qos: .userInitiated).async {
-            let stored = try? KeychainManager.shared.retrievePassphrase(forKeyID: keyID)
+            let stored = try? KeychainManager.shared.retrievePassphrase(for: signerKey)
 
             Task { @MainActor [weak self] in
                 guard let self, self.passphraseRequestID == requestID else { return }
@@ -404,6 +428,28 @@ final class EncryptViewModel {
                     self.showingPassphrasePrompt = true
                 }
             }
+        }
+    }
+
+    private func cachePassphrase(_ passphrase: String?, for key: PGPKeyModel?) {
+        guard let key, let passphrase, !passphrase.isEmpty else { return }
+        PassphraseCache.shared.store(passphrase, for: key)
+    }
+
+    private func clearSigningPassphraseIfInvalid(
+        signer: PGPKeyModel?,
+        attemptedPassphrase: String?,
+        error: Error
+    ) {
+        guard signer != nil,
+              let attemptedPassphrase,
+              !attemptedPassphrase.isEmpty,
+              case OperationError.invalidPassphrase = error else {
+            return
+        }
+
+        if passphrase == attemptedPassphrase {
+            passphrase = ""
         }
     }
 

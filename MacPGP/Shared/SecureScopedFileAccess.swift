@@ -31,6 +31,25 @@ enum SecureScopedFileAccess {
         }
     }
 
+    static func readPrefix(from url: URL, maxBytes: Int) throws -> Data {
+        guard maxBytes > 0 else {
+            return Data()
+        }
+
+        return try withSecurityScopedAccess(to: url) { scopedURL in
+            let fileHandle = try FileHandle(forReadingFrom: scopedURL)
+            defer { try? fileHandle.close() }
+            return try fileHandle.read(upToCount: maxBytes) ?? Data()
+        }
+    }
+
+    static func fileSize(of url: URL) throws -> Int64 {
+        try withSecurityScopedAccess(to: url) { scopedURL in
+            let attributes = try FileManager.default.attributesOfItem(atPath: scopedURL.path)
+            return (attributes[.size] as? NSNumber)?.int64Value ?? 0
+        }
+    }
+
     static func writeData(
         _ data: Data,
         to url: URL,

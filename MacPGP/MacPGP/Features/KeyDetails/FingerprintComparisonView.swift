@@ -84,7 +84,7 @@ struct FingerprintComparisonView: View {
 
     @ViewBuilder
     private func fingerprintDisplayBox(fingerprint: String, isEditable: Bool) -> some View {
-        Text(formattedFingerprint(fingerprint))
+        Text(fingerprint.formattedAsFingerprint())
             .font(.system(.body, design: .monospaced))
             .textSelection(.enabled)
             .padding(12)
@@ -193,14 +193,6 @@ struct FingerprintComparisonView: View {
     }
 
     // MARK: - Helper Methods
-
-    private func formattedFingerprint(_ fingerprint: String) -> String {
-        stride(from: 0, to: fingerprint.count, by: 4).map { i -> String in
-            let start = fingerprint.index(fingerprint.startIndex, offsetBy: i)
-            let end = fingerprint.index(start, offsetBy: min(4, fingerprint.count - i))
-            return String(fingerprint[start..<end])
-        }.joined(separator: " ")
-    }
 
     private func normalizeFingerprint(_ fingerprint: String) -> String {
         fingerprint.normalizedFingerprint

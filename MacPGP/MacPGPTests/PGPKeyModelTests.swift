@@ -48,6 +48,37 @@ struct PGPKeyModelTests {
         )
     }
 
+    private func generateKeyFixture(expirationDate: Date) throws -> PGPKeyModel {
+        let passphrase = "TestPassword123!"
+        let keyGenerator = KeyGenerator()
+        keyGenerator.keyBitsLength = 2048
+        let key = keyGenerator.generate(
+            for: "pgp-key-expiration-\(UUID().uuidString)@example.com",
+            passphrase: passphrase
+        )
+        let expiringKey = try key.setExpiration(
+            expirationDate,
+            passphraseForKey: { _ in passphrase }
+        )
+        return PGPKeyModel(from: expiringKey)
+    }
+
+    private func expectWarningLevel(
+        _ actual: ExpirationWarningLevel,
+        is expected: ExpirationWarningLevel,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) {
+        switch (actual, expected) {
+        case (.none, .none),
+             (.warning, .warning),
+             (.critical, .critical),
+             (.expired, .expired):
+            return
+        default:
+            Issue.record("Expected \(expected), got \(actual)", sourceLocation: sourceLocation)
+        }
+    }
+
     private func loadArmoredKeyFixture(named name: String) throws -> ParsedKeyFixture {
         let bundle = Bundle(for: BundleToken.self)
         let fixtureURL = bundle.url(forResource: name, withExtension: "asc", subdirectory: "Resources")
@@ -100,6 +131,51 @@ struct PGPKeyModelTests {
         let fixture = generateRSAKeyFixture(keySize: 2048)
 
         #expect(fixture.model.algorithmDescription == "RSA 2048")
+    }
+
+    @Test("PGPKeyModel treats keys expiring later today as critical, not expired")
+    func testExpirationWarningLevelForKeyExpiringLaterToday() throws {
+        let now = Date()
+        guard let today = Calendar.current.dateInterval(of: .day, for: now) else {
+            Issue.record("Could not resolve current day interval")
+            return
+        }
+        let laterToday = today.end.addingTimeInterval(-60)
+
+        guard laterToday > now else {
+            Issue.record("Could not choose a future time later today")
+            return
+        }
+
+        let model = try generateKeyFixture(expirationDate: laterToday)
+
+        #expect(model.isExpired == false)
+        #expect(model.daysUntilExpiration == 0)
+        expectWarningLevel(model.expirationWarningLevel, is: .critical)
+    }
+
+    @Test("PGPKeyModel treats keys expiring tomorrow as one day away")
+    func testDaysUntilExpirationForKeyExpiringTomorrow() throws {
+        let now = Date()
+        let calendar = Calendar.current
+        guard let tomorrow = calendar.dateInterval(of: .day, for: now)?.end.addingTimeInterval(60) else {
+            Issue.record("Could not resolve tomorrow boundary")
+            return
+        }
+
+        let model = try generateKeyFixture(expirationDate: tomorrow)
+
+        #expect(model.isExpired == false)
+        #expect(model.daysUntilExpiration == 1)
+        expectWarningLevel(model.expirationWarningLevel, is: .critical)
+    }
+
+    @Test("PGPKeyModel keeps expired keys expired")
+    func testExpirationWarningLevelForExpiredKey() throws {
+        let model = try generateKeyFixture(expirationDate: Date().addingTimeInterval(3600))
+        let expiredModel = PGPKeyModel(copying: model, isExpired: true)
+
+        expectWarningLevel(expiredModel.expirationWarningLevel, is: .expired)
     }
 
     // MARK: - Copying Initializer with trustLevel Tests

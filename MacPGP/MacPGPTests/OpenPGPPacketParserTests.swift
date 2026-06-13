@@ -5,6 +5,7 @@
 
 import Testing
 import Foundation
+import RNPKit
 @testable import MacPGP
 
 @Suite("OpenPGPPacketParser Tests")
@@ -68,6 +69,36 @@ struct OpenPGPPacketParserTests {
 
         let result = OpenPGPPacketParser.extractIssuerKeyID(from: Data(packet))
         #expect(result == "FEDCBA9876543210")
+    }
+
+    @Test("extractIssuerKeyID dearmors signatures detected by the shared armor detector")
+    func testExtractIssuerKeyIDArmoredSignaturePacket() throws {
+        let issuer: [UInt8] = [0xCA, 0xFE, 0xBA, 0xBE, 0x00, 0x11, 0x22, 0x33]
+        let body = makeV4SignatureBody(issuer: issuer)
+
+        var packet: [UInt8] = [0xC0 | 0x02, UInt8(body.count)]
+        packet.append(contentsOf: body)
+
+        let armoredSignature = try Armor.armored(Data(packet), as: .signature)
+        let data = Data(("\n" + armoredSignature).utf8)
+
+        let result = OpenPGPPacketParser.extractIssuerKeyID(from: data)
+        #expect(result == "CAFEBABE00112233")
+    }
+
+    @Test("extractIssuerKeyID ignores embedded armor text")
+    func testExtractIssuerKeyIDIgnoresEmbeddedArmorText() throws {
+        let issuer: [UInt8] = [0xCA, 0xFE, 0xBA, 0xBE, 0x00, 0x11, 0x22, 0x33]
+        let body = makeV4SignatureBody(issuer: issuer)
+
+        var packet: [UInt8] = [0xC0 | 0x02, UInt8(body.count)]
+        packet.append(contentsOf: body)
+
+        let armoredSignature = try Armor.armored(Data(packet), as: .signature)
+        let data = Data(("prefix\n" + armoredSignature).utf8)
+
+        let result = OpenPGPPacketParser.extractIssuerKeyID(from: data)
+        #expect(result == nil)
     }
 
     @Test("extractIssuerKeyID returns nil for v3 signature packet")

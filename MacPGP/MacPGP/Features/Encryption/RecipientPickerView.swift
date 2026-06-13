@@ -26,9 +26,12 @@ struct RecipientPickerView: View {
                     LazyVStack(spacing: 8) {
                         ForEach(filteredKeys) { key in
                             RecipientRow(
-                                key: key,
+                                displayName: key.displayName,
+                                email: key.email,
+                                shortKeyID: key.shortKeyID,
                                 isSelected: selectedRecipients.contains(key),
-                                trustWarning: trustService.getTrustWarning(for: key)
+                                trustBadge: trustBadge(for: key),
+                                showsTrustWarning: trustService.getTrustWarning(for: key) != nil
                             ) {
                                 toggleSelection(key)
                             }
@@ -47,7 +50,7 @@ struct RecipientPickerView: View {
 
                 FlowLayout(spacing: 8) {
                     ForEach(Array(selectedRecipients)) { key in
-                        SelectedRecipientChip(key: key) {
+                        SelectedRecipientChip(displayName: key.displayName) {
                             selectedRecipients.remove(key)
                         }
                     }
@@ -124,140 +127,10 @@ struct RecipientPickerView: View {
             selectedRecipients.insert(key)
         }
     }
-}
 
-struct RecipientRow: View {
-    let key: PGPKeyModel
-    let isSelected: Bool
-    let trustWarning: String?
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? .blue : .secondary)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(key.displayName)
-                            .font(.body)
-
-                        if key.trustLevel != .unknown {
-                            Text(key.trustLevel.displayName)
-                                .font(.caption2)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(trustLevelColor(for: key.trustLevel).opacity(0.2))
-                                .foregroundStyle(trustLevelColor(for: key.trustLevel))
-                                .clipShape(Capsule())
-                        }
-                    }
-
-                    if let email = key.email {
-                        Text(email)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Spacer()
-
-                if trustWarning != nil {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-
-                Text(String(key.shortKeyID.suffix(8)))
-                    .font(.caption)
-                    .fontDesign(.monospaced)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func trustLevelColor(for level: TrustLevel) -> Color {
-        switch level {
-        case .unknown: return .gray
-        case .never: return .red
-        case .marginal: return .orange
-        case .full: return .green
-        case .ultimate: return .purple
-        }
-    }
-}
-
-struct SelectedRecipientChip: View {
-    let key: PGPKeyModel
-    let onRemove: () -> Void
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Text(key.displayName)
-                .font(.caption)
-                .lineLimit(1)
-
-            Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.caption)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color.blue.opacity(0.15))
-        .clipShape(Capsule())
-    }
-}
-
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = FlowResult(in: proposal.width ?? 0, spacing: spacing, subviews: subviews)
-        return result.size
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = FlowResult(in: bounds.width, spacing: spacing, subviews: subviews)
-        for (index, subview) in subviews.enumerated() {
-            subview.place(at: CGPoint(x: bounds.minX + result.positions[index].x,
-                                      y: bounds.minY + result.positions[index].y),
-                          proposal: .unspecified)
-        }
-    }
-
-    struct FlowResult {
-        var size: CGSize = .zero
-        var positions: [CGPoint] = []
-
-        init(in width: CGFloat, spacing: CGFloat, subviews: Subviews) {
-            var x: CGFloat = 0
-            var y: CGFloat = 0
-            var rowHeight: CGFloat = 0
-
-            for subview in subviews {
-                let size = subview.sizeThatFits(.unspecified)
-
-                if x + size.width > width && x > 0 {
-                    x = 0
-                    y += rowHeight + spacing
-                    rowHeight = 0
-                }
-
-                positions.append(CGPoint(x: x, y: y))
-                rowHeight = max(rowHeight, size.height)
-                x += size.width + spacing
-            }
-
-            self.size = CGSize(width: width, height: y + rowHeight)
-        }
+    private func trustBadge(for key: PGPKeyModel) -> RecipientRow.TrustBadge? {
+        guard key.trustLevel != .unknown else { return nil }
+        return RecipientRow.TrustBadge(title: key.trustLevel.displayName, color: key.trustLevel.color)
     }
 }
 

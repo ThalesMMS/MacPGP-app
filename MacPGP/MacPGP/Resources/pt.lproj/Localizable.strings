@@ -483,6 +483,7 @@
 "error.no_public_key.description" = "Nenhuma chave pública disponível para esta operação.";
 "error.no_secret_key.description" = "Nenhuma chave privada disponível para esta operação.";
 "error.recipient_key_missing.description" = "A chave pública do destinatário está faltando no seu chaveiro.";
+"error.recipient_key_untrusted.description" = "A chave do destinatário \"%@\" está marcada como Nunca Confiar e não pode ser usada para criptografia.";
 "error.signer_key_missing.description" = "Nenhuma chave privada disponível para assinar a mensagem.";
 "error.file_access_error.description" = "Não foi possível acessar o arquivo em: %@";
 "error.security_scoped_access_denied.description" = "O MacPGP não tem mais permissão para acessar: %@";
@@ -512,6 +513,7 @@
 "error.no_public_key.recovery" = "Importe ou pesquise a chave pública em um servidor de chaves.";
 "error.no_secret_key.recovery" = "Gere um novo par de chaves que inclua uma chave privada.";
 "error.recipient_key_missing.recovery" = "Pesquise e importe a chave pública do destinatário de um servidor de chaves.";
+"error.recipient_key_untrusted.recovery" = "Altere o nível de confiança da chave do destinatário apenas se você a verificou, ou escolha outra chave de destinatário.";
 "error.signer_key_missing.recovery" = "Gere um par de chaves para assinar mensagens.";
 "error.file_access_error.recovery" = "Verifique as permissões de arquivo em Configurações do Sistema > Privacidade e Segurança.";
 "error.security_scoped_access_denied.recovery" = "Selecione novamente o arquivo ou a pasta e tente outra vez.";
@@ -550,6 +552,7 @@
 "error.no_public_key.reason" = "Nenhuma chave pública encontrada para a identidade solicitada.";
 "error.no_secret_key.reason" = "Nenhuma chave privada encontrada no chaveiro.";
 "error.recipient_key_missing.reason" = "O destinatário não possui uma chave pública no seu chaveiro.";
+"error.recipient_key_untrusted.reason" = "A política de confiança atual do chaveiro bloqueia criptografia para esta chave de destinatário.";
 "error.signer_key_missing.reason" = "Nenhuma chave privada capaz de assinar foi encontrada.";
 "error.file_access_error.reason" = "O arquivo em %@ pode não existir ou você pode não ter permissão para acessá-lo.";
 "error.security_scoped_access_denied.reason" = "A permissão de acesso do sandbox para %@ não está mais disponível.";

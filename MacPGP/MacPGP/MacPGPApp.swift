@@ -5,19 +5,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var servicesProvider: ServicesProvider?
     private var extensionCommunicationService: ExtensionCommunicationService?
     private var backupReminderService: BackupReminderService?
+    private var keyringService: KeyringService?
+    private var didFinishLaunching = false
+
+    func configure(keyringService: KeyringService) {
+        self.keyringService = keyringService
+        registerServicesProviderIfNeeded()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Skip service initialization if running tests
-        // Check both environment variable and if XCTest is loaded
-        let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
-                            ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil ||
-                            NSClassFromString("XCTestCase") != nil
-        guard !isRunningTests else { return }
+        didFinishLaunching = true
+        guard !Self.isRunningTests else { return }
 
         // Initialize and register Services menu integration
-        let keyringService = KeyringService()
-        servicesProvider = ServicesProvider(keyringService: keyringService)
-        NSApp.servicesProvider = servicesProvider
+        registerServicesProviderIfNeeded()
 
         // Initialize extension communication service for FinderSync integration
         extensionCommunicationService = ExtensionCommunicationService()
@@ -35,15 +36,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard !urls.isEmpty else { return }
         extensionCommunicationService?.handleOpenFiles(urls)
     }
+
+    private func registerServicesProviderIfNeeded() {
+        guard didFinishLaunching else { return }
+        guard !Self.isRunningTests else { return }
+        guard servicesProvider == nil else { return }
+        guard let keyringService else { return }
+
+        let provider = ServicesProvider(keyringService: keyringService)
+        servicesProvider = provider
+        NSApp.servicesProvider = provider
+    }
+
+    private static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+            ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil ||
+            NSClassFromString("XCTestCase") != nil
+    }
 }
 
 @main
 struct MacPGPApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @State private var keyringService = KeyringService()
-    @State private var sessionState = SessionStateManager()
+    @State private var keyringService: KeyringService
+    @State private var sessionState: SessionStateManager
     @State private var trustService: TrustService
-    @State private var keyServerService = KeyServerService()
+    @State private var keyServerService: KeyServerService
 
     init() {
         Self.resetKeyringIfRequested()
@@ -53,6 +71,7 @@ struct MacPGPApp: App {
         _sessionState = State(initialValue: SessionStateManager())
         _trustService = State(initialValue: TrustService(keyringService: keyring))
         _keyServerService = State(initialValue: KeyServerService())
+        appDelegate.configure(keyringService: keyring)
     }
 
     /// Resets persisted keyring state for debug or test launches that include the `--reset-keyring` flag.

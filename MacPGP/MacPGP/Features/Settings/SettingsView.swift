@@ -159,6 +159,11 @@ struct SettingsView: View {
         Form {
             Section(String(localized: "settings.security.passphrase_storage", comment: "Passphrase storage section header")) {
                 Toggle(String(localized: "settings.security.remember_passphrases", comment: "Toggle to remember passphrases in Keychain"), isOn: $preferences.rememberPassphrase)
+                    .onChange(of: preferences.rememberPassphrase) { _, rememberPassphrases in
+                        if !rememberPassphrases {
+                            PassphraseCache.shared.clear()
+                        }
+                    }
 
                 if preferences.rememberPassphrase {
                     Picker(String(localized: "settings.security.clear_after", comment: "Label for passphrase timeout picker"), selection: $preferences.passphraseTimeoutMinutes) {

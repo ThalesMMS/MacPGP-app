@@ -7,7 +7,18 @@ enum SharedContainerSync {
             return
         }
 
-        try migrateOrCleanupSharedProjection(at: keysURL, writeChanges: false)
+        try syncKeysToContainer(keys: keys, keysURL: keysURL)
+    }
+
+    static func syncKeysToContainer(keys: [Key], keysURL: URL) throws {
+        do {
+            try migrateOrCleanupSharedProjection(at: keysURL, writeChanges: false)
+        } catch {
+            NSLog(
+                "[SharedContainerSync] Failed to inspect existing shared projection before replacement; continuing with fresh sync: \(error.localizedDescription)"
+            )
+        }
+
         let exportedKeys = try PublicKeyExport.exportAll(keys)
         try exportedKeys.write(to: keysURL, options: .atomic)
     }

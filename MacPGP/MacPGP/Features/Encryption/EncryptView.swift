@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import UniformTypeIdentifiers
 
 struct EncryptView: View {
     @Environment(KeyringService.self) private var keyringService
@@ -33,7 +32,7 @@ struct EncryptView: View {
                 } label: {
                     Label("Encrypt from Clipboard", systemImage: "doc.on.clipboard.fill")
                 }
-                .disabled(!(viewModel?.canEncryptFromClipboard ?? false))
+                .disabled(viewModel?.isProcessing == true || !(viewModel?.canEncryptFromClipboard ?? false))
 
                 Button {
                     viewModel?.encrypt()
@@ -43,34 +42,28 @@ struct EncryptView: View {
                 .disabled(!canEncrypt)
             }
         }
-        .alert("Passphrase Required", isPresented: Binding(
-            get: { viewModel?.showingPassphrasePrompt ?? false },
-            set: { viewModel?.showingPassphrasePrompt = $0 }
-        )) {
-            SecureField("Passphrase", text: Binding(
+        .passphrasePromptAlert(
+            isPresented: Binding(
+                get: { viewModel?.showingPassphrasePrompt ?? false },
+                set: { viewModel?.showingPassphrasePrompt = $0 }
+            ),
+            passphrase: Binding(
                 get: { viewModel?.passphrase ?? "" },
                 set: { viewModel?.passphrase = $0 }
-            ))
-            Button("Cancel", role: .cancel) {
-                viewModel?.cancelPassphrasePrompt()
-            }
-            Button("Encrypt") {
-                viewModel?.didSubmitPassphrase()
-            }
-        } message: {
-            Text("Enter passphrase for signing key")
-        }
-        .alert(
-            viewModel?.alert?.title ?? "Error",
+            ),
+            message: "Enter passphrase for signing key",
+            submitTitle: "Encrypt",
+            onCancel: { viewModel?.cancelPassphrasePrompt() },
+            onSubmit: { viewModel?.didSubmitPassphrase() }
+        )
+        .cryptoErrorAlert(
+            title: viewModel?.alert?.title ?? "Error",
+            message: viewModel?.alert?.message,
             isPresented: Binding(
                 get: { viewModel?.showingAlert ?? false },
                 set: { viewModel?.showingAlert = $0 }
             )
-        ) {
-            Button("OK") {}
-        } message: {
-            Text(viewModel?.alert?.message ?? "An error occurred")
-        }
+        )
         .onAppear {
             if viewModel == nil {
                 viewModel = EncryptViewModel(
@@ -150,70 +143,12 @@ struct EncryptView: View {
     private var fileInputSection: some View {
         @Bindable var state = sessionState
 
-        return VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Files")
-                    .font(.headline)
-
-                if !sessionState.encryptSelectedFiles.isEmpty {
-                    VStack(spacing: 8) {
-                        ForEach(Array(sessionState.encryptSelectedFiles.enumerated()), id: \.offset) { index, file in
-                            HStack {
-                                Image(systemName: "doc.fill")
-                                    .foregroundStyle(.secondary)
-                                Text(file.lastPathComponent)
-                                    .lineLimit(1)
-                                Spacer()
-                                Button("Remove") {
-                                    sessionState.encryptSelectedFiles.remove(at: index)
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                            .padding()
-                            .background(Color(nsColor: .textBackgroundColor))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        }
-                    }
-                } else {
-                    DropZone(fileURLs: $state.encryptSelectedFiles)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Output Location")
-                    .font(.headline)
-
-                if let location = sessionState.encryptOutputLocation {
-                    HStack {
-                        Image(systemName: "folder.fill")
-                            .foregroundStyle(.secondary)
-                        Text(location.path)
-                            .lineLimit(1)
-                            .font(.caption)
-                        Spacer()
-                        Button("Change") {
-                            viewModel?.requestChoosingOutputLocation()
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    .padding()
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                } else {
-                    Button {
-                        viewModel?.requestChoosingOutputLocation()
-                    } label: {
-                        HStack {
-                            Image(systemName: "folder.badge.plus")
-                            Text("Choose Output Location")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
-        }
+        return CryptoMultipleFileInputSection(
+            title: "Files",
+            selectedFiles: $state.encryptSelectedFiles,
+            outputLocation: sessionState.encryptOutputLocation,
+            onChooseOutputLocation: { viewModel?.requestChoosingOutputLocation() }
+        )
     }
 
     private var outputPane: some View {
@@ -243,22 +178,11 @@ struct EncryptView: View {
             }
 
             if viewModel?.isProcessing == true {
-                Spacer()
-                VStack(spacing: 16) {
-                    if sessionState.encryptInputMode == .file && sessionState.encryptionProgress > 0 {
-                        let fileCount = sessionState.encryptSelectedFiles.count
-                        let progressText = fileCount > 1 ? "Encrypting files..." : "Encrypting file..."
-                        ProgressView(value: sessionState.encryptionProgress) {
-                            Text(progressText)
-                        } currentValueLabel: {
-                            Text("\(Int(sessionState.encryptionProgress * 100))%")
-                        }
-                        .frame(width: 200)
-                    } else {
-                        ProgressView("Encrypting...")
-                    }
-                }
-                Spacer()
+                CryptoProgressOverlay(
+                    actionTitle: "Encrypting",
+                    progress: sessionState.encryptInputMode == .file ? sessionState.encryptionProgress : nil,
+                    fileCount: sessionState.encryptSelectedFiles.count
+                )
             } else if sessionState.encryptOutputText.isEmpty && sessionState.encryptOutputFiles.isEmpty {
                 ContentUnavailableView(
                     "No Output",
@@ -285,7 +209,9 @@ struct EncryptView: View {
     }
 
     private var canEncrypt: Bool {
-        !sessionState.encryptSelectedRecipients.isEmpty && (
+        guard viewModel?.isProcessing != true else { return false }
+
+        return !sessionState.encryptSelectedRecipients.isEmpty && (
             (sessionState.encryptInputMode == .text && !sessionState.encryptInputText.isEmpty) ||
             (sessionState.encryptInputMode == .file && !sessionState.encryptSelectedFiles.isEmpty)
         )
@@ -324,104 +250,6 @@ struct EncryptView: View {
 enum InputMode: String, CaseIterable {
     case text
     case file
-}
-
-struct DropZone: View {
-    private var multipleFiles: Binding<[URL]>?
-    private var singleFile: Binding<URL?>?
-    private var allowsMultiple: Bool
-
-    @State private var isTargeted = false
-
-    // Initializer for multiple files
-    init(fileURLs: Binding<[URL]>) {
-        self.multipleFiles = fileURLs
-        self.singleFile = nil
-        self.allowsMultiple = true
-    }
-
-    // Initializer for single file (backward compatibility)
-    init(fileURL: Binding<URL?>) {
-        self.multipleFiles = nil
-        self.singleFile = fileURL
-        self.allowsMultiple = false
-    }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "arrow.down.doc")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-
-            Text(allowsMultiple ? "Drop files here" : "Drop a file here")
-                .font(.headline)
-
-            Text("or")
-                .foregroundStyle(.secondary)
-
-            Button(allowsMultiple ? "Select Files..." : "Select File...") {
-                selectFiles()
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 150)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(
-                    style: StrokeStyle(lineWidth: 2, dash: [8])
-                )
-                .foregroundStyle(isTargeted ? .blue : .secondary.opacity(0.5))
-        )
-        .background(isTargeted ? Color.blue.opacity(0.1) : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
-            guard !providers.isEmpty else { return false }
-
-            if allowsMultiple {
-                var loadedURLs: [URL] = []
-                let group = DispatchGroup()
-
-                for provider in providers {
-                    group.enter()
-                    _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                        if let url = url {
-                            loadedURLs.append(url)
-                        }
-                        group.leave()
-                    }
-                }
-
-                group.notify(queue: .main) {
-                    self.multipleFiles?.wrappedValue.append(contentsOf: loadedURLs)
-                }
-            } else {
-                guard let provider = providers.first else { return false }
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                    if let url = url {
-                        DispatchQueue.main.async {
-                            self.singleFile?.wrappedValue = url
-                        }
-                    }
-                }
-            }
-
-            return true
-        }
-    }
-
-    private func selectFiles() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = allowsMultiple
-        panel.canChooseDirectories = false
-
-        if panel.runModal() == .OK {
-            if allowsMultiple {
-                multipleFiles?.wrappedValue.append(contentsOf: panel.urls)
-            } else {
-                singleFile?.wrappedValue = panel.url
-            }
-        }
-    }
 }
 
 #Preview {

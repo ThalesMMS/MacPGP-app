@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import RNPKit
 
+@MainActor
 @Observable
 final class KeyGenerationViewModel {
     var name: String = ""
@@ -91,18 +92,18 @@ final class KeyGenerationViewModel {
             expirationMonths: neverExpires ? nil : expirationMonths
         )
 
-        generationService.generateKeyAsync(with: parameters) { [weak self] progressValue in
-            Task { @MainActor in
-                self?.progress = progressValue
+        do {
+            let key = try await generationService.generateKeyAsync(with: parameters) { progressValue in
+                self.progress = progressValue
             }
-        } completion: { [weak self] result in
-            Task { @MainActor in
-                self?.handleGenerationResult(result)
-            }
+            handleGenerationResult(.success(key))
+        } catch let error as OperationError {
+            handleGenerationResult(.failure(error))
+        } catch {
+            handleGenerationResult(.failure(.keyGenerationFailed(underlying: error)))
         }
     }
 
-    @MainActor
     private func handleGenerationResult(_ result: Result<Key, OperationError>) {
         isGenerating = false
 
@@ -114,7 +115,7 @@ final class KeyGenerationViewModel {
                 generatedKey = model
 
                 if storeInKeychain {
-                    try keychainManager.storePassphrase(passphrase, forKeyID: model.fingerprint)
+                    try keychainManager.storePassphrase(passphrase, for: model)
                 }
             } catch {
                 errorMessage = "Failed to save key: \(error.localizedDescription)"

@@ -77,7 +77,7 @@ enum KeyServerError: LocalizedError {
     }
 }
 
-struct KeySearchResult: Identifiable, Hashable {
+struct KeySearchResult: Identifiable, Hashable, Sendable {
     let id: String
     let fingerprint: String
     let shortKeyID: String
@@ -106,6 +106,7 @@ struct KeySearchResult: Identifiable, Hashable {
     }
 }
 
+@MainActor
 @Observable
 final class KeyServerService {
     private(set) var isSearching = false
@@ -116,6 +117,7 @@ final class KeyServerService {
 
     private let urlSession: URLSession
     private var currentTask: URLSessionTask?
+    private var activeSearchID: UUID?
 
     init(configuration: URLSessionConfiguration = .default) {
         self.urlSession = URLSession(configuration: configuration)
@@ -126,9 +128,11 @@ final class KeyServerService {
     func search(query: String, on server: KeyServerConfig) async throws -> [KeySearchResult] {
         guard !query.isEmpty else { return [] }
 
+        let searchID = UUID()
+        activeSearchID = searchID
         isSearching = true
         lastError = nil
-        defer { isSearching = false }
+        defer { finishSearch(searchID) }
 
         // Build search URL using HKP protocol
         guard let searchURL = buildSearchURL(query: query, server: server) else {
@@ -149,18 +153,34 @@ final class KeyServerService {
                 throw KeyServerError.serverError(statusCode: httpResponse.statusCode)
             }
 
-            let results = try parseSearchResults(data)
-            searchResults = results
+            let results = try await Self.parseSearchResults(data)
+            if isCurrentSearch(searchID) {
+                searchResults = results
+            }
             return results
 
         } catch let error as KeyServerError {
-            lastError = error
+            if isCurrentSearch(searchID) {
+                lastError = error
+            }
             throw error
         } catch {
             let wrappedError = KeyServerError.networkError(underlying: error)
-            lastError = wrappedError
+            if isCurrentSearch(searchID) {
+                lastError = wrappedError
+            }
             throw wrappedError
         }
+    }
+
+    private func isCurrentSearch(_ searchID: UUID) -> Bool {
+        activeSearchID == searchID
+    }
+
+    private func finishSearch(_ searchID: UUID) {
+        guard isCurrentSearch(searchID) else { return }
+        isSearching = false
+        activeSearchID = nil
     }
 
     // MARK: - Fetch Operations
@@ -224,7 +244,7 @@ final class KeyServerService {
 
         let armoredData: Data
         do {
-            armoredData = try sanitizedPublicArmoredKeyData(from: keyData)
+            armoredData = try await Self.sanitizedPublicArmoredKeyData(from: keyData)
         } catch let error as KeyServerError {
             lastError = error
             throw error
@@ -272,7 +292,13 @@ final class KeyServerService {
         }
     }
 
-    private func sanitizedPublicArmoredKeyData(from keyData: Data) throws -> Data {
+    private nonisolated static func sanitizedPublicArmoredKeyData(from keyData: Data) async throws -> Data {
+        try await Task.detached(priority: .userInitiated) {
+            try sanitizedPublicArmoredKeyDataSynchronously(from: keyData)
+        }.value
+    }
+
+    private nonisolated static func sanitizedPublicArmoredKeyDataSynchronously(from keyData: Data) throws -> Data {
         let keys = try KeyringPersistence().importKey(from: keyData)
         guard keys.count <= 1 else {
             throw KeyServerError.uploadFailed(reason: UploadFailureReason.multipleKeysBundled.localizedDescription)
@@ -334,7 +360,13 @@ final class KeyServerService {
 
     // MARK: - Response Parsing
 
-    private func parseSearchResults(_ data: Data) throws -> [KeySearchResult] {
+    private nonisolated static func parseSearchResults(_ data: Data) async throws -> [KeySearchResult] {
+        try await Task.detached(priority: .userInitiated) {
+            try parseSearchResultsSynchronously(data)
+        }.value
+    }
+
+    private nonisolated static func parseSearchResultsSynchronously(_ data: Data) throws -> [KeySearchResult] {
         // Parse machine-readable format from HKP server
         // Format: info:1:1
         //         pub:fingerprint:algo:keylen:creationdate:expirationdate:flags
@@ -418,7 +450,7 @@ final class KeyServerService {
         return results
     }
 
-    private func createSearchResult(
+    private nonisolated static func createSearchResult(
         fingerprint: String,
         algo: String,
         keylen: Int,

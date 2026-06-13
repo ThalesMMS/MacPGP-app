@@ -43,8 +43,8 @@ struct KeyRowView: View {
                             .font(.caption2)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
-                            .background(trustLevelColor(for: key.trustLevel).opacity(0.2))
-                            .foregroundStyle(trustLevelColor(for: key.trustLevel))
+                            .background(key.trustLevel.color.opacity(0.2))
+                            .foregroundStyle(key.trustLevel.color)
                             .clipShape(Capsule())
                     }
                 }
@@ -79,15 +79,6 @@ struct KeyRowView: View {
             .frame(width: 32)
     }
 
-    private func trustLevelColor(for level: TrustLevel) -> Color {
-        switch level {
-        case .unknown: return .gray
-        case .never: return .red
-        case .marginal: return .orange
-        case .full: return .green
-        case .ultimate: return .purple
-        }
-    }
 }
 
 #Preview {

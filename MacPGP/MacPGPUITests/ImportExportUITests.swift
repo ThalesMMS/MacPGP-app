@@ -29,6 +29,33 @@ final class ImportExportUITests: XCTestCase {
         app.typeKey("i", modifierFlags: .command)
     }
 
+    private func generateFixtureKey(_ app: XCUIApplication, name: String, email: String, passphrase: String) {
+        guard app.openKeyGenerationView() else { return }
+        guard app.selectFixtureKeyAlgorithm() else { return }
+
+        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
+        guard nameField.waitForExistence(timeout: 3) else {
+            XCTFail("Full Name field must appear")
+            return
+        }
+        nameField.tap()
+        nameField.typeText(name)
+
+        let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
+        emailField.tap()
+        emailField.typeText(email)
+
+        let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
+        passphraseField.tap()
+        passphraseField.typeText(passphrase)
+
+        let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
+        confirmField.tap()
+        confirmField.typeText(passphrase)
+
+        app.submitKeyGenerationForm()
+    }
+
     @MainActor
     func testImportKeyShortcut() throws {
         let app = XCUIApplication()
@@ -80,37 +107,12 @@ final class ImportExportUITests: XCTestCase {
         // Navigate to keyring
         navigateToKeyring(app)
 
-        // First, generate a test key to export
-        app.typeKey("n", modifierFlags: .command)
-
-        // Fill in key generation form
-        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
-        if nameField.waitForExistence(timeout: 3) {
-            nameField.tap()
-            nameField.typeText("Export Test User")
-
-            let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
-            emailField.tap()
-            emailField.typeText("export@test.com")
-
-            let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
-            passphraseField.tap()
-            passphraseField.typeText("TestPassphrase123!")
-
-            let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
-            confirmField.tap()
-            confirmField.typeText("TestPassphrase123!")
-
-            // Click Generate button
-            let generateButton = app.buttons["Generate"]
-            if generateButton.isEnabled {
-                generateButton.tap()
-
-                let doneButton = app.buttons["Done"]
-                XCTAssertTrue(doneButton.waitForExistence(timeout: 30), "Timed out waiting for Done button after key generation")
-                doneButton.tap()
-            }
-        }
+        generateFixtureKey(
+            app,
+            name: "Export Test User",
+            email: "export@test.com",
+            passphrase: "TestPassphrase123!"
+        )
 
         // Now test export context menu
         // Right-click on the first key in the list
@@ -140,35 +142,12 @@ final class ImportExportUITests: XCTestCase {
         // Navigate to keyring
         navigateToKeyring(app)
 
-        // Generate a test key with secret key
-        app.typeKey("n", modifierFlags: .command)
-
-        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
-        if nameField.waitForExistence(timeout: 3) {
-            nameField.tap()
-            nameField.typeText("Secret Export Test")
-
-            let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
-            emailField.tap()
-            emailField.typeText("secret@test.com")
-
-            let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
-            passphraseField.tap()
-            passphraseField.typeText("SecretPass123!")
-
-            let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
-            confirmField.tap()
-            confirmField.typeText("SecretPass123!")
-
-            let generateButton = app.buttons["Generate"]
-            if generateButton.isEnabled {
-                generateButton.tap()
-
-                let doneButton = app.buttons["Done"]
-                XCTAssertTrue(doneButton.waitForExistence(timeout: 30), "Timed out waiting for Done button after key generation")
-                doneButton.tap()
-            }
-        }
+        generateFixtureKey(
+            app,
+            name: "Secret Export Test",
+            email: "secret@test.com",
+            passphrase: "SecretPass123!"
+        )
 
         // Test export secret key context menu
         let keyList = app.tables.firstMatch
@@ -200,34 +179,12 @@ final class ImportExportUITests: XCTestCase {
         // Navigate to keyring
         navigateToKeyring(app)
 
-        // Generate a test key
-        app.typeKey("n", modifierFlags: .command)
-
-        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
-        if nameField.waitForExistence(timeout: 3) {
-            nameField.tap()
-            nameField.typeText("Context Menu Test")
-
-            let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
-            emailField.tap()
-            emailField.typeText("context@test.com")
-
-            let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
-            passphraseField.tap()
-            passphraseField.typeText("ContextPass123!")
-
-            let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
-            confirmField.tap()
-            confirmField.typeText("ContextPass123!")
-
-            let generateButton = app.buttons["Generate"]
-            if generateButton.isEnabled {
-                generateButton.tap()
-                let doneButton = app.buttons["Done"]
-                XCTAssertTrue(doneButton.waitForExistence(timeout: 30), "Timed out waiting for Done button after key generation")
-                doneButton.tap()
-            }
-        }
+        generateFixtureKey(
+            app,
+            name: "Context Menu Test",
+            email: "context@test.com",
+            passphrase: "ContextPass123!"
+        )
 
         // Test context menu copy options
         let keyList = app.tables.firstMatch
@@ -256,34 +213,12 @@ final class ImportExportUITests: XCTestCase {
         // Navigate to keyring
         navigateToKeyring(app)
 
-        // Generate a test key
-        app.typeKey("n", modifierFlags: .command)
-
-        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
-        if nameField.waitForExistence(timeout: 3) {
-            nameField.tap()
-            nameField.typeText("Delete Test User")
-
-            let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
-            emailField.tap()
-            emailField.typeText("delete@test.com")
-
-            let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
-            passphraseField.tap()
-            passphraseField.typeText("DeletePass123!")
-
-            let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
-            confirmField.tap()
-            confirmField.typeText("DeletePass123!")
-
-            let generateButton = app.buttons["Generate"]
-            if generateButton.isEnabled {
-                generateButton.tap()
-                let doneButton = app.buttons["Done"]
-                XCTAssertTrue(doneButton.waitForExistence(timeout: 30), "Timed out waiting for Done button after key generation")
-                doneButton.tap()
-            }
-        }
+        generateFixtureKey(
+            app,
+            name: "Delete Test User",
+            email: "delete@test.com",
+            passphrase: "DeletePass123!"
+        )
 
         // Test delete option in context menu
         let keyList = app.tables.firstMatch
@@ -335,35 +270,13 @@ final class ImportExportUITests: XCTestCase {
         // Navigate to keyring
         navigateToKeyring(app)
 
-        // Generate two test keys
         for i in 1...2 {
-            app.typeKey("n", modifierFlags: .command)
-
-            let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
-            if nameField.waitForExistence(timeout: 3) {
-                nameField.tap()
-                nameField.typeText("Search Test User \(i)")
-
-                let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
-                emailField.tap()
-                emailField.typeText("search\(i)@test.com")
-
-                let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
-                passphraseField.tap()
-                passphraseField.typeText("SearchPass\(i)23!")
-
-                let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
-                confirmField.tap()
-                confirmField.typeText("SearchPass\(i)23!")
-
-                let generateButton = app.buttons["Generate"]
-                if generateButton.isEnabled {
-                    generateButton.tap()
-                    let doneButton = app.buttons["Done"]
-                    XCTAssertTrue(doneButton.waitForExistence(timeout: 30), "Timed out waiting for Done button after key generation")
-                    doneButton.tap()
-                }
-            }
+            generateFixtureKey(
+                app,
+                name: "Search Test User \(i)",
+                email: "search\(i)@test.com",
+                passphrase: "SearchPass\(i)23!"
+            )
         }
 
         // Test search functionality
@@ -413,34 +326,12 @@ final class ImportExportUITests: XCTestCase {
         // Navigate to keyring
         navigateToKeyring(app)
 
-        // Generate a test key
-        app.typeKey("n", modifierFlags: .command)
-
-        let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
-        if nameField.waitForExistence(timeout: 3) {
-            nameField.tap()
-            nameField.typeText("Details Test User")
-
-            let emailField = app.textFields[AccessibilityIdentifiers.KeyGeneration.emailField]
-            emailField.tap()
-            emailField.typeText("details@test.com")
-
-            let passphraseField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.passphraseField]
-            passphraseField.tap()
-            passphraseField.typeText("DetailsPass123!")
-
-            let confirmField = app.secureTextFields[AccessibilityIdentifiers.KeyGeneration.confirmPassphraseField]
-            confirmField.tap()
-            confirmField.typeText("DetailsPass123!")
-
-            let generateButton = app.buttons["Generate"]
-            if generateButton.isEnabled {
-                generateButton.tap()
-                let doneButton = app.buttons["Done"]
-                XCTAssertTrue(doneButton.waitForExistence(timeout: 30), "Timed out waiting for Done button after key generation")
-                doneButton.tap()
-            }
-        }
+        generateFixtureKey(
+            app,
+            name: "Details Test User",
+            email: "details@test.com",
+            passphrase: "DetailsPass123!"
+        )
 
         // Click on the key to view details
         let keyList = app.tables.firstMatch

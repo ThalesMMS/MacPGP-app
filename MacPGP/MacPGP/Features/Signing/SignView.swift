@@ -49,26 +49,18 @@ struct SignView: View {
                 .disabled(!canSign || isProcessing)
             }
         }
-        .alert("Passphrase Required", isPresented: $showingPassphrasePrompt) {
-            SecureField("Passphrase", text: $passphrase)
-            Button("Cancel", role: .cancel) {
+        .passphrasePromptAlert(
+            isPresented: $showingPassphrasePrompt,
+            passphrase: $passphrase,
+            message: passphrasePromptMessage,
+            submitTitle: "Sign",
+            onCancel: {
                 passphrase = ""
-            }
-            Button("Sign") {
-                sign()
-            }
-        } message: {
-            if let key = sessionState.signSignerKey {
-                Text("Enter passphrase for \(key.displayName)")
-            } else {
-                Text("Enter passphrase to sign")
-            }
-        }
-        .alert("Error", isPresented: $showingError) {
-            Button("OK") {}
-        } message: {
-            Text(errorMessage ?? "An error occurred")
-        }
+                showingPassphrasePrompt = false
+            },
+            onSubmit: { sign() }
+        )
+        .cryptoErrorAlert(message: errorMessage, isPresented: $showingError)
     }
 
     private var inputPane: some View {
@@ -157,28 +149,10 @@ struct SignView: View {
     private var fileInputSection: some View {
         @Bindable var state = sessionState
 
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("File to Sign")
-                .font(.headline)
-
-            if let file = sessionState.signSelectedFile {
-                HStack {
-                    Image(systemName: "doc.fill")
-                        .foregroundStyle(.secondary)
-                    Text(file.lastPathComponent)
-                        .lineLimit(1)
-                    Spacer()
-                    Button("Remove") {
-                        sessionState.signSelectedFile = nil
-                    }
-                }
-                .padding()
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else {
-                DropZone(fileURL: $state.signSelectedFile)
-            }
-        }
+        return CryptoSingleFileInputSection(
+            title: "File to Sign",
+            selectedFile: $state.signSelectedFile
+        )
     }
 
     private var outputPane: some View {
@@ -208,9 +182,7 @@ struct SignView: View {
             }
 
             if isProcessing {
-                Spacer()
-                ProgressView("Signing...")
-                Spacer()
+                CryptoProgressOverlay(actionTitle: "Signing")
             } else if sessionState.signOutputText.isEmpty && sessionState.signOutputFiles.isEmpty {
                 ContentUnavailableView(
                     "No Output",
@@ -276,6 +248,13 @@ struct SignView: View {
             : "Signed message will appear here"
     }
 
+    private var passphrasePromptMessage: String {
+        if let key = sessionState.signSignerKey {
+            return "Enter passphrase for \(key.displayName)"
+        }
+        return "Enter passphrase to sign"
+    }
+
     private var fileResultTitle: String {
         sessionState.signDetachedSignature ? "Signature Files" : "Signed Files"
     }
@@ -288,6 +267,14 @@ struct SignView: View {
             showingError = true
             return
         }
+
+        if let signer = sessionState.signSignerKey,
+           let cached = PassphraseCache.shared.passphrase(for: signer) {
+            passphrase = cached
+            sign()
+            return
+        }
+
         showingPassphrasePrompt = true
     }
 
@@ -337,6 +324,7 @@ struct SignView: View {
                     await MainActor.run {
                         sessionState.signOutputFiles = []
                         sessionState.signOutputText = signed
+                        PassphraseCache.shared.store(enteredPassphrase, for: key)
                         passphrase = ""
                     }
 
@@ -356,6 +344,7 @@ struct SignView: View {
                     await MainActor.run {
                         sessionState.signOutputText = ""
                         sessionState.signOutputFiles = [outputURL]
+                        PassphraseCache.shared.store(enteredPassphrase, for: key)
                         passphrase = ""
                     }
                 }

@@ -76,4 +76,52 @@ extension XCUIApplication {
         XCTFail("Timed out opening key generation form", file: file, line: line)
         return false
     }
+
+    @discardableResult
+    func selectFixtureKeyAlgorithm(file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        let algorithmPicker = popUpButtons[AccessibilityIdentifiers.KeyGeneration.algorithmValue]
+        guard algorithmPicker.waitForExistence(timeout: 2) else {
+            XCTFail("Algorithm picker must appear before selecting fixture key algorithm", file: file, line: line)
+            return false
+        }
+
+        if algorithmPicker.value as? String == "EdDSA (Ed25519)" {
+            return true
+        }
+
+        algorithmPicker.tap()
+
+        let eddsaOption = menuItems["EdDSA (Ed25519)"]
+        guard eddsaOption.waitForExistence(timeout: 2) else {
+            typeKey(.escape, modifierFlags: [])
+            XCTFail("EdDSA fixture key algorithm option must appear", file: file, line: line)
+            return false
+        }
+
+        eddsaOption.tap()
+        return true
+    }
+
+    @discardableResult
+    func submitKeyGenerationForm(doneTimeout: TimeInterval = 30, file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        let generateButton = buttons["Generate"]
+        guard generateButton.waitForExistence(timeout: 2) else {
+            XCTFail("Generate button must appear", file: file, line: line)
+            return false
+        }
+        guard generateButton.isEnabled else {
+            XCTFail("Generate button must be enabled after valid key data", file: file, line: line)
+            return false
+        }
+
+        generateButton.click()
+
+        let doneButton = buttons["Done"]
+        guard doneButton.waitForExistence(timeout: doneTimeout) else {
+            XCTFail("Timed out waiting for Done button after key generation", file: file, line: line)
+            return false
+        }
+        doneButton.click()
+        return true
+    }
 }

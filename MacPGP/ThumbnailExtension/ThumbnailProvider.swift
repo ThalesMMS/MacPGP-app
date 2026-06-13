@@ -15,7 +15,7 @@ class ThumbnailProvider: QLThumbnailProvider {
         }
 
         // Analyze the file to determine encryption status
-        guard let result = try? fileAnalyzer.analyze(fileAt: request.fileURL),
+        guard let result = try? fileAnalyzer.analyzeHeader(fileAt: request.fileURL),
               result.isEncrypted else {
             handler(nil, nil)
             return

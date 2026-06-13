@@ -63,27 +63,6 @@ struct KeyServerSettingsView: View {
                 }
             }
 
-            Section("Key Management") {
-                Toggle("Automatically refresh keys from keyserver", isOn: $preferences.autoRefreshKeys)
-
-                if preferences.autoRefreshKeys {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("Auto-refresh checks for key updates")
-                            Text(
-                                String(
-                                    localized: "keyserver_settings.auto_refresh_message",
-                                    defaultValue: "Keys will be refreshed periodically to get the latest updates from keyservers",
-                                    comment: "Caption explaining what automatic key refresh does"
-                                )
-                            )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-
             Section("Server Information") {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("About Keyservers", systemImage: "info.circle")

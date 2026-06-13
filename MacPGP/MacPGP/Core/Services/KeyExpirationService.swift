@@ -127,33 +127,25 @@ final class KeyExpirationService {
     ///   - key: The key model to extend
     ///   - newExpirationDate: The new expiration date (must be in the future)
     ///   - passphrase: The passphrase to unlock the secret key
-    ///   - completion: Completion handler with result
+    /// - Returns: Updated PGPKeyModel with new expiration date
+    /// - Throws: OperationError if the operation fails
     func extendExpirationAsync(
         for key: PGPKeyModel,
         newExpirationDate: Date,
-        passphrase: String,
-        completion: @escaping (Result<PGPKeyModel, OperationError>) -> Void
-    ) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let updatedKey = try self.extendExpiration(
+        passphrase: String
+    ) async throws -> PGPKeyModel {
+        do {
+            return try await Task.detached(priority: .userInitiated) {
+                try self.extendExpiration(
                     for: key,
                     newExpirationDate: newExpirationDate,
                     passphrase: passphrase
                 )
-
-                DispatchQueue.main.async {
-                    completion(.success(updatedKey))
-                }
-            } catch let error as OperationError {
-                DispatchQueue.main.async {
-                    completion(.failure(error))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(.unknownError(message: error.localizedDescription)))
-                }
-            }
+            }.value
+        } catch let error as OperationError {
+            throw error
+        } catch {
+            throw OperationError.unknownError(message: error.localizedDescription)
         }
     }
 

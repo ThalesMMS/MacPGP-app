@@ -565,24 +565,18 @@ struct KeyExpirationServiceTests {
         let keyModel = createTestKey(email: "async-main@example.com", passphrase: "pass")
         let futureDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
 
-        let result: Result<PGPKeyModel, OperationError> = await withCheckedContinuation { continuation in
-            service.extendExpirationAsync(
+        do {
+            let updatedKey = try await service.extendExpirationAsync(
                 for: keyModel,
                 newExpirationDate: futureDate,
                 passphrase: "pass"
-            ) { result in
-                #expect(Thread.isMainThread)
-                continuation.resume(returning: result)
-            }
-        }
-
-        switch result {
-        case .success(let updatedKey):
+            )
+            #expect(Thread.isMainThread)
             #expect(updatedKey.expirationDate != nil)
             if let expirationDate = updatedKey.expirationDate {
                 #expect(abs(expirationDate.timeIntervalSince(futureDate)) < 5)
             }
-        case .failure(let error):
+        } catch {
             Issue.record("Expected successful expiration update, got \(error)")
         }
         #expect(!service.isProcessing)
@@ -595,22 +589,18 @@ struct KeyExpirationServiceTests {
         let keyModel = createTestKey(passphrase: "pass")
         let pastDate = Date().addingTimeInterval(-86400)
 
-        let result: Result<PGPKeyModel, OperationError> = await withCheckedContinuation { continuation in
-            service.extendExpirationAsync(
+        do {
+            _ = try await service.extendExpirationAsync(
                 for: keyModel,
                 newExpirationDate: pastDate,
                 passphrase: "pass"
-            ) { result in
-                #expect(Thread.isMainThread)
-                continuation.resume(returning: result)
-            }
-        }
-
-        switch result {
-        case .success:
+            )
             Issue.record("Expected failure, got success")
-        case .failure(let error):
+        } catch let error as OperationError {
+            #expect(Thread.isMainThread)
             _ = expectUnknownError(error, containing: "future", context: #function)
+        } catch {
+            Issue.record("Expected OperationError.unknownError, got \(error)")
         }
 
         if let lastError = unwrapLastError(from: service, context: #function) {
@@ -626,22 +616,18 @@ struct KeyExpirationServiceTests {
         let keyModel = createTestKey(passphrase: "pass")
         let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
 
-        let result: Result<PGPKeyModel, OperationError> = await withCheckedContinuation { continuation in
-            service.extendExpirationAsync(
+        do {
+            _ = try await service.extendExpirationAsync(
                 for: keyModel,
                 newExpirationDate: futureDate,
                 passphrase: ""
-            ) { result in
-                #expect(Thread.isMainThread)
-                continuation.resume(returning: result)
-            }
-        }
-
-        switch result {
-        case .success:
+            )
             Issue.record("Expected failure for empty passphrase")
-        case .failure(let error):
+        } catch let error as OperationError {
+            #expect(Thread.isMainThread)
             expectPassphraseRequired(error, context: #function)
+        } catch {
+            Issue.record("Expected OperationError.passphraseRequired, got \(error)")
         }
 
         if let lastError = unwrapLastError(from: service, context: #function) {

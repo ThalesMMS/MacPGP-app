@@ -17,8 +17,6 @@ final class ExtensionCommunicationService: NSObject {
     /// UserInfo key for file URLs array
     static let fileURLsKey = "fileURLs"
 
-    private static let finderSyncErrorsKey = "com.macpgp.finderSync.errors"
-
     // MARK: - Properties
 
     private let fileAnalyzer = PGPFileAnalyzer()
@@ -104,26 +102,17 @@ final class ExtensionCommunicationService: NSObject {
     }
 
     private func deliverPendingFinderSyncErrors() {
-        guard let defaults = UserDefaults(suiteName: SharedConfiguration.appGroupIdentifier) else {
+        guard let pendingErrors = FinderSyncErrorQueue.drain() else {
             NSLog("[ExtensionCommunicationService] Failed to open app group defaults for Finder Sync errors")
             return
         }
 
-        guard let pendingErrors = defaults.array(forKey: Self.finderSyncErrorsKey) as? [[String: Any]],
-              !pendingErrors.isEmpty else {
+        guard !pendingErrors.isEmpty else {
             return
         }
 
-        defaults.removeObject(forKey: Self.finderSyncErrorsKey)
-
-        let notifications = pendingErrors.compactMap { payload -> (id: String, title: String, message: String)? in
-            guard let title = payload["title"] as? String,
-                  let message = payload["message"] as? String else {
-                return nil
-            }
-
-            let id = payload["id"] as? String ?? UUID().uuidString
-            return (id: id, title: title, message: message)
+        let notifications = pendingErrors.map { entry in
+            (id: entry.id, title: entry.title, message: entry.message)
         }
 
         guard !notifications.isEmpty else {

@@ -119,6 +119,30 @@ struct EncryptionServiceTests {
         }
     }
 
+    @Test("Encrypt data rejects a recipient currently marked never trusted")
+    func testEncryptDataRejectsNeverTrustedRecipient() throws {
+        let (service, keyring, recipientKey, senderKey) = setupTestEnvironment()
+        defer { cleanupTestKeys(keyring: keyring, keys: [recipientKey, senderKey]) }
+
+        try keyring.updateTrustLevel(recipientKey, trustLevel: .never)
+        let staleRecipient = PGPKeyModel(copying: recipientKey, trustLevel: .unknown)
+        let testData = "Test".data(using: .utf8)!
+
+        do {
+            _ = try service.encrypt(data: testData, for: [staleRecipient])
+            Issue.record("Expected encryption to reject a never-trusted recipient")
+        } catch let error as OperationError {
+            guard case .recipientKeyUntrusted(let keyID) = error else {
+                Issue.record("Expected OperationError.recipientKeyUntrusted, got \(error)")
+                return
+            }
+
+            #expect(keyID == recipientKey.shortKeyID)
+        } catch {
+            Issue.record("Expected OperationError.recipientKeyUntrusted, got \(error)")
+        }
+    }
+
 
     // MARK: - Message Encryption Tests
 
@@ -448,6 +472,8 @@ struct EncryptionServiceTests {
             try? FileManager.default.removeItem(at: encryptedFile)
         }
 
+        try FileManager.default.removeItem(at: originalFile)
+
         let decryptedFile = try service.decrypt(
             file: encryptedFile,
             using: recipientKey,
@@ -489,6 +515,8 @@ struct EncryptionServiceTests {
         }
 
         #expect(encryptedFile.pathExtension == "asc")
+
+        try FileManager.default.removeItem(at: originalFile)
 
         let decryptedFile = try service.decrypt(
             file: encryptedFile,
@@ -542,6 +570,48 @@ struct EncryptionServiceTests {
 
         let decryptedContent = try String(contentsOf: decryptedFile, encoding: .utf8)
         #expect(decryptedContent == originalContent)
+    }
+
+    @Test("Decrypt file refuses to overwrite existing default output")
+    func testDecryptFileRefusesExistingDefaultOutput() throws {
+        let (service, keyring, recipientKey, senderKey) = setupTestEnvironment()
+        defer { cleanupTestKeys(keyring: keyring, keys: [recipientKey, senderKey]) }
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let originalFile = tempDir.appendingPathComponent("decrypt-existing-\(UUID().uuidString).txt")
+        let originalContent = "Original decrypt content"
+        try originalContent.write(to: originalFile, atomically: true, encoding: .utf8)
+
+        defer {
+            try? FileManager.default.removeItem(at: originalFile)
+        }
+
+        let encryptedFile = try service.encrypt(
+            file: originalFile,
+            for: [recipientKey],
+            armored: false
+        )
+
+        defer {
+            try? FileManager.default.removeItem(at: encryptedFile)
+        }
+
+        let existingContent = "Existing user file"
+        try existingContent.write(to: originalFile, atomically: true, encoding: .utf8)
+
+        var didRefuseOverwrite = false
+        do {
+            _ = try service.decrypt(
+                file: encryptedFile,
+                using: recipientKey,
+                passphrase: "recipient-pass"
+            )
+        } catch {
+            didRefuseOverwrite = true
+        }
+
+        #expect(didRefuseOverwrite)
+        #expect(try String(contentsOf: originalFile, encoding: .utf8) == existingContent)
     }
 
     @Test("Decrypt file with wrong passphrase throws error")
@@ -634,8 +704,8 @@ struct EncryptionServiceTests {
         #expect(decryptedContent == originalContent)
     }
 
-    @Test("TryDecrypt throws error when no key works")
-    func testTryDecryptNoValidKey() throws {
+    @Test("TryDecrypt reports invalid passphrase when matching key rejects passphrase")
+    func testTryDecryptInvalidPassphrase() throws {
         let (service, keyring, recipientKey, senderKey) = setupTestEnvironment()
         defer { cleanupTestKeys(keyring: keyring, keys: [recipientKey, senderKey]) }
 
@@ -647,8 +717,12 @@ struct EncryptionServiceTests {
             armored: false
         )
 
-        #expect(throws: OperationError.self) {
-            try service.tryDecrypt(data: encryptedData, passphrase: "wrong-passphrase")
+        do {
+            _ = try service.tryDecrypt(data: encryptedData, passphrase: "wrong-passphrase")
+            Issue.record("Expected invalid passphrase")
+        } catch OperationError.invalidPassphrase {
+        } catch {
+            Issue.record("Expected OperationError.invalidPassphrase, got \(error)")
         }
     }
 
@@ -696,6 +770,8 @@ struct EncryptionServiceTests {
 
         let encrypted = try service.encrypt(file: originalFile, for: [recipientKey], armored: true)
         defer { try? FileManager.default.removeItem(at: encrypted) }
+
+        try FileManager.default.removeItem(at: originalFile)
 
         let decrypted = try service.decrypt(file: encrypted, using: recipientKey, passphrase: "recipient-pass")
         defer { try? FileManager.default.removeItem(at: decrypted) }
@@ -800,6 +876,8 @@ struct EncryptionServiceTests {
         }
 
         var progressValues: [Double] = []
+
+        try FileManager.default.removeItem(at: originalFile)
 
         let decryptedFile = try service.decrypt(
             file: encryptedFile,
@@ -925,6 +1003,8 @@ struct EncryptionServiceTests {
 
         var progressValues: [Double] = []
 
+        try FileManager.default.removeItem(at: originalFile)
+
         let decryptedFile = try await service.decryptAsync(
             file: encryptedFile,
             using: recipientKey,
@@ -945,6 +1025,49 @@ struct EncryptionServiceTests {
 
         let decryptedData = try Data(contentsOf: decryptedFile)
         #expect(decryptedData == largeData)
+    }
+
+    @Test("Try decrypt async uses key snapshot when keyring changes during file decrypt")
+    func testTryDecryptAsyncUsesSnapshotWhenKeyringChangesDuringFileDecrypt() async throws {
+        let (service, keyring, recipientKey, senderKey) = setupTestEnvironment()
+        defer { cleanupTestKeys(keyring: keyring, keys: [recipientKey, senderKey]) }
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let originalFile = tempDir.appendingPathComponent("snapshot-decrypt-\(UUID().uuidString).txt")
+        let outputDirectory = tempDir.appendingPathComponent("snapshot-decrypt-output-\(UUID().uuidString)", isDirectory: true)
+        let originalContent = "Decrypt from the snapshot captured before the detached task reaches the keyring."
+        try originalContent.write(to: originalFile, atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        defer {
+            try? FileManager.default.removeItem(at: originalFile)
+            try? FileManager.default.removeItem(at: outputDirectory)
+        }
+
+        let encryptedFile = try service.encrypt(
+            file: originalFile,
+            for: [recipientKey],
+            armored: false
+        )
+
+        defer {
+            try? FileManager.default.removeItem(at: encryptedFile)
+        }
+
+        let (decryptedFile, decryptingKey) = try await service.tryDecryptAsync(
+            file: encryptedFile,
+            passphrase: "recipient-pass",
+            outputURL: outputDirectory,
+            progressCallback: { progress in
+                if progress == 0.3 {
+                    try? keyring.deleteKey(recipientKey)
+                }
+            }
+        )
+
+        #expect(keyring.key(withFingerprint: recipientKey.fingerprint) == nil)
+        #expect(decryptingKey.fingerprint == recipientKey.fingerprint)
+        #expect(try String(contentsOf: decryptedFile, encoding: .utf8) == originalContent)
     }
 
 }

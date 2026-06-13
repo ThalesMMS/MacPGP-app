@@ -48,4 +48,37 @@ struct PublicKeyExportTests {
             secretKey.publicKey?.fingerprint.description
         )
     }
+
+    @Test("Shared projection sync repairs corrupt existing data")
+    func testSharedProjectionSyncRepairsCorruptExistingData() throws {
+        let keyGenerator = KeyGenerator()
+        keyGenerator.keyBitsLength = 2048
+
+        let secretKey = keyGenerator.generate(
+            for: "shared-projection-repair@test.local",
+            passphrase: "Password123!"
+        )
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MacPGP-SharedProjectionTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let keysURL = directory.appendingPathComponent(SharedConfiguration.sharedKeysFileName)
+        let corruptData = Data("not an OpenPGP keyring".utf8)
+        try corruptData.write(to: keysURL)
+
+        try SharedContainerSync.syncKeysToContainer(keys: [secretKey], keysURL: keysURL)
+
+        let repairedData = try Data(contentsOf: keysURL)
+        let repairedKeys = try RNP.readKeys(from: repairedData)
+
+        #expect(repairedData != corruptData)
+        #expect(repairedKeys.count == 1)
+        #expect(repairedKeys.first?.isSecret == false)
+        #expect(
+            repairedKeys.first?.publicKey?.fingerprint.description ==
+            secretKey.publicKey?.fingerprint.description
+        )
+    }
 }

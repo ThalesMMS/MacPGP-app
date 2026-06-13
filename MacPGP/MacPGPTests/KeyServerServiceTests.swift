@@ -14,6 +14,7 @@ import RNPKit
 
 class MockURLProtocol: URLProtocol {
     static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+    static var asyncRequestHandler: ((MockURLProtocol, URLRequest) -> Void)?
 
     override class func canInit(with request: URLRequest) -> Bool {
         return true
@@ -24,6 +25,11 @@ class MockURLProtocol: URLProtocol {
     }
 
     override func startLoading() {
+        if let asyncRequestHandler = MockURLProtocol.asyncRequestHandler {
+            asyncRequestHandler(self, request)
+            return
+        }
+
         guard let handler = MockURLProtocol.requestHandler else {
             return
         }
@@ -41,8 +47,15 @@ class MockURLProtocol: URLProtocol {
     override func stopLoading() {
         // No-op
     }
+
+    func complete(response: HTTPURLResponse, data: Data) {
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
 }
 
+@MainActor
 @Suite("KeyServerService Tests", .serialized)
 struct KeyServerServiceTests {
     private static let cachedUploadArmoredKeys: (publicKey: String, secretKey: String) = {
@@ -72,11 +85,13 @@ struct KeyServerServiceTests {
     init() {
         // Clean up any previous test state
         MockURLProtocol.requestHandler = nil
+        MockURLProtocol.asyncRequestHandler = nil
     }
 
     func createMockService() -> KeyServerService {
         // Reset handler before creating service to ensure clean state
         MockURLProtocol.requestHandler = nil
+        MockURLProtocol.asyncRequestHandler = nil
 
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockURLProtocol.self]
@@ -99,7 +114,7 @@ struct KeyServerServiceTests {
         Self.cachedUploadArmoredKeys.secretKey
     }
 
-    func requestBodyString(from request: URLRequest) -> String {
+    nonisolated static func requestBodyString(from request: URLRequest) -> String {
         if let body = request.httpBody {
             return String(data: body, encoding: .utf8) ?? ""
         }
@@ -123,6 +138,20 @@ struct KeyServerServiceTests {
         }
 
         return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    private func waitForSignal(_ semaphore: DispatchSemaphore, context: String) async {
+        let deadline = Date().addingTimeInterval(5)
+
+        while Date() < deadline {
+            if semaphore.wait(timeout: .now()) == .success {
+                return
+            }
+
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        Issue.record("Timed out waiting for \(context)")
     }
 
     // MARK: - Initialization Tests
@@ -386,7 +415,7 @@ struct KeyServerServiceTests {
         let armoredKey = createArmoredPublicKey()
 
         MockURLProtocol.requestHandler = { request in
-            let body = requestBodyString(from: request)
+            let body = Self.requestBodyString(from: request)
             #expect(body.contains("BEGIN PGP PUBLIC KEY BLOCK"))
             #expect(!body.contains("BEGIN PGP PRIVATE KEY BLOCK"))
 
@@ -509,7 +538,7 @@ struct KeyServerServiceTests {
         let armoredKey = createArmoredSecretKey()
 
         MockURLProtocol.requestHandler = { request in
-            let body = requestBodyString(from: request)
+            let body = Self.requestBodyString(from: request)
             #expect(body.contains("BEGIN PGP PUBLIC KEY BLOCK"))
             #expect(!body.contains("BEGIN PGP PRIVATE KEY BLOCK"))
             #expect(!body.contains("BEGIN PGP SECRET KEY BLOCK"))
@@ -610,9 +639,12 @@ struct KeyServerServiceTests {
     func testSearchingState() async throws {
         let service = createMockService()
         let server = createTestServer()
+        let requestStarted = DispatchSemaphore(value: 0)
+        let allowResponse = DispatchSemaphore(value: 0)
 
         MockURLProtocol.requestHandler = { request in
-            #expect(service.isSearching == true)
+            requestStarted.signal()
+            _ = allowResponse.wait(timeout: .now() + 5)
 
             let response = HTTPURLResponse(
                 url: request.url!,
@@ -624,17 +656,115 @@ struct KeyServerServiceTests {
         }
 
         #expect(service.isSearching == false)
-        _ = try await service.search(query: "test", on: server)
+        let task = Task {
+            try await service.search(query: "test", on: server)
+        }
+
+        await waitForSignal(requestStarted, context: "search request")
+        #expect(service.isSearching == true)
+        allowResponse.signal()
+
+        _ = try await task.value
         #expect(service.isSearching == false)
+    }
+
+    @Test("Latest overlapping search response remains published when an older search finishes last")
+    func testLatestSearchResponseWinsWhenOlderRequestFinishesLast() async throws {
+        let service = createMockService()
+        let server = createTestServer()
+        let oldStarted = DispatchSemaphore(value: 0)
+        let newStarted = DispatchSemaphore(value: 0)
+        let pendingQueue = DispatchQueue(label: "KeyServerServiceTests.pendingSearchRequests")
+        var oldRequest: MockURLProtocol?
+        var newRequest: MockURLProtocol?
+
+        MockURLProtocol.asyncRequestHandler = { loader, request in
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?
+                .queryItems?
+                .first(where: { $0.name == "search" })?
+                .value
+
+            switch query {
+            case "old":
+                pendingQueue.sync {
+                    oldRequest = loader
+                }
+                oldStarted.signal()
+            case "new":
+                pendingQueue.sync {
+                    newRequest = loader
+                }
+                newStarted.signal()
+            default:
+                let response = HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 404,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!
+                loader.complete(response: response, data: Data())
+            }
+        }
+
+        let oldTask = Task {
+            try await service.search(query: "old", on: server)
+        }
+        await waitForSignal(oldStarted, context: "old search request")
+
+        let newTask = Task {
+            try await service.search(query: "new", on: server)
+        }
+        await waitForSignal(newStarted, context: "new search request")
+
+        let capturedNewRequest = pendingQueue.sync {
+            newRequest
+        }
+        guard let capturedNewRequest else {
+            Issue.record("New search request was not captured")
+            return
+        }
+        let (newResponse, newData) = Self.searchResponse(
+            request: capturedNewRequest.request,
+            fingerprint: "NEW1234NEW1234",
+            userID: "New User <new@example.com>"
+        )
+        capturedNewRequest.complete(response: newResponse, data: newData)
+
+        let newResults = try await newTask.value
+        #expect(newResults.first?.fingerprint == "NEW1234NEW1234")
+        #expect(service.searchResults.first?.fingerprint == "NEW1234NEW1234")
+
+        let capturedOldRequest = pendingQueue.sync {
+            oldRequest
+        }
+        guard let capturedOldRequest else {
+            Issue.record("Old search request was not captured")
+            return
+        }
+        let (oldResponse, oldData) = Self.searchResponse(
+            request: capturedOldRequest.request,
+            fingerprint: "OLD1234OLD1234",
+            userID: "Old User <old@example.com>"
+        )
+        capturedOldRequest.complete(response: oldResponse, data: oldData)
+
+        let oldResults = try await oldTask.value
+        #expect(oldResults.first?.fingerprint == "OLD1234OLD1234")
+        #expect(service.searchResults.first?.fingerprint == "NEW1234NEW1234")
+        #expect(service.lastError == nil)
+        #expect(!service.isSearching)
     }
 
     @Test("Fetching state is managed correctly")
     func testFetchingState() async throws {
         let service = createMockService()
         let server = createTestServer()
+        let requestStarted = DispatchSemaphore(value: 0)
+        let allowResponse = DispatchSemaphore(value: 0)
 
         MockURLProtocol.requestHandler = { request in
-            #expect(service.isFetching == true)
+            requestStarted.signal()
+            _ = allowResponse.wait(timeout: .now() + 5)
 
             let response = HTTPURLResponse(
                 url: request.url!,
@@ -646,7 +776,15 @@ struct KeyServerServiceTests {
         }
 
         #expect(service.isFetching == false)
-        _ = try await service.fetchKey(fingerprint: "TEST", from: server)
+        let task = Task {
+            try await service.fetchKey(fingerprint: "TEST", from: server)
+        }
+
+        await waitForSignal(requestStarted, context: "fetch request")
+        #expect(service.isFetching == true)
+        allowResponse.signal()
+
+        _ = try await task.value
         #expect(service.isFetching == false)
     }
 
@@ -656,9 +794,12 @@ struct KeyServerServiceTests {
         let server = createTestServer()
 
         let armoredKey = createArmoredPublicKey()
+        let requestStarted = DispatchSemaphore(value: 0)
+        let allowResponse = DispatchSemaphore(value: 0)
 
         MockURLProtocol.requestHandler = { request in
-            #expect(service.isUploading == true)
+            requestStarted.signal()
+            _ = allowResponse.wait(timeout: .now() + 5)
 
             let response = HTTPURLResponse(
                 url: request.url!,
@@ -670,7 +811,15 @@ struct KeyServerServiceTests {
         }
 
         #expect(service.isUploading == false)
-        try await service.uploadKey(armoredKey.data(using: .utf8)!, to: server)
+        let task = Task {
+            try await service.uploadKey(armoredKey.data(using: .utf8)!, to: server)
+        }
+
+        await waitForSignal(requestStarted, context: "upload request")
+        #expect(service.isUploading == true)
+        allowResponse.signal()
+
+        try await task.value
         #expect(service.isUploading == false)
     }
 
@@ -867,5 +1016,24 @@ struct KeyServerServiceTests {
 
         #expect(results.count == 1)
         #expect(results[0].userIDs.first == "Test User <test@example.com>")
+    }
+
+    private static func searchResponse(
+        request: URLRequest,
+        fingerprint: String,
+        userID: String
+    ) -> (HTTPURLResponse, Data) {
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )!
+        let body = """
+        info:1:1
+        pub:\(fingerprint):1:2048:1640000000::
+        uid:\(userID):1640000000::
+        """
+        return (response, body.data(using: .utf8)!)
     }
 }

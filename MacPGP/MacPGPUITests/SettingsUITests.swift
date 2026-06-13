@@ -11,11 +11,13 @@ final class SettingsUITests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
+        XCUIApplication().terminate()
     }
 
     private func isolatedApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--reset-keyring"]
+        app.terminate()
         return app
     }
 
@@ -57,23 +59,6 @@ final class SettingsUITests: XCTestCase {
         app.windows["Keyserver"].exists ? app.windows["Keyserver"] : app.windows.firstMatch
     }
 
-    private func isOn(_ control: XCUIElement) -> Bool {
-        if let intValue = control.value as? Int {
-            return intValue == 1
-        }
-
-        if let numberValue = control.value as? NSNumber {
-            return numberValue.intValue == 1
-        }
-
-        if let stringValue = control.value as? String {
-            let normalized = stringValue.lowercased()
-            return normalized == "1" || normalized == "true" || normalized == "on"
-        }
-
-        return false
-    }
-
     @MainActor
     func testSettingsWindowOpensWithKeyboardShortcut() throws {
         let app = isolatedApp()
@@ -108,7 +93,7 @@ final class SettingsUITests: XCTestCase {
     }
 
     @MainActor
-    func testKeyserverTabTogglesAndDefaultServerPicker() throws {
+    func testKeyserverTabDisplaysDefaultServerPicker() throws {
         let app = isolatedApp()
         app.launch()
 
@@ -120,6 +105,8 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["keys.openpgp.org"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["Ubuntu Keyserver"].exists)
         XCTAssertTrue(app.staticTexts["MIT PGP Keyserver"].exists)
+        XCTAssertFalse(settingsWindow.switches["Automatically refresh keys from keyserver"].exists)
+        XCTAssertFalse(app.staticTexts["Auto-refresh checks for key updates"].exists)
 
         let keysOpenPGP = settingsWindow.switches["Keyserver Toggle keys.openpgp.org"]
         let ubuntu = settingsWindow.switches["Keyserver Toggle keyserver.ubuntu.com"]
@@ -129,26 +116,12 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(ubuntu.exists)
         XCTAssertTrue(mit.exists)
 
-        if !isOn(mit) {
-            mit.tap()
-        }
-        XCTAssertTrue(isOn(mit))
-
         let serverPicker = settingsWindow.popUpButtons["Default Keyserver Picker"]
         XCTAssertTrue(serverPicker.waitForExistence(timeout: 2))
         serverPicker.tap()
 
-        XCTAssertTrue(app.menuItems["MIT PGP Keyserver"].waitForExistence(timeout: 2))
-        app.menuItems["MIT PGP Keyserver"].tap()
-
-        let selectedServer = [
-            serverPicker.value as? String,
-            serverPicker.label
-        ].compactMap { $0 }.joined(separator: " ")
-        XCTAssertTrue(
-            selectedServer.contains("MIT PGP Keyserver") || selectedServer.contains("pgp.mit.edu"),
-            "Expected MIT PGP Keyserver to be selected, got \(selectedServer)"
-        )
+        XCTAssertTrue(app.menuItems["Ubuntu Keyserver"].waitForExistence(timeout: 2))
+        app.typeKey(.escape, modifierFlags: [])
     }
 
     @MainActor

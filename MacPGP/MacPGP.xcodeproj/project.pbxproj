@@ -13,6 +13,7 @@
 		12FS000A2F32F40000000010 /* RNPKit in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CC2F32F35300E6610B /* RNPKit */; };
 		12QL00012F32F50000000001 /* QuickLookExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 12QL00002F32F50000000000 /* QuickLookExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		12QL000A2F32F50000000010 /* RNPKit in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CD2F32F35300E6610C /* RNPKit */; };
+		12SE00012F32F80000000001 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 12SE00002F32F80000000000 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		12SE000A2F32F80000000010 /* RNPKit in Frameworks */ = {isa = PBXBuildFile; productRef = 120351CC2F32F35300E6610B /* RNPKit */; };
 		12TH00012F32F60000000001 /* ThumbnailExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 12TH00002F32F60000000000 /* ThumbnailExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -46,6 +47,13 @@
 			remoteGlobalIDString = 12QL00032F32F50000000003;
 			remoteInfo = QuickLookExtension;
 		};
+		12SE000C2F32F8000000000C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12B269082F32F0C10015EBFF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 12SE00032F32F80000000003;
+			remoteInfo = ShareExtension;
+		};
 		12TH000D2F32F6000000000D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 12B269082F32F0C10015EBFF /* Project object */;
@@ -65,6 +73,7 @@
 				12FS00012F32F40000000001 /* FinderSyncExtension.appex in Embed Foundation Extensions */,
 				12QL00012F32F50000000001 /* QuickLookExtension.appex in Embed Foundation Extensions */,
 				12TH00012F32F60000000001 /* ThumbnailExtension.appex in Embed Foundation Extensions */,
+				12SE00012F32F80000000001 /* ShareExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -282,6 +291,7 @@
 				12FS00022F32F40000000002 /* PBXTargetDependency */,
 				12QL00022F32F50000000002 /* PBXTargetDependency */,
 				12TH00022F32F60000000002 /* PBXTargetDependency */,
+				12SE00022F32F80000000002 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				12B269122F32F0C10015EBFF /* MacPGP */,
@@ -629,6 +639,11 @@
 			isa = PBXTargetDependency;
 			target = 12QL00032F32F50000000003 /* QuickLookExtension */;
 			targetProxy = 12QL000D2F32F5000000000D /* PBXContainerItemProxy */;
+		};
+		12SE00022F32F80000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 12SE00032F32F80000000003 /* ShareExtension */;
+			targetProxy = 12SE000C2F32F8000000000C /* PBXContainerItemProxy */;
 		};
 		12TH00022F32F60000000002 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

@@ -45,35 +45,41 @@ struct TrustLevelPickerView: View {
     private func pickerFormView(viewModel: TrustLevelPickerViewModel) -> some View {
         @Bindable var vm = viewModel
 
-        ScrollView {
-            VStack(spacing: 20) {
-                keyInfoSection(key: viewModel.key)
-                trustLevelSection(viewModel: viewModel)
-                trustDescriptionSection(viewModel: viewModel)
-                warningSection(viewModel: viewModel)
-                saveStatusSection(viewModel: viewModel)
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: 20) {
+                    keyInfoSection(key: viewModel.key)
+                    trustLevelSection(viewModel: viewModel)
+                    trustDescriptionSection(viewModel: viewModel)
+                    warningSection(viewModel: viewModel)
+                    saveStatusSection(viewModel: viewModel)
 
-                if let error = viewModel.errorMessage {
-                    errorSection(error: error)
+                    if let error = viewModel.errorMessage {
+                        errorSection(error: error)
+                    }
                 }
+                .padding(24)
             }
-            .padding(24)
-        }
-        .navigationTitle("Set Trust Level")
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
+
+            Divider()
+
+            HStack {
                 Button("Cancel") {
                     dismiss()
                 }
-            }
 
-            ToolbarItem(placement: .confirmationAction) {
+                Spacer()
+
                 Button("Save Trust Level") {
                     viewModel.saveTrustLevel(onSuccess: onTrustLevelUpdated)
                 }
+                .buttonStyle(.borderedProminent)
                 .disabled(!viewModel.hasChanged)
             }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
         }
+        .navigationTitle("Set Trust Level")
     }
 
     // MARK: - Key Information Section

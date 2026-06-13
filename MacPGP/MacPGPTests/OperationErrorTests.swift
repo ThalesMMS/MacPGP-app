@@ -214,6 +214,16 @@ struct OperationErrorTests {
         #expect(description!.contains("public key"))
     }
 
+    @Test("recipientKeyUntrusted provides clear error description")
+    func testRecipientKeyUntrustedErrorDescription() {
+        let error = OperationError.recipientKeyUntrusted(keyID: "ABC123")
+        let description = error.errorDescription
+
+        #expect(description != nil)
+        #expect(description!.contains("ABC123"))
+        #expect(description!.contains("Never Trust"))
+    }
+
     @Test("signerKeyMissing provides clear error description")
     func testSignerKeyMissingErrorDescription() {
         let error = OperationError.signerKeyMissing
@@ -425,6 +435,16 @@ struct OperationErrorTests {
         #expect(suggestion!.contains("recipient"))
     }
 
+    @Test("recipientKeyUntrusted provides actionable recovery suggestion")
+    func testRecipientKeyUntrustedRecoverySuggestion() {
+        let error = OperationError.recipientKeyUntrusted(keyID: "ABC123")
+        let suggestion = error.recoverySuggestion
+
+        #expect(suggestion != nil)
+        #expect(suggestion!.contains("trust"))
+        #expect(suggestion!.contains("recipient"))
+    }
+
     @Test("signerKeyMissing provides actionable recovery suggestion")
     func testSignerKeyMissingRecoverySuggestion() {
         let error = OperationError.signerKeyMissing
@@ -590,6 +610,7 @@ struct OperationErrorTests {
             .noPublicKey,
             .noSecretKey,
             .recipientKeyMissing,
+            .recipientKeyUntrusted(keyID: "TEST"),
             .signerKeyMissing,
             .fileAccessError(path: "/test"),
             .securityScopedAccessDenied(path: "/test"),

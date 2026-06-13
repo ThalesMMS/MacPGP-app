@@ -124,14 +124,26 @@ final class DecryptViewModel {
 
         if sessionState.decryptAutoDetectKey {
             passphrasePromptKey = nil
+            if let cached = cachedPassphraseForAutoDetect() {
+                passphrase = cached
+                showingPassphrasePrompt = false
+                didSubmitPassphrase()
+                return
+            }
         } else {
             passphrasePromptKey = sessionState.decryptSelectedKey
         }
 
         if let keyToUnlock = passphrasePromptKey {
-            let keyID = keyToUnlock.shortKeyID
+            if let cached = PassphraseCache.shared.passphrase(for: keyToUnlock) {
+                passphrase = cached
+                showingPassphrasePrompt = false
+                didSubmitPassphrase()
+                return
+            }
+
             DispatchQueue.global(qos: .userInitiated).async {
-                let stored = try? KeychainManager.shared.retrievePassphrase(forKeyID: keyID)
+                let stored = try? KeychainManager.shared.retrievePassphrase(for: keyToUnlock)
 
                 Task { @MainActor in
                     guard self.passphraseRequestID == requestID else { return }
@@ -178,6 +190,8 @@ final class DecryptViewModel {
     }
 
     func decrypt(fromClipboard: Bool = false) {
+        guard !isProcessing else { return }
+
         switch sessionState.decryptInputMode {
         case .text:
             decryptText(fromClipboard: fromClipboard)
@@ -187,9 +201,8 @@ final class DecryptViewModel {
     }
 
     func cancel() {
-        decryptionTask?.cancel()
-        decryptionTask = nil
-        decryptionRunID = nil
+        let activeTask = decryptionTask
+        activeTask?.cancel()
         passphraseRequestID = nil
         passphrase = ""
         showingPassphrasePrompt = false
@@ -197,14 +210,22 @@ final class DecryptViewModel {
         pendingClipboardInput = nil
         shouldPerformDecryptionAfterPassphrasePrompt = false
         requestOutputFolderPicker = false
-        isProcessing = false
+
+        if activeTask == nil {
+            decryptionRunID = nil
+            isProcessing = false
+        }
     }
 
     func cancelDecryption() {
-        decryptionTask?.cancel()
-        decryptionTask = nil
-        isProcessing = false
+        let activeTask = decryptionTask
+        activeTask?.cancel()
         pendingClipboardInput = nil
+
+        if activeTask == nil {
+            decryptionRunID = nil
+            isProcessing = false
+        }
     }
 
     private func decryptText(fromClipboard: Bool) {
@@ -251,10 +272,12 @@ final class DecryptViewModel {
 
             do {
                 let decrypted: String
+                let decryptedKey: PGPKeyModel?
 
                 if shouldAutoDetectKey {
                     let encryptedData = Data(encryptedText.utf8)
-                    let (decryptedData, _) = try await decryptionService.tryDecryptAsync(data: encryptedData, passphrase: passphrase)
+                    let (decryptedData, key) = try await decryptionService.tryDecryptAsync(data: encryptedData, passphrase: passphrase)
+                    decryptedKey = key
                     guard let decoded = String(data: decryptedData, encoding: .utf8) else {
                         await MainActor.run {
                             guard decryptionRunID == runID else { return }
@@ -275,6 +298,7 @@ final class DecryptViewModel {
                         return
                     }
                     decrypted = try await decryptionService.decryptAsync(message: encryptedText, using: key, passphrase: passphrase)
+                    decryptedKey = key
                 }
 
                 try Task.checkCancellation()
@@ -296,6 +320,7 @@ final class DecryptViewModel {
 
                 await MainActor.run {
                     guard decryptionRunID == runID else { return }
+                    cachePassphrase(passphrase, for: decryptedKey)
                     self.passphrase = ""
                 }
             } catch is CancellationError {
@@ -371,8 +396,9 @@ final class DecryptViewModel {
                     let fileBase = Double(index) * progressPerFile
 
                     let outputURL: URL
+                    let decryptedKey: PGPKeyModel
                     if shouldAutoDetectKey {
-                        let (url, _) = try await decryptionService.tryDecryptAsync(
+                        let (url, key) = try await decryptionService.tryDecryptAsync(
                             file: file,
                             passphrase: passphrase,
                             outputURL: outputLocation,
@@ -385,6 +411,7 @@ final class DecryptViewModel {
                             }
                         )
                         outputURL = url
+                        decryptedKey = key
                     } else {
                         guard let key = selectedKey else {
                             await MainActor.run {
@@ -406,11 +433,13 @@ final class DecryptViewModel {
                                 }
                             }
                         )
+                        decryptedKey = key
                     }
 
                     produced.append(outputURL)
                     await MainActor.run {
                         guard decryptionRunID == runID else { return }
+                        cachePassphrase(passphrase, for: decryptedKey)
                         sessionState.decryptOutputFiles = produced
                     }
                 }
@@ -462,5 +491,18 @@ final class DecryptViewModel {
     private func showAlert(_ alert: CryptoUserFacingError) {
         self.alert = alert
         showingAlert = true
+    }
+
+    private func cachePassphrase(_ passphrase: String, for key: PGPKeyModel?) {
+        guard let key, !passphrase.isEmpty else { return }
+        PassphraseCache.shared.store(passphrase, for: key)
+    }
+
+    private func cachedPassphraseForAutoDetect() -> String? {
+        let cachedPassphrases = keyringService.secretKeys().compactMap {
+            PassphraseCache.shared.passphrase(for: $0)
+        }
+
+        return cachedPassphrases.count == 1 ? cachedPassphrases[0] : nil
     }
 }

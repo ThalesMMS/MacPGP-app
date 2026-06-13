@@ -483,6 +483,7 @@
 "error.no_public_key.description" = "No hay clave pública disponible para esta operación.";
 "error.no_secret_key.description" = "No hay clave privada disponible para esta operación.";
 "error.recipient_key_missing.description" = "La clave pública del destinatario falta en su llavero.";
+"error.recipient_key_untrusted.description" = "La clave del destinatario \"%@\" está marcada como Nunca confiar y no puede usarse para cifrar.";
 "error.signer_key_missing.description" = "No hay clave privada disponible para firmar el mensaje.";
 "error.file_access_error.description" = "No se puede acceder al archivo en: %@";
 "error.security_scoped_access_denied.description" = "MacPGP ya no tiene permiso para acceder a: %@";
@@ -512,6 +513,7 @@
 "error.no_public_key.recovery" = "Importe o busque la clave pública desde un servidor de claves.";
 "error.no_secret_key.recovery" = "Genere un nuevo par de claves que incluya una clave privada.";
 "error.recipient_key_missing.recovery" = "Busque e importe la clave pública del destinatario desde un servidor de claves.";
+"error.recipient_key_untrusted.recovery" = "Cambie el nivel de confianza de la clave del destinatario solo si la ha verificado, o elija otra clave de destinatario.";
 "error.signer_key_missing.recovery" = "Genere un par de claves para firmar mensajes.";
 "error.file_access_error.recovery" = "Verifique los permisos de archivo en Configuración del Sistema > Privacidad y Seguridad.";
 "error.security_scoped_access_denied.recovery" = "Vuelva a seleccionar el archivo o la carpeta e inténtelo de nuevo.";
@@ -550,6 +552,7 @@
 "error.no_public_key.reason" = "No se encontró clave pública para la identidad solicitada.";
 "error.no_secret_key.reason" = "No se encontró clave privada en el llavero.";
 "error.recipient_key_missing.reason" = "El destinatario no tiene una clave pública en su llavero.";
+"error.recipient_key_untrusted.reason" = "La política de confianza actual del llavero bloquea el cifrado para esta clave de destinatario.";
 "error.signer_key_missing.reason" = "No se encontró una clave privada capaz de firmar.";
 "error.file_access_error.reason" = "El archivo en %@ puede no existir o no tener permiso para acceder a él.";
 "error.security_scoped_access_denied.reason" = "El permiso de acceso del sandbox para %@ ya no está disponible.";

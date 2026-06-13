@@ -35,6 +35,7 @@ final class FileEncryptionUITests: XCTestCase {
             XCTFail("Key generation UI failed to open")
             return
         }
+        guard app.selectFixtureKeyAlgorithm() else { return }
 
         let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
         guard nameField.waitForExistence(timeout: 3) else {
@@ -56,23 +57,7 @@ final class FileEncryptionUITests: XCTestCase {
         confirmField.tap()
         confirmField.typeText(passphrase)
 
-        let generateButton = app.buttons["Generate"]
-        guard generateButton.waitForExistence(timeout: 2) else {
-            XCTFail("Generate button must appear")
-            return
-        }
-        guard generateButton.isEnabled else {
-            XCTFail("Generate button must be enabled after valid key data")
-            return
-        }
-        generateButton.tap()
-
-        let doneButton = app.buttons["Done"]
-        guard doneButton.waitForExistence(timeout: 30) else {
-            XCTFail("Timed out waiting for Done button after key generation")
-            return
-        }
-        doneButton.tap()
+        app.submitKeyGenerationForm()
     }
 
     private func actionButton(_ app: XCUIApplication, named name: String) -> XCUIElement {

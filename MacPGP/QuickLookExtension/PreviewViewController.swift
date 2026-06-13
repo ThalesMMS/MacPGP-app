@@ -3,8 +3,8 @@ import Quartz
 import SwiftUI
 
 final class PreviewViewController: NSViewController, QLPreviewingController {
-    private var hostingController: NSHostingController<AnyView>?
     private var previewRequestID = UUID()
+    private lazy var previewHost = PreviewHostingControllerContainer(parentViewController: self)
 
     override var nibName: NSNib.Name? {
         NSNib.Name("PreviewViewController")
@@ -21,24 +21,23 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
     func preparePreviewOfFile(at url: URL, completionHandler handler: @escaping (Error?) -> Void) {
         let requestID = UUID()
         previewRequestID = requestID
+        previewHost.clear()
 
         guard isPGPFile(url) else {
             handler(NSError(domain: "com.macpgp.quicklook", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not a PGP file"]))
             return
         }
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            let rootView: AnyView
-            do {
-                let metadata = try PGPMetadataExtractor().extractMetadata(from: url)
-                rootView = AnyView(EncryptionMetadataView(metadata: metadata, fileURL: url))
-            } catch {
-                rootView = AnyView(EncryptionErrorView(fileURL: url))
-            }
+        Task {
+            let metadata = await Self.extractMetadata(from: url)
 
-            DispatchQueue.main.async {
+            await MainActor.run {
                 if self.previewRequestID == requestID {
-                    self.show(rootView: rootView)
+                    if let metadata {
+                        self.show(rootView: EncryptionMetadataView(metadata: metadata, fileURL: url))
+                    } else {
+                        self.show(rootView: EncryptionErrorView(fileURL: url))
+                    }
                 }
 
                 handler(nil)
@@ -46,29 +45,17 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         }
     }
 
+    nonisolated private static func extractMetadata(from url: URL) async -> PGPMetadataExtractor.Metadata? {
+        await Task.detached(priority: .userInitiated) {
+            try? PGPMetadataExtractor().extractMetadata(from: url)
+        }.value
+    }
+
     private func isPGPFile(_ url: URL) -> Bool {
         PGPFileAnalyzer.isPGPFile(url: url)
     }
 
     private func show<Content: View>(rootView: Content) {
-        let rootView = AnyView(rootView)
-        if let hostingController {
-            hostingController.rootView = rootView
-            return
-        }
-
-        let hostingController = NSHostingController(rootView: rootView)
-        self.hostingController = hostingController
-
-        addChild(hostingController)
-        view.addSubview(hostingController.view)
-        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
-
-        NSLayoutConstraint.activate([
-            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
-            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
+        previewHost.show(rootView)
     }
 }

@@ -1,4 +1,5 @@
 import Cocoa
+import SwiftUI
 
 class ShareViewController: NSViewController {
 
@@ -6,6 +7,7 @@ class ShareViewController: NSViewController {
 
     private var fileURLs: [URL] = []
     private let services = ExtensionServices.shared
+    private var hostingController: NSHostingController<AnyView>?
 
     // MARK: - Lifecycle
 
@@ -14,8 +16,7 @@ class ShareViewController: NSViewController {
     }
 
     override func loadView() {
-        // Create a default view if no nib is found
-        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 320))
+        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 600))
     }
 
     override func viewDidLoad() {
@@ -27,8 +28,9 @@ class ShareViewController: NSViewController {
         // Set up the view controller
         setupUI()
 
-        // Extract files from the extension context
-        extractSharedFiles()
+        Task {
+            await extractSharedFiles()
+        }
     }
 
     // MARK: - Setup
@@ -37,14 +39,12 @@ class ShareViewController: NSViewController {
         // Configure the view appearance
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-
-        // UI will be implemented in subtask-2-2 (SwiftUI view)
     }
 
     // MARK: - Extension Context Handling
 
     /// Extracts file URLs from the NSExtensionContext input items
-    private func extractSharedFiles() {
+    private func extractSharedFiles() async {
         guard let extensionContext = self.extensionContext else {
             NSLog("ShareViewController: No extension context available")
             showErrorMessage("MacPGP could not access the shared item. Try sharing the file again.")
@@ -57,41 +57,10 @@ class ShareViewController: NSViewController {
             return
         }
 
-        // Process each input item to extract file URLs
-        var urlsToProcess: [URL] = []
-
-        for item in inputItems {
-            guard let attachments = item.attachments else { continue }
-
-            for provider in attachments {
-                // Check if this is a file URL
-                if provider.hasItemConformingToTypeIdentifier("public.file-url") {
-                    let semaphore = DispatchSemaphore(value: 0)
-
-                    provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { (item, error) in
-                        defer { semaphore.signal() }
-
-                        if let error = error {
-                            NSLog("ShareViewController: Error loading file URL: \(error.localizedDescription)")
-                            self.showErrorMessage("MacPGP could not load a shared file. Try sharing the file again.")
-                            return
-                        }
-
-                        if let url = item as? URL {
-                            urlsToProcess.append(url)
-                        } else if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
-                            urlsToProcess.append(url)
-                        }
-                    }
-
-                    semaphore.wait()
-                }
-            }
-        }
-
+        let urlsToProcess = await ShareItemFileLoader.fileURLs(from: inputItems)
         if urlsToProcess.isEmpty {
             NSLog("ShareViewController: No files found in shared items")
-            showErrorMessage("No files were available to encrypt. Try sharing a file from Finder.")
+            showErrorMessage("No supported files were available to encrypt. Try sharing a file from Finder or exporting it as a file first.")
             return
         }
 
@@ -99,15 +68,37 @@ class ShareViewController: NSViewController {
         self.fileURLs = urlsToProcess
         NSLog("ShareViewController: Extracted \(fileURLs.count) file(s) to encrypt")
 
-        // Update UI with the files (will be implemented in subtask-2-2)
         updateUIWithFiles()
     }
 
     /// Updates the UI to show the selected files
-    /// This will be implemented in subtask-2-2 with SwiftUI
     private func updateUIWithFiles() {
-        // Placeholder for UI update
-        // SwiftUI view will be integrated here
+        let shareView = ShareExtensionView(
+            fileURLs: fileURLs,
+            onEncrypt: { [weak self] recipients in
+                self?.encryptSharedFiles(for: recipients)
+            },
+            onCancel: { [weak self] in
+                self?.cancel()
+            }
+        )
+        .environment(services.keyringService)
+
+        let hostingController = NSHostingController(rootView: AnyView(shareView))
+        addChild(hostingController)
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+
+        self.hostingController?.removeFromParent()
+        view.subviews.forEach { $0.removeFromSuperview() }
+        view.addSubview(hostingController.view)
+        NSLayoutConstraint.activate([
+            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
+        self.hostingController = hostingController
     }
 
     // MARK: - Encryption
@@ -242,6 +233,17 @@ class ShareViewController: NSViewController {
 
     // MARK: - Actions
 
+    private func encryptSharedFiles(for recipients: Set<PGPKeyModel>) {
+        Task {
+            do {
+                let encryptedURLs = try await encryptFilesAsync(for: Array(recipients))
+                complete(with: encryptedURLs)
+            } catch {
+                NSLog("ShareViewController: Encryption failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Cancels the share extension operation
     func cancel() {
         guard let extensionContext = self.extensionContext else { return }
@@ -250,6 +252,8 @@ class ShareViewController: NSViewController {
 
     private func showErrorMessage(_ message: String) {
         DispatchQueue.main.async {
+            self.hostingController?.removeFromParent()
+            self.hostingController = nil
             self.view.subviews.forEach { $0.removeFromSuperview() }
 
             let titleLabel = NSTextField(labelWithString: "Unable to Encrypt")

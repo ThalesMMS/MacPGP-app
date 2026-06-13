@@ -139,7 +139,7 @@ final class KeyringService {
 
         reloadKeysWithVerificationStatus()
 
-        try KeychainManager.shared.deletePassphrase(forKeyID: keyModel.fingerprint)
+        try KeychainManager.shared.deletePassphrase(for: keyModel)
 
         if PreferencesManager.shared.autoSaveKeyring {
             try saveKeys()
@@ -163,15 +163,15 @@ final class KeyringService {
     }
 
     func publicKeys() -> [PGPKeyModel] {
-        keys.filter { !$0.isExpired && !$0.isRevoked && $0.canEncrypt }
+        keys.filter(\.isUsableForEncryption)
     }
 
     func validKeysForEncryption() -> [PGPKeyModel] {
-        keys.filter { !$0.isExpired && !$0.isRevoked && $0.canEncrypt }
+        keys.filter(\.isUsableForEncryption)
     }
 
     func signingKeys() -> [PGPKeyModel] {
-        keys.filter { $0.isSecretKey && !$0.isExpired && !$0.isRevoked && $0.canSign }
+        keys.filter(\.isUsableForSigning)
     }
 
     func search(_ query: String) -> [PGPKeyModel] {

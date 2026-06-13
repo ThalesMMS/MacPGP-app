@@ -39,38 +39,28 @@ struct DecryptView: View {
                 .disabled(!canDecrypt || viewModel?.isProcessing == true)
             }
         }
-        .alert("Passphrase Required", isPresented: Binding(
-            get: { viewModel?.showingPassphrasePrompt ?? false },
-            set: { viewModel?.showingPassphrasePrompt = $0 }
-        )) {
-            SecureField("Passphrase", text: Binding(
+        .passphrasePromptAlert(
+            isPresented: Binding(
+                get: { viewModel?.showingPassphrasePrompt ?? false },
+                set: { viewModel?.showingPassphrasePrompt = $0 }
+            ),
+            passphrase: Binding(
                 get: { viewModel?.passphrase ?? "" },
                 set: { viewModel?.passphrase = $0 }
-            ))
-            Button("Cancel", role: .cancel) {
-                viewModel?.cancelPassphrasePrompt()
-            }
-            Button("Decrypt") {
-                viewModel?.didSubmitPassphrase()
-            }
-        } message: {
-            if let key = viewModel?.passphrasePromptKey {
-                Text("Enter passphrase for \(key.displayName)")
-            } else {
-                Text("Enter passphrase to decrypt")
-            }
-        }
-        .alert(
-            viewModel?.alert?.title ?? "Error",
+            ),
+            message: passphrasePromptMessage,
+            submitTitle: "Decrypt",
+            onCancel: { viewModel?.cancelPassphrasePrompt() },
+            onSubmit: { viewModel?.didSubmitPassphrase() }
+        )
+        .cryptoErrorAlert(
+            title: viewModel?.alert?.title ?? "Error",
+            message: viewModel?.alert?.message,
             isPresented: Binding(
                 get: { viewModel?.showingAlert ?? false },
                 set: { viewModel?.showingAlert = $0 }
             )
-        ) {
-            Button("OK") {}
-        } message: {
-            Text(viewModel?.alert?.message ?? "An error occurred")
-        }
+        )
         .onChange(of: viewModel?.requestOutputFolderPicker ?? false) { _, shouldPresent in
             guard shouldPresent else { return }
             presentOutputFolderPicker()
@@ -103,6 +93,13 @@ struct DecryptView: View {
         } else {
             viewModel?.didChooseOutputLocation(nil)
         }
+    }
+
+    private var passphrasePromptMessage: String {
+        if let key = viewModel?.passphrasePromptKey {
+            return "Enter passphrase for \(key.displayName)"
+        }
+        return "Enter passphrase to decrypt"
     }
 
     private var inputPane: some View {
@@ -194,70 +191,12 @@ struct DecryptView: View {
     private var fileInputSection: some View {
         @Bindable var state = sessionState
 
-        return VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Encrypted Files")
-                    .font(.headline)
-
-                if !sessionState.decryptSelectedFiles.isEmpty {
-                    VStack(spacing: 8) {
-                        ForEach(Array(sessionState.decryptSelectedFiles.enumerated()), id: \.offset) { index, file in
-                            HStack {
-                                Image(systemName: "doc.fill")
-                                    .foregroundStyle(.secondary)
-                                Text(file.lastPathComponent)
-                                    .lineLimit(1)
-                                Spacer()
-                                Button("Remove") {
-                                    sessionState.decryptSelectedFiles.remove(at: index)
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                            .padding()
-                            .background(Color(nsColor: .textBackgroundColor))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        }
-                    }
-                } else {
-                    DropZone(fileURLs: $state.decryptSelectedFiles)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Output Location")
-                    .font(.headline)
-
-                if let location = sessionState.decryptOutputLocation {
-                    HStack {
-                        Image(systemName: "folder.fill")
-                            .foregroundStyle(.secondary)
-                        Text(location.path)
-                            .lineLimit(1)
-                            .font(.caption)
-                        Spacer()
-                        Button("Change") {
-                            viewModel?.requestChoosingOutputLocation()
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    .padding()
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                } else {
-                    Button {
-                        viewModel?.requestChoosingOutputLocation()
-                    } label: {
-                        HStack {
-                            Image(systemName: "folder.badge.plus")
-                            Text("Choose Output Location")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
-        }
+        return CryptoMultipleFileInputSection(
+            title: "Encrypted Files",
+            selectedFiles: $state.decryptSelectedFiles,
+            outputLocation: sessionState.decryptOutputLocation,
+            onChooseOutputLocation: { viewModel?.requestChoosingOutputLocation() }
+        )
     }
 
     private var outputPane: some View {
@@ -287,22 +226,11 @@ struct DecryptView: View {
             }
 
             if viewModel?.isProcessing ?? false {
-                Spacer()
-                VStack(spacing: 16) {
-                    if sessionState.decryptInputMode == .file && sessionState.decryptionProgress > 0 {
-                        let fileCount = sessionState.decryptSelectedFiles.count
-                        let progressText = fileCount > 1 ? "Decrypting files..." : "Decrypting file..."
-                        ProgressView(value: sessionState.decryptionProgress) {
-                            Text(progressText)
-                        } currentValueLabel: {
-                            Text("\(Int(sessionState.decryptionProgress * 100))%")
-                        }
-                        .frame(width: 200)
-                    } else {
-                        ProgressView("Decrypting...")
-                    }
-                }
-                Spacer()
+                CryptoProgressOverlay(
+                    actionTitle: "Decrypting",
+                    progress: sessionState.decryptInputMode == .file ? sessionState.decryptionProgress : nil,
+                    fileCount: sessionState.decryptSelectedFiles.count
+                )
             } else if sessionState.decryptOutputText.isEmpty && sessionState.decryptOutputFiles.isEmpty {
                 ContentUnavailableView(
                     "No Output",

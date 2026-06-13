@@ -175,16 +175,16 @@ final class KeyringPersistence: KeyringPersisting {
         var secretData = Data()
 
         for key in keys {
-            let keyData = try key.export()
+            publicData.append(try PublicKeyExport.export(key))
+
             if key.isSecret {
-                secretData.append(keyData)
+                secretData.append(try key.export())
             }
-            publicData.append(keyData)
         }
 
         // Only write keyring files if there's data, otherwise delete them
         if !publicData.isEmpty {
-            try publicData.write(to: publicKeyringPath)
+            try publicData.write(to: publicKeyringPath, options: .atomic)
         } else {
             // Delete public keyring file if it exists and we have no keys
             if fileManager.fileExists(atPath: publicKeyringPath.path) {
@@ -193,7 +193,7 @@ final class KeyringPersistence: KeyringPersisting {
         }
 
         if !secretData.isEmpty {
-            try secretData.write(to: secretKeyringPath)
+            try secretData.write(to: secretKeyringPath, options: .atomic)
         } else {
             // Delete secret keyring file if it exists and we have no secret keys
             if fileManager.fileExists(atPath: secretKeyringPath.path) {
@@ -261,10 +261,25 @@ final class KeyringPersistence: KeyringPersisting {
     }
 
     func restoreKeyring(from url: URL) throws {
-        if fileManager.fileExists(atPath: keyringDirectory.path) {
-            try fileManager.removeItem(at: keyringDirectory)
+        let parentDirectory = keyringDirectory.deletingLastPathComponent()
+        let stagingDirectory = parentDirectory.appendingPathComponent(
+            ".\(keyringDirectory.lastPathComponent).restore-\(UUID().uuidString)",
+            isDirectory: true
+        )
+
+        try fileManager.createDirectory(at: parentDirectory, withIntermediateDirectories: true)
+        try fileManager.copyItem(at: url, to: stagingDirectory)
+        defer {
+            if fileManager.fileExists(atPath: stagingDirectory.path) {
+                try? fileManager.removeItem(at: stagingDirectory)
+            }
         }
-        try fileManager.copyItem(at: url, to: keyringDirectory)
+
+        if fileManager.fileExists(atPath: keyringDirectory.path) {
+            _ = try fileManager.replaceItemAt(keyringDirectory, withItemAt: stagingDirectory)
+        } else {
+            try fileManager.moveItem(at: stagingDirectory, to: keyringDirectory)
+        }
     }
 
     // MARK: - Verification Status Persistence

@@ -76,7 +76,7 @@ final class ExtensionKeyringService {
     }
 
     func publicKeys() -> [PGPKeyModel] {
-        keys.filter { !$0.isExpired && !$0.isRevoked && $0.canEncrypt }
+        keys.filter(\.isUsableForEncryption)
     }
 }
 
@@ -152,8 +152,9 @@ final class ExtensionEncryptionService {
             throw OperationError.encryptionFailed(underlying: error)
         }
 
+        let outputExtension = PGPFileExtensions.encryptedOutputExtension(armored: false)
         let output = outputURL ?? FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(UUID().uuidString)-\(file.lastPathComponent).gpg")
+            .appendingPathComponent("\(UUID().uuidString)-\(file.lastPathComponent).\(outputExtension)")
 
         do {
             try encryptedData.write(to: output)

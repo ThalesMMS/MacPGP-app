@@ -102,7 +102,13 @@ final class PreferencesManager {
     }
 
     var passphraseTimeoutMinutes: Int {
-        get { defaults.integer(forKey: Keys.passphraseTimeout).nonZeroOr(10) }
+        get {
+            guard defaults.object(forKey: Keys.passphraseTimeout) != nil else {
+                return 10
+            }
+
+            return defaults.integer(forKey: Keys.passphraseTimeout)
+        }
         set { defaults.set(newValue, forKey: Keys.passphraseTimeout) }
     }
 
@@ -215,17 +221,8 @@ final class PreferencesManager {
 
     var appLanguage: AppLanguage {
         get {
-            // Check if language has been explicitly set
-            if defaults.object(forKey: Keys.appLanguage) == nil {
-                // First launch - auto-detect from system and save as preference
-                let detectedLanguage = detectSystemLanguage()
-                defaults.set(detectedLanguage.rawValue, forKey: Keys.appLanguage)
-                applyLanguage(detectedLanguage)
-                return detectedLanguage
-            }
-
             guard let value = defaults.string(forKey: Keys.appLanguage) else {
-                return .english
+                return detectSystemLanguage()
             }
             return AppLanguage(rawValue: value) ?? .english
         }
@@ -251,8 +248,7 @@ final class PreferencesManager {
     private init() {
         // Apply the saved language preference on initialization
         // This ensures the app starts with the correct language
-        let currentLanguage = appLanguage
-        applyLanguage(currentLanguage)
+        applyLanguage(appLanguage)
     }
 
     private var defaultEnabledKeyServers: [String] {

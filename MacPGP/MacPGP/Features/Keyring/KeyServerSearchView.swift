@@ -11,6 +11,7 @@ struct KeyServerSearchView: View {
     @State private var searchResults: [KeySearchResult] = []
     @State private var selectedResult: KeySearchResult?
     @State private var isSearching = false
+    @State private var activeSearchID: UUID?
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isImporting = false
@@ -66,6 +67,7 @@ struct KeyServerSearchView: View {
             HStack(spacing: 12) {
                 TextField("Enter email or key ID", text: $searchQuery)
                     .textFieldStyle(.roundedBorder)
+                    .disabled(isSearching)
                     .onSubmit {
                         performSearch()
                     }
@@ -84,6 +86,7 @@ struct KeyServerSearchView: View {
             }
             .pickerStyle(.menu)
             .labelsHidden()
+            .disabled(isSearching)
         }
         .padding()
     }
@@ -173,22 +176,28 @@ struct KeyServerSearchView: View {
     // MARK: - Actions
 
     private func performSearch() {
-        guard !searchQuery.isEmpty else { return }
+        guard !searchQuery.isEmpty, !isSearching else { return }
+
+        let searchID = UUID()
+        let query = searchQuery
+        let server = selectedServer
+        activeSearchID = searchID
+        isSearching = true
+        searchResults = []
+        selectedResult = nil
 
         Task {
-            isSearching = true
-            searchResults = []
-            selectedResult = nil
-
             do {
-                let results = try await keyServerService.search(query: searchQuery, on: selectedServer)
+                let results = try await keyServerService.search(query: query, on: server)
                 await MainActor.run {
+                    guard activeSearchID == searchID else { return }
                     searchResults = results
-                    isSearching = false
+                    finishSearch(searchID)
                 }
             } catch {
                 await MainActor.run {
-                    isSearching = false
+                    guard activeSearchID == searchID else { return }
+                    finishSearch(searchID)
                     alertMessage = error.localizedDescription
                     showingAlert = true
                 }
@@ -203,14 +212,14 @@ struct KeyServerSearchView: View {
     }
 
     private func importSelectedKey() {
-        guard let result = selectedResult else { return }
+        guard let result = selectedResult, !isImporting else { return }
 
+        let server = selectedServer
+        isImporting = true
         Task {
-            isImporting = true
-
             do {
                 // Fetch the full key data from the keyserver
-                let keyData = try await keyServerService.fetchKey(fingerprint: result.fingerprint, from: selectedServer)
+                let keyData = try await keyServerService.fetchKey(fingerprint: result.fingerprint, from: server)
 
                 // Import the key into the keyring
                 let importedKeys = try await MainActor.run {
@@ -236,6 +245,12 @@ struct KeyServerSearchView: View {
                 }
             }
         }
+    }
+
+    private func finishSearch(_ searchID: UUID) {
+        guard activeSearchID == searchID else { return }
+        isSearching = false
+        activeSearchID = nil
     }
 }
 

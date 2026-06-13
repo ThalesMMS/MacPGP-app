@@ -45,7 +45,7 @@ struct KeyFingerprintView: View {
                 .buttonStyle(.borderless)
             }
 
-            Text(formattedFingerprint)
+            Text(fingerprint.formattedAsFingerprint())
                 .font(.system(.body, design: .monospaced))
                 .textSelection(.enabled)
                 .padding(12)
@@ -68,14 +68,6 @@ struct KeyFingerprintView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
         }
-    }
-
-    private var formattedFingerprint: String {
-        stride(from: 0, to: fingerprint.count, by: 4).map { i -> String in
-            let start = fingerprint.index(fingerprint.startIndex, offsetBy: i)
-            let end = fingerprint.index(start, offsetBy: min(4, fingerprint.count - i))
-            return String(fingerprint[start..<end])
-        }.joined(separator: " ")
     }
 
     private func copyFingerprint() {

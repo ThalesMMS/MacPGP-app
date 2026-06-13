@@ -3,6 +3,7 @@ import RNPKit
 
 /// Analyzes PGP files to determine encryption status and file type without performing decryption
 final class PGPFileAnalyzer {
+    private static let defaultHeaderByteLimit = 4096
 
     /// Represents the type of PGP file
     enum FileType {
@@ -75,6 +76,30 @@ final class PGPFileAnalyzer {
         return try analyze(data: data, fileURL: url)
     }
 
+    /// Analyzes only a bounded prefix of a PGP file for extension metadata.
+    /// - Parameters:
+    ///   - url: The URL of the file to analyze
+    ///   - maxBytes: Maximum number of bytes to read from the start of the file
+    /// - Returns: Analysis result based on the file header and the actual file size
+    /// - Throws: Error if the header cannot be read
+    func analyzeHeader(
+        fileAt url: URL,
+        maxBytes: Int = PGPFileAnalyzer.defaultHeaderByteLimit
+    ) throws -> AnalysisResult {
+        let data: Data
+        let fileSize: Int64
+        do {
+            data = try SecureScopedFileAccess.readPrefix(from: url, maxBytes: maxBytes)
+            fileSize = try SecureScopedFileAccess.fileSize(of: url)
+        } catch let error as OperationError {
+            throw error
+        } catch {
+            throw OperationError.fileAccessError(path: url.path)
+        }
+
+        return analyzeHeader(data: data, fileURL: url, fileSize: fileSize)
+    }
+
     /// Analyzes PGP data
     /// - Parameters:
     ///   - data: The PGP data to analyze
@@ -97,6 +122,16 @@ final class PGPFileAnalyzer {
         )
     }
 
+    /// Checks if a PGP file header indicates encryption without reading the full file.
+    /// - Parameter url: The URL to check
+    /// - Returns: True if the bounded header indicates an encrypted PGP file, false otherwise
+    func isEncryptedHeader(fileAt url: URL) -> Bool {
+        guard let result = try? analyzeHeader(fileAt: url) else {
+            return false
+        }
+        return result.isEncrypted
+    }
+
     /// Detects whether the file is ASCII armored or binary
     /// - Parameters:
     ///   - data: The file data
@@ -106,19 +141,18 @@ final class PGPFileAnalyzer {
         // Check file extension first
         if let url = url {
             let ext = url.pathExtension.lowercased()
-            if ext == "asc" {
+            if ext == PGPFileExtensions.asciiArmored {
                 return .asciiArmored
-            } else if ext == "gpg" || ext == "pgp" {
+            } else if PGPFileExtensions.isPGPFileExtension(ext) {
                 // .gpg and .pgp are typically binary, but could be armored
                 // Check content to be sure
             }
         }
 
         // Check if data starts with ASCII armor header
-        if let prefix = String(data: data.prefix(50), encoding: .utf8) {
-            if prefix.contains("-----BEGIN PGP") {
-                return .asciiArmored
-            }
+        if let prefix = String(data: data.prefix(128), encoding: .utf8),
+           PGPArmorDetector.detectedBlock(in: prefix) != nil {
+            return .asciiArmored
         }
 
         // Check for binary PGP marker
@@ -143,21 +177,21 @@ final class PGPFileAnalyzer {
     private func detectFileType(data: Data, encodingFormat: EncodingFormat) throws -> FileType {
         if encodingFormat == .asciiArmored,
            let content = String(data: data, encoding: .utf8) {
-            if content.contains("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
+            switch PGPArmorDetector.detectedBlock(in: content) {
+            case .publicKey:
                 return .publicKey
-            }
-            if content.contains("-----BEGIN PGP PRIVATE KEY BLOCK-----") {
+            case .privateKey:
                 return .privateKey
-            }
-            if content.contains("-----BEGIN PGP SIGNED MESSAGE-----") || content.contains("-----BEGIN PGP SIGNATURE-----") {
+            case .signedMessage, .signature:
                 return .signed
-            }
-            if content.contains("-----BEGIN PGP MESSAGE-----") {
+            case .message:
                 let inspection = try RNP.inspect(data)
                 if inspection.isEncrypted && inspection.isSigned {
                     return .encryptedAndSigned
                 }
                 return inspection.isEncrypted ? .encrypted : .unknown
+            case nil:
+                break
             }
         }
 
@@ -179,6 +213,68 @@ final class PGPFileAnalyzer {
         return .unknown
     }
 
+    private func analyzeHeader(data: Data, fileURL: URL?, fileSize: Int64) -> AnalysisResult {
+        let encodingFormat = detectEncodingFormat(data: data, url: fileURL)
+        let fileType = detectHeaderFileType(data: data, encodingFormat: encodingFormat)
+        let isEncrypted = fileType == .encrypted || fileType == .encryptedAndSigned
+        let isSigned = fileType == .signed || fileType == .encryptedAndSigned
+
+        return AnalysisResult(
+            fileType: fileType,
+            encodingFormat: encodingFormat,
+            isEncrypted: isEncrypted,
+            isSigned: isSigned,
+            fileSize: fileSize
+        )
+    }
+
+    private func detectHeaderFileType(data: Data, encodingFormat: EncodingFormat) -> FileType {
+        if encodingFormat == .asciiArmored,
+           let content = String(data: data, encoding: .utf8),
+           let block = PGPArmorDetector.detectedBlock(in: content) {
+            switch block {
+            case .publicKey:
+                return .publicKey
+            case .privateKey:
+                return .privateKey
+            case .signedMessage, .signature:
+                return .signed
+            case .message:
+                return .encrypted
+            }
+        }
+
+        guard encodingFormat == .binary,
+              let packetTag = firstPacketTag(in: data) else {
+            return .unknown
+        }
+
+        switch packetTag {
+        case 1, 3, 9, 18, 20:
+            return .encrypted
+        case 2, 4:
+            return .signed
+        case 5, 7:
+            return .privateKey
+        case 6, 14:
+            return .publicKey
+        default:
+            return .unknown
+        }
+    }
+
+    private func firstPacketTag(in data: Data) -> UInt8? {
+        guard let header = data.first, header & 0x80 != 0 else {
+            return nil
+        }
+
+        if header & 0x40 != 0 {
+            return header & 0x3F
+        }
+
+        return (header & 0x3C) >> 2
+    }
+
     /// Checks if a file at the given URL is a PGP encrypted file
     /// - Parameter url: The URL to check
     /// - Returns: True if the file is encrypted, false otherwise
@@ -191,9 +287,8 @@ final class PGPFileAnalyzer {
 
     /// Checks if a file extension indicates a PGP file
     /// - Parameter url: The URL to check
-    /// - Returns: True if the extension is .gpg, .pgp, or .asc
+    /// - Returns: True if the extension is a supported PGP extension
     static func isPGPFile(url: URL) -> Bool {
-        let ext = url.pathExtension.lowercased()
-        return ext == "gpg" || ext == "pgp" || ext == "asc"
+        PGPFileExtensions.isPGPFileExtension(url.pathExtension)
     }
 }

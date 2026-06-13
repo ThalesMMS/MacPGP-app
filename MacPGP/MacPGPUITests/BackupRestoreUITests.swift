@@ -26,6 +26,7 @@ final class BackupRestoreUITests: XCTestCase {
 
     private func generateTestKey(_ app: XCUIApplication, name: String = "Backup Test User", email: String = "backup@test.com", passphrase: String = "TestPass123!") {
         guard app.openKeyGenerationView() else { return }
+        guard app.selectFixtureKeyAlgorithm() else { return }
 
         let nameField = app.textFields[AccessibilityIdentifiers.KeyGeneration.fullNameField]
         guard nameField.waitForExistence(timeout: 3) else {
@@ -47,23 +48,7 @@ final class BackupRestoreUITests: XCTestCase {
         confirmField.tap()
         confirmField.typeText(passphrase)
 
-        let generateButton = app.buttons["Generate"]
-        guard generateButton.waitForExistence(timeout: 2) else {
-            XCTFail("Generate button must appear")
-            return
-        }
-        guard generateButton.isEnabled else {
-            XCTFail("Generate button must be enabled after valid key data")
-            return
-        }
-        generateButton.tap()
-
-        let doneButton = app.buttons["Done"]
-        guard doneButton.waitForExistence(timeout: 30) else {
-            XCTFail("Timed out waiting for Done button after key generation")
-            return
-        }
-        doneButton.tap()
+        app.submitKeyGenerationForm()
     }
 
     // MARK: - Backup Wizard Tests

@@ -94,18 +94,42 @@ struct PaperKeyView: View {
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
-                infoRow(label: "User ID", value: key.primaryUserID?.displayString ?? "Unknown")
+                LabelValueRow(
+                    verbatimLabel: "User ID",
+                    value: key.primaryUserID?.displayString ?? "Unknown",
+                    style: .paperKey
+                )
 
                 if let email = key.email {
-                    infoRow(label: "Email", value: email)
+                    LabelValueRow(
+                        verbatimLabel: "Email",
+                        value: email,
+                        style: .paperKey
+                    )
                 }
 
-                infoRow(label: "Key Type", value: key.keyTypeDescription)
-                infoRow(label: "Algorithm", value: key.algorithmDescription)
-                infoRow(label: "Created", value: formatDate(key.creationDate))
+                LabelValueRow(
+                    verbatimLabel: "Key Type",
+                    value: key.keyTypeDescription,
+                    style: .paperKey
+                )
+                LabelValueRow(
+                    verbatimLabel: "Algorithm",
+                    value: key.algorithmDescription,
+                    style: .paperKey
+                )
+                LabelValueRow(
+                    verbatimLabel: "Created",
+                    value: formatDate(key.creationDate),
+                    style: .paperKey
+                )
 
                 if let expirationDate = key.expirationDate {
-                    infoRow(label: "Expires", value: formatDate(expirationDate))
+                    LabelValueRow(
+                        verbatimLabel: "Expires",
+                        value: formatDate(expirationDate),
+                        style: .paperKey
+                    )
                 }
             }
             .padding(12)
@@ -243,20 +267,6 @@ struct PaperKeyView: View {
     }
 
     // MARK: - Helper Views
-
-    @ViewBuilder
-    private func infoRow(label: String, value: String) -> some View {
-        HStack(alignment: .top) {
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .frame(width: 80, alignment: .leading)
-
-            Text(value)
-                .font(.subheadline)
-                .textSelection(.enabled)
-        }
-    }
 
     // MARK: - Computed Properties
 

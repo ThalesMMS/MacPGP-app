@@ -42,6 +42,7 @@ final class SignVerifyUITests: XCTestCase {
         passphrase: String = "SignVerifyPassphrase123!"
     ) {
         guard app.openKeyGenerationView() else { return }
+        guard app.selectFixtureKeyAlgorithm() else { return }
 
         let nameField = textField(app, named: AccessibilityIdentifiers.KeyGeneration.fullNameField, index: 0)
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
@@ -60,13 +61,7 @@ final class SignVerifyUITests: XCTestCase {
         confirmField.tap()
         confirmField.typeText(passphrase)
 
-        let generateButton = app.buttons["Generate"]
-        XCTAssertTrue(generateButton.isEnabled)
-        generateButton.tap()
-
-        let doneButton = app.buttons["Done"]
-        XCTAssertTrue(doneButton.waitForExistence(timeout: 30))
-        doneButton.tap()
+        app.submitKeyGenerationForm()
     }
 
     private func textField(_ app: XCUIApplication, named name: String, index: Int) -> XCUIElement {

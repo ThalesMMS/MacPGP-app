@@ -228,12 +228,25 @@ struct KeyDetailsView: View {
             GridItem(.flexible()),
             GridItem(.flexible())
         ], alignment: .leading, spacing: 16) {
-            InfoRow(label: "Key ID", value: currentKey.shortKeyID)
-            InfoRow(label: "Algorithm", value: currentKey.algorithmDescription)
-            InfoRow(label: "Created", value: currentKey.creationDate.formatted(date: .abbreviated, time: .omitted))
-            InfoRow(
-                label: "Expires",
-                value: currentKey.expirationDate?.formatted(date: .abbreviated, time: .omitted) ?? "Never"
+            LabelValueRow(
+                verbatimLabel: "Key ID",
+                value: currentKey.shortKeyID,
+                style: .keyDetails
+            )
+            LabelValueRow(
+                verbatimLabel: "Algorithm",
+                value: currentKey.algorithmDescription,
+                style: .keyDetails
+            )
+            LabelValueRow(
+                verbatimLabel: "Created",
+                value: currentKey.creationDate.formatted(date: .abbreviated, time: .omitted),
+                style: .keyDetails
+            )
+            LabelValueRow(
+                verbatimLabel: "Expires",
+                value: currentKey.expirationDate?.formatted(date: .abbreviated, time: .omitted) ?? "Never",
+                style: .keyDetails
             )
         }
         .overlay(alignment: .bottomTrailing) {
@@ -339,23 +352,6 @@ struct KeyBadge: View {
             .background(color.opacity(0.15))
             .foregroundStyle(color)
             .clipShape(Capsule())
-    }
-}
-
-struct InfoRow: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.body)
-                .fontDesign(.monospaced)
-                .textSelection(.enabled)
-        }
     }
 }
 
@@ -505,15 +501,11 @@ private struct KeyExpirationEditorView: View {
     }
 
     private func extendExpirationAndPersist(expirationDate: Date) async throws -> PGPKeyModel {
-        let updatedKey: PGPKeyModel = try await withCheckedThrowingContinuation { continuation in
-            expirationService.extendExpirationAsync(
-                for: key,
-                newExpirationDate: normalizedDate(expirationDate),
-                passphrase: passphrase
-            ) { result in
-                continuation.resume(with: result)
-            }
-        }
+        let updatedKey = try await expirationService.extendExpirationAsync(
+            for: key,
+            newExpirationDate: normalizedDate(expirationDate),
+            passphrase: passphrase
+        )
 
         try Task.checkCancellation()
         try keyringService.replaceKey(updatedKey.rawKey)

@@ -3,7 +3,7 @@
 ## Requirements
 
 - macOS Tahoe 26.2 or later
-- Xcode 16.0+
+- Xcode 26.2+
 - Apple Silicon (`arm64`) build host. The vendored `RNPBridge.xcframework` currently ships only an `arm64` macOS slice, so Intel `x86_64` builds are intentionally excluded and Intel Macs are not recommended for development.
 - Bash 4+ for shell test harnesses such as `scripts/test-manual-testing-guide-modules.sh`; CI and supported dev shells should resolve `/usr/bin/env bash` to Bash 4+.
 
@@ -26,6 +26,8 @@
 ## Dependencies
 
 - Local `RNPKit` Swift wrapper backed by the vendored `Vendor/RNPBridge/RNPBridge.xcframework`
+- CI, the Xcode project, and `Vendor/RNPKit/Package.swift` intentionally target macOS 26.2. The vendored bridge archive currently reports `minos 26.0`, which is compatible with that deployment target; `Vendor/RNPBridge/scripts/check-rnp-bridge-minos.sh` guards against accidentally vendoring a newer bridge.
+- CI hides the Dock before `MacPGPUITests` so the hosted macOS desktop cannot cover sheet confirmation buttons and steal synthesized clicks.
 
 ## Project Structure
 

@@ -78,24 +78,20 @@ final class KeyGenerationService {
 
     func generateKeyAsync(
         with parameters: KeyGenerationParameters,
-        progress: @escaping (Double) -> Void,
-        completion: @escaping (Result<Key, OperationError>) -> Void
-    ) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            progress(0.1)
+        progress: @escaping @MainActor (Double) -> Void = { _ in }
+    ) async throws -> Key {
+        await progress(0.1)
 
-            do {
-                let key = try self.generateKey(with: parameters)
-                progress(1.0)
+        do {
+            let key = try await Task.detached(priority: .userInitiated) {
+                try self.generateKey(with: parameters)
+            }.value
 
-                DispatchQueue.main.async {
-                    completion(.success(key))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(.keyGenerationFailed(underlying: error)))
-                }
-            }
+            await progress(1.0)
+
+            return key
+        } catch {
+            throw OperationError.keyGenerationFailed(underlying: error)
         }
     }
 

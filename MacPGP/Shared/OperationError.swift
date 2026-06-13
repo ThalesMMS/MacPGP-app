@@ -19,6 +19,7 @@ enum OperationError: LocalizedError {
     case noPublicKey
     case noSecretKey
     case recipientKeyMissing
+    case recipientKeyUntrusted(keyID: String)
     case signerKeyMissing
     case fileAccessError(path: String)
     case securityScopedAccessDenied(path: String)
@@ -103,6 +104,8 @@ enum OperationError: LocalizedError {
             return NSLocalizedString("error.no_secret_key.description", comment: "Error description when no private key is available")
         case .recipientKeyMissing:
             return NSLocalizedString("error.recipient_key_missing.description", comment: "Error description when recipient's public key is missing")
+        case .recipientKeyUntrusted(let keyID):
+            return String(format: NSLocalizedString("error.recipient_key_untrusted.description", comment: "Error description when recipient key is marked as never trusted"), keyID)
         case .signerKeyMissing:
             return NSLocalizedString("error.signer_key_missing.description", comment: "Error description when signer's private key is missing")
         case .fileAccessError(let path):
@@ -162,6 +165,8 @@ enum OperationError: LocalizedError {
             return NSLocalizedString("error.no_secret_key.recovery", comment: "Recovery suggestion when no private key is available")
         case .recipientKeyMissing:
             return NSLocalizedString("error.recipient_key_missing.recovery", comment: "Recovery suggestion when recipient's key is missing")
+        case .recipientKeyUntrusted:
+            return NSLocalizedString("error.recipient_key_untrusted.recovery", comment: "Recovery suggestion when recipient key is marked as never trusted")
         case .signerKeyMissing:
             return NSLocalizedString("error.signer_key_missing.recovery", comment: "Recovery suggestion when signer's key is missing")
         case .fileAccessError:
@@ -257,6 +262,8 @@ enum OperationError: LocalizedError {
             return NSLocalizedString("error.no_secret_key.reason", comment: "Failure reason when no private key is available")
         case .recipientKeyMissing:
             return NSLocalizedString("error.recipient_key_missing.reason", comment: "Failure reason when recipient's key is missing")
+        case .recipientKeyUntrusted:
+            return NSLocalizedString("error.recipient_key_untrusted.reason", comment: "Failure reason when recipient key is marked as never trusted")
         case .signerKeyMissing:
             return NSLocalizedString("error.signer_key_missing.reason", comment: "Failure reason when signer's key is missing")
         case .fileAccessError(let path):

@@ -348,6 +348,13 @@ struct RestoreWizardView: View {
                         .foregroundStyle(.green)
                 }
             }
+
+            if let warning = viewModel.warningMessage {
+                Section {
+                    Label(warning, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                }
+            }
         }
         .formStyle(.grouped)
         .navigationTitle("Validate Backup")
@@ -463,6 +470,12 @@ struct RestoreWizardView: View {
             if let success = viewModel.successMessage {
                 Text(success)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            if let warning = viewModel.warningMessage {
+                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
                     .multilineTextAlignment(.center)
             }
 

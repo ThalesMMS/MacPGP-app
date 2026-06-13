@@ -168,10 +168,12 @@ struct ContentView: View {
 
         let encryptionService = EncryptionService(keyringService: keyringService)
         var passphrase: String?
+        var signerKeyForCache: PGPKeyModel?
 
-        // If signing key is selected, try to get passphrase from keychain
+        // If signing key is selected, try to get passphrase from session cache or keychain.
         if let signerKey = sessionState.encryptSignerKey {
-            passphrase = try? KeychainManager.shared.retrievePassphrase(forKeyID: signerKey.shortKeyID)
+            passphrase = PassphraseCache.shared.passphrase(for: signerKey)
+                ?? (try? KeychainManager.shared.retrievePassphrase(for: signerKey))
             if passphrase == nil {
                 notificationService.showError(
                     title: String(localized: "error.passphrase_required", comment: "Error title when passphrase is required for signing"),
@@ -179,6 +181,8 @@ struct ContentView: View {
                 )
                 return
             }
+
+            signerKeyForCache = signerKey
         }
 
         Task {
@@ -193,6 +197,10 @@ struct ContentView: View {
                 )
 
                 await MainActor.run {
+                    if let signerKeyForCache, let passphrase {
+                        PassphraseCache.shared.store(passphrase, for: signerKeyForCache)
+                    }
+
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(encrypted, forType: .string)
 
@@ -242,16 +250,20 @@ struct ContentView: View {
                     throw OperationError.decryptionFailed(underlying: nil)
                 }
 
-                // Try all secret keys with keychain passphrases
+                // Try all secret keys with session-cache or keychain passphrases.
                 var decrypted: String?
                 for key in keyringService.secretKeys() {
-                    if let passphrase = try? KeychainManager.shared.retrievePassphrase(forKeyID: key.shortKeyID) {
+                    if let passphrase = await MainActor.run(body: { PassphraseCache.shared.passphrase(for: key) })
+                        ?? (try? KeychainManager.shared.retrievePassphrase(for: key)) {
                         do {
                             decrypted = try encryptionService.decrypt(
                                 message: clipboardText,
                                 using: key,
                                 passphrase: passphrase
                             )
+                            await MainActor.run {
+                                PassphraseCache.shared.store(passphrase, for: key)
+                            }
                             break
                         } catch {
                             // Try next key

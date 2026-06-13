@@ -56,10 +56,15 @@ struct EncryptionMetadataView: View {
                             dismissPassphrasePrompt()
                         }
 
-                    PassphrasePromptView(
+                    PassphrasePromptCard(
+                        title: "Decrypt Preview",
+                        message: "Enter your passphrase to decrypt this file",
                         passphrase: $passphrase,
-                        isPresented: passphrasePromptBinding,
-                        onDecrypt: { enteredPassphrase in
+                        submitTitle: "Decrypt",
+                        onCancel: {
+                            dismissPassphrasePrompt()
+                        },
+                        onSubmit: { enteredPassphrase in
                             handleDecryption(passphrase: enteredPassphrase)
                         }
                     )
@@ -108,16 +113,25 @@ struct EncryptionMetadataView: View {
                 // Encryption Information
                 MetadataSection(title: "quicklook_encryption_information_section") {
                     if let algorithm = metadata.encryptionAlgorithm {
-                        MetadataRow(label: "quicklook_algorithm_label", value: algorithm.description)
+                        LabelValueRow(
+                            localizedLabel: "quicklook_algorithm_label",
+                            value: algorithm.description,
+                            style: .quickLookMetadata
+                        )
                     }
 
-                    MetadataRow(
-                        label: "quicklook_integrity_protection_label",
-                        value: metadata.isIntegrityProtected ? Self.localized("quicklook_integrity_protection_yes_mdc") : Self.localized("quicklook_no")
+                    LabelValueRow(
+                        localizedLabel: "quicklook_integrity_protection_label",
+                        value: metadata.isIntegrityProtected ? Self.localized("quicklook_integrity_protection_yes_mdc") : Self.localized("quicklook_no"),
+                        style: .quickLookMetadata
                     )
 
                     if let compression = metadata.compressionAlgorithm {
-                        MetadataRow(label: "quicklook_compression_label", value: compression)
+                        LabelValueRow(
+                            localizedLabel: "quicklook_compression_label",
+                            value: compression,
+                            style: .quickLookMetadata
+                        )
                     }
                 }
 
@@ -141,14 +155,26 @@ struct EncryptionMetadataView: View {
 
                 // File Information
                 MetadataSection(title: "quicklook_file_information_section") {
-                    MetadataRow(label: "quicklook_file_size_label", value: PreviewMetadataFormatter.fileSize(metadata.fileSize))
+                    LabelValueRow(
+                        localizedLabel: "quicklook_file_size_label",
+                        value: PreviewMetadataFormatter.fileSize(metadata.fileSize),
+                        style: .quickLookMetadata
+                    )
 
                     if let filename = metadata.filename {
-                        MetadataRow(label: "quicklook_original_name_label", value: filename)
+                        LabelValueRow(
+                            localizedLabel: "quicklook_original_name_label",
+                            value: filename,
+                            style: .quickLookMetadata
+                        )
                     }
 
                     if let creationDate = metadata.creationDate {
-                        MetadataRow(label: "quicklook_created_label", value: PreviewMetadataFormatter.date(creationDate))
+                        LabelValueRow(
+                            localizedLabel: "quicklook_created_label",
+                            value: PreviewMetadataFormatter.date(creationDate),
+                            style: .quickLookMetadata
+                        )
                     }
                 }
 
@@ -173,19 +199,6 @@ struct EncryptionMetadataView: View {
             }
             .padding()
         }
-    }
-
-    private var passphrasePromptBinding: Binding<Bool> {
-        Binding(
-            get: { showPassphrasePrompt },
-            set: { isPresented in
-                if isPresented {
-                    showPassphrasePrompt = true
-                } else {
-                    dismissPassphrasePrompt()
-                }
-            }
-        )
     }
 
     private func refreshKeyAvailability() async {
@@ -256,15 +269,17 @@ struct EncryptionMetadataView: View {
                         self.decryptionError = nil
                         self.decryptionTask = nil
                     }
-                } catch let error as PreviewDecrypter.DecryptError {
+                } catch let error as OperationError {
                     let errorMessage: String
                     switch error {
-                    case .noSecretKeys:
+                    case .noSecretKey:
                         errorMessage = Self.localized("quicklook_decryption_unavailable_no_secret_keys")
                     case .invalidPassphrase:
                         errorMessage = Self.localized("quicklook_invalid_passphrase")
-                    case .unableToDecrypt:
+                    case .decryptionFailed:
                         errorMessage = Self.localized("quicklook_unable_to_decrypt_check_passphrase_keys")
+                    default:
+                        errorMessage = Self.localized("quicklook_decrypt_preview_failed")
                     }
 
                     await MainActor.run {

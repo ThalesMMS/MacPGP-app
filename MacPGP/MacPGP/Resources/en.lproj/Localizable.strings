@@ -483,6 +483,7 @@
 "error.no_public_key.description" = "No public key is available for this operation.";
 "error.no_secret_key.description" = "No private key is available for this operation.";
 "error.recipient_key_missing.description" = "The recipient's public key is missing from your keyring.";
+"error.recipient_key_untrusted.description" = "Recipient key \"%@\" is marked as Never Trust and cannot be used for encryption.";
 "error.signer_key_missing.description" = "No private key is available to sign the message.";
 "error.file_access_error.description" = "Unable to access the file at: %@";
 "error.security_scoped_access_denied.description" = "MacPGP no longer has permission to access: %@";
@@ -512,6 +513,7 @@
 "error.no_public_key.recovery" = "Import or Search for the public key from a keyserver.";
 "error.no_secret_key.recovery" = "Generate a new key pair that includes a private key.";
 "error.recipient_key_missing.recovery" = "Search for and Import the recipient's public key from a keyserver.";
+"error.recipient_key_untrusted.recovery" = "Change the recipient key's trust level only if you have verified it, or choose another recipient key.";
 "error.signer_key_missing.recovery" = "Generate a key pair to sign messages.";
 "error.file_access_error.recovery" = "Check file permission settings in System Settings > Privacy & Security.";
 "error.security_scoped_access_denied.recovery" = "Please re-select the file or folder, then try again.";
@@ -550,6 +552,7 @@
 "error.no_public_key.reason" = "No public key was found for the requested identity.";
 "error.no_secret_key.reason" = "No private key was found in the keyring.";
 "error.recipient_key_missing.reason" = "The recipient does not have a public key in your keyring.";
+"error.recipient_key_untrusted.reason" = "The current keyring trust policy blocks encryption to this recipient key.";
 "error.signer_key_missing.reason" = "No signing-capable private key was found.";
 "error.file_access_error.reason" = "The file at %@ may not exist or you may not have permission to access it.";
 "error.security_scoped_access_denied.reason" = "The sandbox access grant for %@ is no longer available.";

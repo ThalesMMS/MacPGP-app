@@ -483,6 +483,7 @@
 "error.no_public_key.description" = "Kein öffentlicher Schlüssel für diese Operation verfügbar.";
 "error.no_secret_key.description" = "Kein privater Schlüssel für diese Operation verfügbar.";
 "error.recipient_key_missing.description" = "Der öffentliche Schlüssel des Empfängers fehlt in Ihrem Schlüsselbund.";
+"error.recipient_key_untrusted.description" = "Der Empfängerschlüssel \"%@\" ist als Niemals vertrauen markiert und kann nicht zur Verschlüsselung verwendet werden.";
 "error.signer_key_missing.description" = "Kein privater Schlüssel zum Signieren der Nachricht verfügbar.";
 "error.file_access_error.description" = "Zugriff auf die Datei nicht möglich: %@";
 "error.security_scoped_access_denied.description" = "MacPGP hat keine Berechtigung mehr für den Zugriff auf: %@";
@@ -512,6 +513,7 @@
 "error.no_public_key.recovery" = "Importieren oder suchen Sie den öffentlichen Schlüssel von einem Schlüsselserver.";
 "error.no_secret_key.recovery" = "Generieren Sie ein neues Schlüsselpaar, das einen privaten Schlüssel enthält.";
 "error.recipient_key_missing.recovery" = "Suchen und importieren Sie den öffentlichen Schlüssel des Empfängers von einem Schlüsselserver.";
+"error.recipient_key_untrusted.recovery" = "Ändern Sie die Vertrauensstufe des Empfängerschlüssels nur, wenn Sie ihn geprüft haben, oder wählen Sie einen anderen Empfängerschlüssel.";
 "error.signer_key_missing.recovery" = "Generieren Sie ein Schlüsselpaar zum Signieren von Nachrichten.";
 "error.file_access_error.recovery" = "Überprüfen Sie die Dateiberechtigungen in Systemeinstellungen > Datenschutz & Sicherheit.";
 "error.security_scoped_access_denied.recovery" = "Wählen Sie die Datei oder den Ordner erneut aus und versuchen Sie es noch einmal.";
@@ -550,6 +552,7 @@
 "error.no_public_key.reason" = "Kein öffentlicher Schlüssel für die angeforderte Identität gefunden.";
 "error.no_secret_key.reason" = "Kein privater Schlüssel im Schlüsselbund gefunden.";
 "error.recipient_key_missing.reason" = "Der Empfänger hat keinen öffentlichen Schlüssel in Ihrem Schlüsselbund.";
+"error.recipient_key_untrusted.reason" = "Die aktuelle Vertrauensrichtlinie des Schlüsselbunds blockiert die Verschlüsselung für diesen Empfängerschlüssel.";
 "error.signer_key_missing.reason" = "Kein signierfähiger privater Schlüssel gefunden.";
 "error.file_access_error.reason" = "Die Datei unter %@ existiert möglicherweise nicht oder Sie haben keine Zugriffsberechtigung.";
 "error.security_scoped_access_denied.reason" = "Die Sandbox-Zugriffsberechtigung für %@ ist nicht mehr verfügbar.";

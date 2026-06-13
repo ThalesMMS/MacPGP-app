@@ -15,7 +15,7 @@ enum FingerprintVerificationMethod: String, Codable {
     case trusted = "trusted"
 }
 
-struct PGPKeyModel: Identifiable, Hashable {
+struct PGPKeyModel: Identifiable, Hashable, PGPKeyCapabilityProviding {
     let id: String
     let fingerprint: String
     let shortKeyID: String
@@ -84,7 +84,7 @@ struct PGPKeyModel: Identifiable, Hashable {
         verificationMethod: FingerprintVerificationMethod?,
         trustLevel: TrustLevel = .unknown
     ) {
-        let derivedAlgorithm = Self.mapAlgorithm(from: key.metadata.primaryAlgorithm)
+        let derivedAlgorithm = KeyAlgorithm.from(publicKeyAlgorithm: key.metadata.primaryAlgorithm)
 
         self.rawKey = key
         self.fingerprint = key.metadata.fingerprint
@@ -130,11 +130,7 @@ struct PGPKeyModel: Identifiable, Hashable {
     }
 
     var formattedFingerprint: String {
-        stride(from: 0, to: fingerprint.count, by: 4).map { i -> String in
-            let start = fingerprint.index(fingerprint.startIndex, offsetBy: i)
-            let end = fingerprint.index(start, offsetBy: min(4, fingerprint.count - i))
-            return String(fingerprint[start..<end])
-        }.joined(separator: " ")
+        fingerprint.formattedAsFingerprint()
     }
 
     var keyTypeDescription: String {
@@ -152,12 +148,14 @@ struct PGPKeyModel: Identifiable, Hashable {
     var daysUntilExpiration: Int? {
         guard let expDate = expirationDate else { return nil }
         let calendar = Calendar.current
-        let now = Date()
-        let components = calendar.dateComponents([.day], from: now, to: expDate)
+        let today = calendar.startOfDay(for: Date())
+        let expirationDay = calendar.startOfDay(for: expDate)
+        let components = calendar.dateComponents([.day], from: today, to: expirationDay)
         return components.day
     }
 
     var isExpiringSoon: Bool {
+        guard let expirationDate, expirationDate > Date() else { return false }
         guard let days = daysUntilExpiration else { return false }
         return days <= 30 && days >= 0
     }
@@ -167,13 +165,15 @@ struct PGPKeyModel: Identifiable, Hashable {
             return .expired
         }
 
+        if let expirationDate, expirationDate <= Date() {
+            return .expired
+        }
+
         guard let days = daysUntilExpiration else {
             return .none
         }
 
-        if days <= 0 {
-            return .expired
-        } else if days <= 7 {
+        if days <= 7 {
             return .critical
         } else if days <= 30 {
             return .warning
@@ -190,24 +190,6 @@ struct PGPKeyModel: Identifiable, Hashable {
         lhs.id == rhs.id
     }
 
-    private static func mapAlgorithm(from algorithm: PublicKeyAlgorithm) -> KeyAlgorithm {
-        switch algorithm {
-        case .rsa:
-            return .rsa
-        case .ecdsa:
-            return .ecdsa
-        case .eddsa:
-            return .eddsa
-        case .dsa:
-            return .dsa
-        case .elgamal:
-            return .elgamal
-        case .ecdh, .curve25519, .unknown:
-            return .unknown
-        default:
-            return .unknown
-        }
-    }
 }
 
 extension PGPKeyModel {

@@ -17,6 +17,18 @@ final class ServicesProvider: NSObject {
         super.init()
     }
 
+    func availableEncryptionKeys() -> [PGPKeyModel] {
+        keyringService.publicKeys()
+    }
+
+    func availableDecryptionKeys() -> [PGPKeyModel] {
+        keyringService.secretKeys()
+    }
+
+    func availableSigningKeys() -> [PGPKeyModel] {
+        keyringService.signingKeys()
+    }
+
     // MARK: - Service Methods
 
     /// Encrypts selected text from any application
@@ -28,7 +40,7 @@ final class ServicesProvider: NSObject {
         }
 
         // Get available public keys for encryption
-        let availableKeys = keyringService.publicKeys()
+        let availableKeys = availableEncryptionKeys()
         guard !availableKeys.isEmpty else {
             showError("No public keys available", description: "Import public keys to encrypt messages")
             return
@@ -74,7 +86,7 @@ final class ServicesProvider: NSObject {
         }
 
         // Get available secret keys for decryption
-        let secretKeys = keyringService.secretKeys()
+        let secretKeys = availableDecryptionKeys()
         guard !secretKeys.isEmpty else {
             showError("No secret keys available", description: "Import a secret key to decrypt messages")
             return
@@ -114,7 +126,7 @@ final class ServicesProvider: NSObject {
         }
 
         // Get available secret keys for signing
-        let secretKeys = keyringService.signingKeys()
+        let secretKeys = availableSigningKeys()
         guard !secretKeys.isEmpty else {
             showError("No secret keys available", description: "Import or generate a key pair to sign messages")
             return
@@ -153,7 +165,7 @@ final class ServicesProvider: NSObject {
     /// Shows a modal dialog for selecting recipients (public keys) for encryption
     /// - Returns: Set of selected keys, or nil if cancelled
     private func showRecipientPicker() -> Set<PGPKeyModel>? {
-        let availableKeys = keyringService.publicKeys().filter { !$0.isExpired }
+        let availableKeys = availableEncryptionKeys().filter { !$0.isExpired }
         var selectedRecipients: Set<PGPKeyModel> = []
         var dialogResult: NSApplication.ModalResponse?
 
@@ -286,9 +298,12 @@ private struct RecipientSelectionView: View {
                     ScrollView {
                         LazyVStack(spacing: 8) {
                             ForEach(filteredKeys) { key in
-                                RecipientRowButton(
-                                    key: key,
-                                    isSelected: selectedRecipients.contains(key)
+                                RecipientRow(
+                                    displayName: key.displayName,
+                                    email: key.email,
+                                    shortKeyID: key.shortKeyID,
+                                    isSelected: selectedRecipients.contains(key),
+                                    trustBadge: trustBadge(for: key)
                                 ) {
                                     toggleSelection(key)
                                 }
@@ -307,7 +322,7 @@ private struct RecipientSelectionView: View {
 
                             FlowLayout(spacing: 8) {
                                 ForEach(Array(selectedRecipients)) { key in
-                                    SelectedRecipientChip(key: key) {
+                                    SelectedRecipientChip(displayName: key.displayName) {
                                         selectedRecipients.remove(key)
                                     }
                                 }
@@ -356,6 +371,11 @@ private struct RecipientSelectionView: View {
         } else {
             selectedRecipients.insert(key)
         }
+    }
+
+    private func trustBadge(for key: PGPKeyModel) -> RecipientRow.TrustBadge? {
+        guard key.trustLevel != .unknown else { return nil }
+        return RecipientRow.TrustBadge(title: key.trustLevel.displayName, color: key.trustLevel.color)
     }
 }
 
@@ -412,43 +432,5 @@ private struct KeyPassphraseSelectionView: View {
             }
         }
         .padding()
-    }
-}
-
-/// Button view for selecting a recipient key
-private struct RecipientRowButton: View {
-    let key: PGPKeyModel
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? .blue : .secondary)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(key.displayName)
-                        .font(.body)
-                    if let email = key.email {
-                        Text(email)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Spacer()
-
-                Text(String(key.shortKeyID.suffix(8)))
-                    .font(.caption)
-                    .fontDesign(.monospaced)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
     }
 }

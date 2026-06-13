@@ -1,6 +1,7 @@
 import Foundation
+import RNPKit
 
-enum KeyAlgorithm: String, CaseIterable, Identifiable {
+enum KeyAlgorithm: String, CaseIterable, Identifiable, Codable {
     case rsa = "RSA"
     case ecdsa = "ECDSA"
     case eddsa = "EdDSA"
@@ -56,6 +57,25 @@ enum KeyAlgorithm: String, CaseIterable, Identifiable {
         case .rsa, .ecdsa, .eddsa, .dsa: return true
         case .elgamal: return false
         case .unknown: return false
+        }
+    }
+
+    static func from(publicKeyAlgorithm algorithm: PublicKeyAlgorithm) -> KeyAlgorithm {
+        switch algorithm {
+        case .rsa:
+            return .rsa
+        case .ecdsa:
+            return .ecdsa
+        case .eddsa:
+            return .eddsa
+        case .dsa:
+            return .dsa
+        case .elgamal:
+            return .elgamal
+        case .ecdh, .curve25519, .unknown:
+            return .unknown
+        default:
+            return .unknown
         }
     }
 }
