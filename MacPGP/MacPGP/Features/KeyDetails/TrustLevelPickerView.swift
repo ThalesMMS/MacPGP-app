@@ -359,7 +359,9 @@ final class TrustLevelPickerViewModel {
 
 // MARK: - Preview
 
+#if DEBUG
 #Preview("Trust Level Picker") {
     TrustLevelPickerView(key: .preview)
         .environment(KeyringService())
 }
+#endif

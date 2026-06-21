@@ -355,6 +355,7 @@ struct KeyBadge: View {
     }
 }
 
+#if DEBUG
 #Preview {
     let keyringService = KeyringService()
 
@@ -362,6 +363,7 @@ struct KeyBadge: View {
         .environment(keyringService)
         .frame(width: 500, height: 600)
 }
+#endif
 
 private struct KeyExpirationEditorView: View {
     let key: PGPKeyModel

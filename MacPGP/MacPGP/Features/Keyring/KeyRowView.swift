@@ -81,9 +81,11 @@ struct KeyRowView: View {
 
 }
 
+#if DEBUG
 #Preview {
     List {
         KeyRowView(key: .preview)
     }
     .frame(width: 300)
 }
+#endif

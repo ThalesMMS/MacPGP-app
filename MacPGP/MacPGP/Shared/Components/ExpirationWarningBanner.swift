@@ -73,6 +73,7 @@ struct ExpirationWarningBanner: View {
     }
 }
 
+#if DEBUG
 #Preview("Warning Level") {
     VStack(spacing: 16) {
         ExpirationWarningBanner(
@@ -114,3 +115,4 @@ struct ExpirationWarningBanner: View {
     .padding()
     .frame(width: 500)
 }
+#endif

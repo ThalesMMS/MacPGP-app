@@ -514,7 +514,9 @@ extension FingerprintVerificationMethod {
 
 // MARK: - Preview
 
+#if DEBUG
 #Preview("Fingerprint Verification") {
     FingerprintVerificationView(key: .preview)
         .environment(KeyringService())
 }
+#endif

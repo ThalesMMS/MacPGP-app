@@ -390,7 +390,9 @@ struct PaperKeyView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     PaperKeyView(key: .preview)
         .environment(KeyringService())
 }
+#endif

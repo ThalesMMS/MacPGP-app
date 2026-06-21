@@ -437,6 +437,8 @@ final class RevocationManagementViewModel: SensitiveSessionState {
     }
 }
 
+#if DEBUG
 #Preview {
     RevocationManagementView(key: .preview)
 }
+#endif
