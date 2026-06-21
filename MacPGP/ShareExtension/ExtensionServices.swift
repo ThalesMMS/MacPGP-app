@@ -122,43 +122,59 @@ final class ExtensionEncryptionService {
 
         progressCallback?(0.2)
 
-        let fileData: Data
-        do {
-            fileData = try Data(contentsOf: file)
-        } catch {
-            throw OperationError.fileAccessError(path: file.path)
-        }
-        progressCallback?(0.4)
+        let outputExtension = PGPFileExtensions.encryptedOutputExtension(armored: armored)
+        let output = outputURL ?? FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(UUID().uuidString)-\(file.lastPathComponent).\(outputExtension)")
 
-        // Encrypt the data
-        var encryptedData: Data
+        // Stream encryption directly between paths (issue #142): a large shared
+        // file is never loaded into a Data, and the encrypted output is never
+        // buffered. Write to a sibling temp file, then atomically promote it so a
+        // failure/cancellation never leaves a partial encrypted output behind.
+        let tempOutput = output.deletingLastPathComponent()
+            .appendingPathComponent(".\(UUID().uuidString).part")
+
+        func discardPartial() {
+            try? FileManager.default.removeItem(at: tempOutput)
+        }
+
         do {
-            if let signerKey = signerKey, let passphrase = passphrase {
+            if let signerKey, let passphrase {
                 var allKeys = recipientKeys
                 allKeys.append(signerKey)
-                encryptedData = try RNP.encrypt(
-                    fileData,
+                try RNP.encryptFile(
+                    inputPath: file.path,
+                    outputPath: tempOutput.path,
+                    armored: armored,
                     addSignature: true,
                     using: allKeys,
                     passphraseForKey: { _ in passphrase }
                 )
             } else {
-                encryptedData = try RNP.encrypt(fileData, addSignature: false, using: recipientKeys)
+                try RNP.encryptFile(
+                    inputPath: file.path,
+                    outputPath: tempOutput.path,
+                    armored: armored,
+                    addSignature: false,
+                    using: recipientKeys
+                )
             }
             progressCallback?(0.8)
         } catch RNPError.missingSigningKey {
+            discardPartial()
             throw OperationError.signerKeyMissing
         } catch {
+            discardPartial()
             throw OperationError.encryptionFailed(underlying: error)
         }
 
-        let outputExtension = PGPFileExtensions.encryptedOutputExtension(armored: false)
-        let output = outputURL ?? FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(UUID().uuidString)-\(file.lastPathComponent).\(outputExtension)")
-
         do {
-            try encryptedData.write(to: output)
+            if FileManager.default.fileExists(atPath: output.path) {
+                _ = try FileManager.default.replaceItemAt(output, withItemAt: tempOutput)
+            } else {
+                try FileManager.default.moveItem(at: tempOutput, to: output)
+            }
         } catch {
+            discardPartial()
             throw OperationError.fileAccessError(path: output.path)
         }
         progressCallback?(1.0)

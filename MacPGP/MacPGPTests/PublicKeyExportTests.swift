@@ -10,7 +10,7 @@ struct PublicKeyExportTests {
         let keyGenerator = KeyGenerator()
         keyGenerator.keyBitsLength = 2048
 
-        let secretKey = keyGenerator.generate(
+        let secretKey = try! keyGenerator.generate(
             for: "public-export@test.local",
             passphrase: "Password123!"
         )
@@ -31,7 +31,7 @@ struct PublicKeyExportTests {
         let keyGenerator = KeyGenerator()
         keyGenerator.keyBitsLength = 2048
 
-        let secretKey = keyGenerator.generate(
+        let secretKey = try! keyGenerator.generate(
             for: "shared-projection@test.local",
             passphrase: "Password123!"
         )
@@ -54,7 +54,7 @@ struct PublicKeyExportTests {
         let keyGenerator = KeyGenerator()
         keyGenerator.keyBitsLength = 2048
 
-        let secretKey = keyGenerator.generate(
+        let secretKey = try! keyGenerator.generate(
             for: "shared-projection-repair@test.local",
             passphrase: "Password123!"
         )

@@ -1,7 +1,7 @@
 import Foundation
 import RNPKit
 
-struct KeyGenerationParameters {
+nonisolated struct KeyGenerationParameters {
     var name: String
     var email: String
     var comment: String?
@@ -38,13 +38,20 @@ struct KeyGenerationParameters {
     }
 }
 
-final class KeyGenerationService {
+nonisolated final class KeyGenerationService: Sendable {
     static let shared = KeyGenerationService()
 
-    private init() {}
+    private let makeGenerator: @Sendable () -> KeyGenerator
+
+    /// - Parameter makeGenerator: factory for the underlying RNPKit generator.
+    ///   Tests inject a generator backed by a throwing closure to exercise
+    ///   failure handling without invoking librnp.
+    init(makeGenerator: @escaping @Sendable () -> KeyGenerator = { KeyGenerator() }) {
+        self.makeGenerator = makeGenerator
+    }
 
     func generateKey(with parameters: KeyGenerationParameters) throws -> Key {
-        let keyGenerator = KeyGenerator()
+        let keyGenerator = makeGenerator()
 
         keyGenerator.keyBitsLength = Int32(parameters.keySize)
 
@@ -59,7 +66,7 @@ final class KeyGenerationService {
             keyGenerator.keyAlgorithm = .RSA
         }
 
-        let key = keyGenerator.generate(
+        let key = try keyGenerator.generate(
             for: parameters.userID,
             passphrase: parameters.passphrase
         )
@@ -146,7 +153,7 @@ final class KeyGenerationService {
     }
 }
 
-enum PassphraseValidationIssue {
+nonisolated enum PassphraseValidationIssue {
     case tooShort(minimum: Int)
     case noUppercase
     case noLowercase
@@ -169,7 +176,7 @@ enum PassphraseValidationIssue {
     }
 }
 
-enum PassphraseStrength: Int, CaseIterable {
+nonisolated enum PassphraseStrength: Int, CaseIterable {
     case none = 0
     case veryWeak = 1
     case weak = 2

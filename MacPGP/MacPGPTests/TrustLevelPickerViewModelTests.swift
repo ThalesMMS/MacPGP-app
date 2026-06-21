@@ -8,6 +8,7 @@ import Foundation
 import RNPKit
 @testable import MacPGP
 
+@MainActor
 @Suite("TrustLevelPickerViewModel Tests")
 struct TrustLevelPickerViewModelTests {
 
@@ -17,7 +18,7 @@ struct TrustLevelPickerViewModelTests {
         let service = KeyringService()
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: email, passphrase: "test-pass")
+        let rawKey = try! keyGen.generate(for: email, passphrase: "test-pass")
         try? service.addKey(rawKey)
         guard let model = service.keys.first(where: { $0.email == email }) else {
             fatalError("Test key not added to service")
@@ -59,7 +60,7 @@ struct TrustLevelPickerViewModelTests {
         let service = KeyringService()
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: "vm-init-fallback@test.local", passphrase: "pass")
+        let rawKey = try! keyGen.generate(for: "vm-init-fallback@test.local", passphrase: "pass")
         let model = PGPKeyModel(from: rawKey, isVerified: false, verificationDate: nil, verificationMethod: nil, trustLevel: .marginal)
 
         let vm = makeViewModel(key: model, service: service)

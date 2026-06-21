@@ -6,6 +6,7 @@ struct KeyServerSettingsView: View {
     @State private var connectionStatus: String?
     @State private var alertMessage: String?
     @State private var showingAlert = false
+    @State private var pendingInsecureServer: KeyServerConfig?
 
     private var enabledServers: [KeyServerConfig] {
         KeyServerConfig.defaults.filter { preferences.enabledKeyServers.contains($0.hostname) }
@@ -13,11 +14,16 @@ struct KeyServerSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Enabled Keyservers") {
+            Section("settings.enabled_keyservers") {
                 ForEach(KeyServerConfig.defaults) { server in
                     Toggle(isOn: binding(for: server)) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(server.name)
+                            HStack(spacing: 6) {
+                                Text(server.name)
+                                if server.requiresInsecureOptIn {
+                                    insecureBadge(for: server)
+                                }
+                            }
                             Text(server.hostname)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -28,17 +34,22 @@ struct KeyServerSettingsView: View {
                 }
 
                 if enabledServers.count == 1 {
-                    Text("At least one keyserver must remain enabled.")
+                    Text("settings.at_least_one_keyserver_must_remain_enabl")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
 
-            Section("Default Keyserver") {
-                Picker("Server", selection: $preferences.defaultKeyServer) {
+            Section("keyserver_settings.default_keyserver") {
+                Picker("keyserver_settings.server", selection: $preferences.defaultKeyServer) {
                     ForEach(enabledServers) { server in
                         VStack(alignment: .leading) {
-                            Text(server.name)
+                            HStack(spacing: 6) {
+                                Text(server.name)
+                                if server.requiresInsecureOptIn {
+                                    insecureBadge(for: server)
+                                }
+                            }
                             Text(server.hostname)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -49,43 +60,88 @@ struct KeyServerSettingsView: View {
                 .accessibilityIdentifier("Default Keyserver Picker")
             }
 
-            Section("Network Settings") {
+            Section("keyserver_settings.network_settings") {
                 HStack {
-                    Text("Timeout")
+                    Text("keyserver_settings.timeout")
                     Spacer()
                     Picker("", selection: $preferences.keyServerTimeout) {
-                        Text("15 seconds").tag(15)
-                        Text("30 seconds").tag(30)
-                        Text("60 seconds").tag(60)
-                        Text("90 seconds").tag(90)
+                        Text("keyserver_settings.timeout_15s").tag(15)
+                        Text("keyserver_settings.timeout_30s").tag(30)
+                        Text("keyserver_settings.timeout_60s").tag(60)
+                        Text("keyserver_settings.timeout_90s").tag(90)
                     }
                     .labelsHidden()
+                    .accessibilityIdentifier("Keyserver Timeout Picker")
                 }
             }
 
-            Section("Server Information") {
+            Section("keyserver_settings.server_information") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("About Keyservers", systemImage: "info.circle")
+                    Label("keyserver_settings.about_keyservers", systemImage: "info.circle")
                         .font(.headline)
 
-                    Text("Public keyservers allow you to share your public key and discover keys from other users. The selected server will be used for search, upload, and refresh operations.")
+                    Text("keyserver_settings.about_message")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    Text(String(localized: "keyserver_settings.transport_security_note"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("Keyserver Transport Security Note")
                 }
             }
         }
         .formStyle(.grouped)
         .padding()
         .alert("Connection Status", isPresented: $showingAlert) {
-            Button("OK") {}
+            Button("common.ok") {}
         } message: {
             Text(alertMessage ?? "")
         }
+        .confirmationDialog(
+            String(localized: "keyserver_settings.insecure_confirm_title"),
+            isPresented: insecureConfirmationBinding,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "keyserver_settings.insecure_confirm_enable"), role: .destructive) {
+                confirmEnableInsecureServer()
+            }
+            .accessibilityIdentifier("Confirm Insecure Keyserver")
+            Button(String(localized: "keyserver_settings.insecure_confirm_cancel"), role: .cancel) {
+                pendingInsecureServer = nil
+            }
+            .accessibilityIdentifier("Cancel Insecure Keyserver")
+        } message: {
+            if let server = pendingInsecureServer {
+                Text(String(format: String(localized: "keyserver_settings.insecure_confirm_message"), server.name))
+            }
+        }
+    }
+
+    private func insecureBadge(for server: KeyServerConfig) -> some View {
+        Text(String(localized: "keyserver_settings.insecure_badge"))
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.orange.opacity(0.2), in: Capsule())
+            .foregroundStyle(.orange)
+            .accessibilityIdentifier("Insecure Badge \(server.hostname)")
+    }
+
+    private var insecureConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { pendingInsecureServer != nil },
+            set: { isPresented in
+                if !isPresented { pendingInsecureServer = nil }
+            }
+        )
     }
 
     /// Returns a `Binding<Bool>` that reflects whether the given keyserver is enabled.
-    /// 
-    /// When read, the binding reports whether `server.hostname` exists in the shared preferences. When written, it updates `preferences.enabledKeyServers`.
+    ///
+    /// Enabling a secure server applies immediately. Enabling an insecure (HKP/HTTP)
+    /// server that has not been opted into instead routes through a security
+    /// confirmation; the binding snaps back to `false` until the user confirms.
     /// - Parameter server: The keyserver configuration whose enabled state is being bound.
     /// - Returns: A binding that is `true` when the server is enabled, `false` otherwise.
     private func binding(for server: KeyServerConfig) -> Binding<Bool> {
@@ -94,19 +150,43 @@ struct KeyServerSettingsView: View {
                 preferences.enabledKeyServers.contains(server.hostname)
             },
             set: { isEnabled in
-                var enabledServers = preferences.enabledKeyServers
-
                 if isEnabled {
-                    if !enabledServers.contains(server.hostname) {
-                        enabledServers.append(server.hostname)
+                    if server.requiresInsecureOptIn,
+                       !preferences.isInsecureKeyServerAllowed(server.hostname) {
+                        pendingInsecureServer = server
+                        return
                     }
+                    enableServer(server)
                 } else {
-                    enabledServers.removeAll { $0 == server.hostname }
+                    disableServer(server)
                 }
-
-                preferences.enabledKeyServers = enabledServers
             }
         )
+    }
+
+    private func enableServer(_ server: KeyServerConfig) {
+        var enabledServers = preferences.enabledKeyServers
+        if !enabledServers.contains(server.hostname) {
+            enabledServers.append(server.hostname)
+        }
+        preferences.enabledKeyServers = enabledServers
+    }
+
+    private func disableServer(_ server: KeyServerConfig) {
+        var enabledServers = preferences.enabledKeyServers
+        enabledServers.removeAll { $0 == server.hostname }
+        preferences.enabledKeyServers = enabledServers
+        // Clearing the opt-in means re-enabling this server prompts for confirmation again.
+        if server.requiresInsecureOptIn {
+            preferences.setInsecureKeyServer(server.hostname, allowed: false)
+        }
+    }
+
+    private func confirmEnableInsecureServer() {
+        guard let server = pendingInsecureServer else { return }
+        preferences.setInsecureKeyServer(server.hostname, allowed: true)
+        enableServer(server)
+        pendingInsecureServer = nil
     }
 }
 

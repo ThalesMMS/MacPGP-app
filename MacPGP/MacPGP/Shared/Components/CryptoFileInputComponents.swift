@@ -80,7 +80,7 @@ private struct CryptoOutputLocationSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Output Location")
+            Text("component.output_location")
                 .font(.headline)
 
             if let location {
@@ -91,7 +91,7 @@ private struct CryptoOutputLocationSection: View {
                         .lineLimit(1)
                         .font(.caption)
                     Spacer()
-                    Button("Change", action: onChooseOutputLocation)
+                    Button("component.change", action: onChooseOutputLocation)
                         .buttonStyle(.borderless)
                 }
                 .padding()
@@ -101,7 +101,7 @@ private struct CryptoOutputLocationSection: View {
                 Button(action: onChooseOutputLocation) {
                     HStack {
                         Image(systemName: "folder.badge.plus")
-                        Text("Choose Output Location")
+                        Text("component.choose_output_location")
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -135,10 +135,10 @@ private struct CryptoSelectedFileRow: View {
     @ViewBuilder
     private var removeButton: some View {
         if usesBorderlessRemoveButton {
-            Button("Remove", action: onRemove)
+            Button("encrypt.remove", action: onRemove)
                 .buttonStyle(.borderless)
         } else {
-            Button("Remove", action: onRemove)
+            Button("encrypt.remove", action: onRemove)
         }
     }
 }
@@ -171,7 +171,7 @@ struct DropZone: View {
             Text(allowsMultiple ? "Drop files here" : "Drop a file here")
                 .font(.headline)
 
-            Text("or")
+            Text("component.or")
                 .foregroundStyle(.secondary)
 
             Button(allowsMultiple ? "Select Files..." : "Select File...") {
@@ -239,7 +239,7 @@ struct DropZone: View {
     }
 }
 
-final class DroppedFileURLStore: @unchecked Sendable {
+nonisolated final class DroppedFileURLStore: @unchecked Sendable {
     private let lock = NSLock()
     private var urlsByProviderIndex: [Int: URL] = [:]
 

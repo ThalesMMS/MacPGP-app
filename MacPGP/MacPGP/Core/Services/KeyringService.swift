@@ -8,10 +8,15 @@ final class KeyringService {
     private(set) var lastError: OperationError?
 
     private let persistence: any KeyringPersisting
+    private let autoSaveProvider: () -> Bool
     private var rawKeys: [Key] = []
 
-    init(persistence: any KeyringPersisting = KeyringPersistence()) {
+    init(
+        persistence: any KeyringPersisting = KeyringPersistence(),
+        autoSave: @escaping () -> Bool = { PreferencesManager.shared.autoSaveKeyring }
+    ) {
         self.persistence = persistence
+        self.autoSaveProvider = autoSave
         loadKeys()
     }
 
@@ -37,83 +42,78 @@ final class KeyringService {
         try persistence.saveKeys(rawKeys)
     }
 
-    func addKey(_ key: Key) throws {
-        if let existingIndex = rawKeys.firstIndex(where: {
-            $0.fingerprint == key.fingerprint
-        }) {
-            if key.isSecret && !rawKeys[existingIndex].isSecret {
-                rawKeys[existingIndex] = key
+    /// Commits a proposed raw-key set transactionally (issue #144): when
+    /// auto-save is on, the proposed set is persisted as one atomic generation
+    /// *before* it becomes the published in-memory state, so a persistence failure
+    /// throws and leaves `rawKeys` (and the UI) at the previous committed state.
+    /// When auto-save is off, the proposed set becomes the in-memory working copy
+    /// and is persisted later by an explicit `saveKeys()`.
+    private func commit(_ proposed: [Key]) throws {
+        if autoSaveProvider() {
+            try persistence.saveKeys(proposed)
+        }
+        rawKeys = proposed
+        reloadKeysWithVerificationStatus()
+    }
+
+    private func merge(_ key: Key, into keys: inout [Key]) {
+        if let existingIndex = keys.firstIndex(where: { $0.fingerprint == key.fingerprint }) {
+            // Never downgrade an existing secret key to a public-only import.
+            if key.isSecret && !keys[existingIndex].isSecret {
+                keys[existingIndex] = key
             }
         } else {
-            rawKeys.append(key)
+            keys.append(key)
         }
+    }
 
-        reloadKeysWithVerificationStatus()
-
-        if PreferencesManager.shared.autoSaveKeyring {
-            try saveKeys()
-        }
+    func addKey(_ key: Key) throws {
+        var proposed = rawKeys
+        merge(key, into: &proposed)
+        try commit(proposed)
     }
 
     func replaceKey(_ key: Key) throws {
-        if let existingIndex = rawKeys.firstIndex(where: { $0.fingerprint == key.fingerprint }) {
-            let existingKey = rawKeys[existingIndex]
+        var proposed = rawKeys
+        if let existingIndex = proposed.firstIndex(where: { $0.fingerprint == key.fingerprint }) {
+            let existingKey = proposed[existingIndex]
             if existingKey.isSecret && !key.isSecret {
-                rawKeys[existingIndex] = existingKey
+                proposed[existingIndex] = existingKey
             } else {
-                rawKeys[existingIndex] = key
+                proposed[existingIndex] = key
             }
         } else {
-            rawKeys.append(key)
+            proposed.append(key)
         }
-
-        reloadKeysWithVerificationStatus()
-
-        if PreferencesManager.shared.autoSaveKeyring {
-            try saveKeys()
-        }
+        try commit(proposed)
     }
 
-    func importKey(from url: URL) throws -> [PGPKeyModel] {
-        let importedKeys = try persistence.importKey(from: url)
-        var addedModels: [PGPKeyModel] = []
-
-        for key in importedKeys {
-            try addKey(key)
-            if let model = keys.first(where: { $0.fingerprint == key.fingerprint }) {
-                addedModels.append(model)
-            }
+    /// Adds several keys as a single all-or-nothing transaction: either every key
+    /// is committed together or none are (issue #144). Returns the models for the
+    /// imported fingerprints.
+    private func addKeys(_ newKeys: [Key]) throws -> [PGPKeyModel] {
+        var proposed = rawKeys
+        for key in newKeys {
+            merge(key, into: &proposed)
         }
+        try commit(proposed)
 
-        return addedModels
+        let importedFingerprints = Set(newKeys.map(\.fingerprint))
+        return keys.filter { importedFingerprints.contains($0.fingerprint) }
+    }
+
+    // Import is all-or-nothing: every key in the source commits as one
+    // transaction, or the keyring is left untouched (issue #144).
+    func importKey(from url: URL) throws -> [PGPKeyModel] {
+        try addKeys(persistence.importKey(from: url))
     }
 
     func importKey(from data: Data) throws -> [PGPKeyModel] {
-        let importedKeys = try persistence.importKey(from: data)
-        var addedModels: [PGPKeyModel] = []
-
-        for key in importedKeys {
-            try addKey(key)
-            if let model = keys.first(where: { $0.fingerprint == key.fingerprint }) {
-                addedModels.append(model)
-            }
-        }
-
-        return addedModels
+        try addKeys(persistence.importKey(from: data))
     }
 
     func importKey(fromArmored string: String) throws -> [PGPKeyModel] {
-        let importedKeys = try persistence.importKey(fromArmored: string)
-        var addedModels: [PGPKeyModel] = []
-
-        for key in importedKeys {
-            try addKey(key)
-            if let model = keys.first(where: { $0.fingerprint == key.fingerprint }) {
-                addedModels.append(model)
-            }
-        }
-
-        return addedModels
+        try addKeys(persistence.importKey(fromArmored: string))
     }
 
     func exportKey(_ keyModel: PGPKeyModel, includeSecretKey: Bool = false, armored: Bool = true) throws -> Data {
@@ -129,20 +129,26 @@ final class KeyringService {
     }
 
     func deleteKey(_ keyModel: PGPKeyModel) throws {
-        persistence.deleteKey(withFingerprint: keyModel.fingerprint, from: &rawKeys)
+        // The keyring deletion is authoritative and is committed first (issue
+        // #144): only if the proposed key removal persists do we touch the
+        // auxiliary metadata / Keychain state, so a persistence failure can never
+        // strip metadata or the passphrase while leaving the key on disk.
+        var proposed = rawKeys
+        proposed.removeAll { $0.fingerprint == keyModel.fingerprint }
+        try commit(proposed)
 
-        // Remove verification status
+        // Auxiliary cleanup AFTER the authoritative commit. The key is already
+        // gone from the committed keyring, so a cleanup failure is reported and
+        // retryable rather than corrupting keyring state. Metadata is keyed by
+        // fingerprint and harmlessly ignores a stale entry until retried.
         try? persistence.removeVerificationStatus(forFingerprint: keyModel.fingerprint)
-
-        // Remove trust level
         try? persistence.removeTrustLevel(forFingerprint: keyModel.fingerprint)
 
-        reloadKeysWithVerificationStatus()
-
-        try KeychainManager.shared.deletePassphrase(for: keyModel)
-
-        if PreferencesManager.shared.autoSaveKeyring {
-            try saveKeys()
+        do {
+            try KeychainManager.shared.deletePassphrase(for: keyModel)
+        } catch {
+            NSLog("[KeyringService] Passphrase cleanup after deleting \(keyModel.shortKeyID) failed: \(error.localizedDescription)")
+            lastError = .persistenceError(underlying: error)
         }
     }
 
@@ -162,16 +168,26 @@ final class KeyringService {
         keys.filter { $0.isSecretKey }
     }
 
-    func publicKeys() -> [PGPKeyModel] {
-        keys.filter(\.isUsableForEncryption)
+    func publicKeys(asOf now: Date = Date()) -> [PGPKeyModel] {
+        keys.filter { $0.isUsableForEncryption(asOf: now) }
     }
 
-    func validKeysForEncryption() -> [PGPKeyModel] {
-        keys.filter(\.isUsableForEncryption)
+    func validKeysForEncryption(asOf now: Date = Date()) -> [PGPKeyModel] {
+        keys.filter { $0.isUsableForEncryption(asOf: now) }
     }
 
-    func signingKeys() -> [PGPKeyModel] {
-        keys.filter(\.isUsableForSigning)
+    func signingKeys(asOf now: Date = Date()) -> [PGPKeyModel] {
+        keys.filter { $0.isUsableForSigning(asOf: now) }
+    }
+
+    /// Re-publishes the in-memory key list so SwiftUI views re-evaluate
+    /// time-dependent validity (expiration) after the wall clock advances past a
+    /// boundary, the system clock changes, or the app reactivates. The models are
+    /// unchanged; republishing only triggers `@Observable` invalidation so derived
+    /// filters and banners recompute against the current time.
+    func refreshKeyValidity() {
+        guard !isLoading else { return }
+        reloadKeysWithVerificationStatus()
     }
 
     func search(_ query: String) -> [PGPKeyModel] {

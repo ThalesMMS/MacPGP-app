@@ -53,10 +53,10 @@ struct FingerprintVerificationView: View {
             }
             .padding(24)
         }
-        .navigationTitle("Verify Key Fingerprint")
+        .navigationTitle("keydetails.verify_key_fingerprint")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Close") {
+                Button("revocation.close") {
                     viewModel.audioService.stop()
                     dismiss()
                 }
@@ -69,7 +69,7 @@ struct FingerprintVerificationView: View {
     @ViewBuilder
     private var keyInfoSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Key Information")
+            Text("trust.key_information")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -90,9 +90,9 @@ struct FingerprintVerificationView: View {
                 if key.isVerified {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.seal.fill")
-                        Text("Already verified")
+                        Text("keydetails.already_verified")
                         if let date = key.verificationDate {
-                            Text("on \(date.formatted(date: .abbreviated, time: .omitted))")
+                            Text(String.localizedStringWithFormat(NSLocalizedString("verification.signed_on_relative_format", comment: ""), date.formatted(date: .abbreviated, time: .omitted)))
                         }
                     }
                     .font(.caption)
@@ -111,7 +111,7 @@ struct FingerprintVerificationView: View {
     @ViewBuilder
     private func fingerprintSection(viewModel: FingerprintVerificationViewModel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Fingerprint")
+            Text("common.fingerprint")
                 .font(.headline)
 
             VStack(spacing: 12) {
@@ -129,7 +129,7 @@ struct FingerprintVerificationView: View {
 
                 HStack(spacing: 12) {
                     Button(action: { viewModel.copyFingerprint() }) {
-                        Label("Copy", systemImage: "doc.on.doc")
+                        Label("common.copy", systemImage: "doc.on.doc")
                     }
                     .buttonStyle(.bordered)
 
@@ -153,7 +153,7 @@ struct FingerprintVerificationView: View {
 
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("QR Code")
+                Text("common.qr_code")
                     .font(.headline)
 
                 Spacer()
@@ -169,7 +169,7 @@ struct FingerprintVerificationView: View {
 
             if vm.showQRCode {
                 VStack(spacing: 12) {
-                    Text("Scan this QR code with another device to verify the fingerprint in person.")
+                    Text("keydetails.scan_this_qr_code_with_another_device_to")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -195,7 +195,7 @@ struct FingerprintVerificationView: View {
 
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Compare with Received Fingerprint")
+                Text("keydetails.compare_with_received_fingerprint")
                     .font(.headline)
 
                 Spacer()
@@ -211,7 +211,7 @@ struct FingerprintVerificationView: View {
 
             if vm.showComparison {
                 VStack(spacing: 12) {
-                    Text("Paste or type the fingerprint you received through a trusted channel to verify it matches this key.")
+                    Text("keydetails.paste_or_type_the_fingerprint_you_receiv")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -241,7 +241,7 @@ struct FingerprintVerificationView: View {
                 )
                 .overlay(alignment: .topLeading) {
                     if vm.comparisonFingerprint.isEmpty {
-                        Text("Paste fingerprint here...")
+                        Text("keydetails.paste_fingerprint_here")
                             .font(.system(.body, design: .monospaced))
                             .foregroundStyle(.secondary.opacity(0.5))
                             .padding(.horizontal, 12)
@@ -265,12 +265,12 @@ struct FingerprintVerificationView: View {
                     .foregroundStyle(.green)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Fingerprints match")
+                    Text("keydetails.fingerprints_match_2")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(.green)
 
-                    Text("The fingerprints are identical. Tap Verify to mark this key as verified.")
+                    Text("keydetails.the_fingerprints_are_identical_tap_verif")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -291,12 +291,12 @@ struct FingerprintVerificationView: View {
                     .foregroundStyle(.red)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Fingerprints Don't Match")
+                    Text("keydetails.fingerprints_don_t_match")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(.red)
 
-                    Text("The fingerprints are different. Do NOT trust this key. It may be compromised or incorrect.")
+                    Text("keydetails.the_fingerprints_are_different_do_not_tr")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -323,15 +323,15 @@ struct FingerprintVerificationView: View {
         @Bindable var vm = viewModel
 
         VStack(alignment: .leading, spacing: 12) {
-            Text("Mark as Verified")
+            Text("keydetails.mark_as_verified")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("Paste the fingerprint you received through a trusted channel. Matching it records that you've verified the fingerprint; it does not mark the key as trusted.")
+                Text("keydetails.paste_the_fingerprint_you_received_throu")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Picker("Verification Method", selection: $vm.selectedMethod) {
+                Picker("keydetails.verification_method", selection: $vm.selectedMethod) {
                     ForEach([
                         FingerprintVerificationMethod.inPerson,
                         .phone,
@@ -344,7 +344,7 @@ struct FingerprintVerificationView: View {
                 .pickerStyle(.segmented)
 
                 Button(action: { viewModel.markAsVerified() }) {
-                    Label("Mark as Verified", systemImage: "checkmark.seal.fill")
+                    Label("keydetails.mark_as_verified", systemImage: "checkmark.seal.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -352,7 +352,7 @@ struct FingerprintVerificationView: View {
                 .disabled(!viewModel.canMarkAsVerified)
 
                 if !viewModel.canMarkAsVerified && !key.isVerified {
-                    Label("Paste a matching fingerprint to continue.", systemImage: "checkmark.shield")
+                    Label("keydetails.paste_a_matching_fingerprint_to_continue", systemImage: "checkmark.shield")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -394,11 +394,11 @@ struct FingerprintVerificationView: View {
                 .foregroundStyle(.green)
 
             VStack(spacing: 8) {
-                Text("Key Verified Successfully")
+                Text("keydetails.key_verified_successfully")
                     .font(.title2)
                     .fontWeight(.bold)
 
-                Text("The key \"\(key.displayName)\" has been marked as verified using \(viewModel.selectedMethod.displayName).")
+                Text(String.localizedStringWithFormat(NSLocalizedString("verification.marked_verified_format", comment: ""), key.displayName, viewModel.selectedMethod.displayName))
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -407,14 +407,14 @@ struct FingerprintVerificationView: View {
 
             Spacer()
 
-            Button("Done") {
+            Button("keygen.done") {
                 dismiss()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
         .padding(32)
-        .navigationTitle("Verification Complete")
+        .navigationTitle("keydetails.verification_complete")
     }
 }
 

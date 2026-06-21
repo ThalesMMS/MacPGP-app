@@ -1,7 +1,7 @@
 import Foundation
 import RNPKit
 
-enum KeyAlgorithm: String, CaseIterable, Identifiable, Codable {
+nonisolated enum KeyAlgorithm: String, CaseIterable, Identifiable, Codable {
     case rsa = "RSA"
     case ecdsa = "ECDSA"
     case eddsa = "EdDSA"
@@ -73,8 +73,6 @@ enum KeyAlgorithm: String, CaseIterable, Identifiable, Codable {
         case .elgamal:
             return .elgamal
         case .ecdh, .curve25519, .unknown:
-            return .unknown
-        default:
             return .unknown
         }
     }

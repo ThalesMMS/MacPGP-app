@@ -10,6 +10,7 @@ import Foundation
 import RNPKit
 @testable import MacPGP
 
+@MainActor
 @Suite("KeyExpirationService Tests", .serialized)
 struct KeyExpirationServiceTests {
 
@@ -19,25 +20,18 @@ struct KeyExpirationServiceTests {
     private func createMockKey(expiresIn days: Int?, isSecret: Bool = false) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "test")
-
-        // Create a modified key with custom expiration
-        var modifiedKey = PGPKeyModel(from: key)
-
-        // Use reflection to modify the expiration date (for testing purposes)
-        // Since PGPKeyModel is a struct, we need to create a new instance with modified values
-        let expirationDate: Date? = days != nil ? Calendar.current.date(byAdding: .day, value: days!, to: Date()) : nil
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "test")
 
         // We'll create a custom key model using the Key's actual structure
         // For testing purposes, we use the actual key and rely on RNP-backed expiration handling
-        return modifiedKey
+        return PGPKeyModel(from: key)
     }
 
     /// Creates a test key with specific characteristics
     private func createTestKeyWithExpiration(daysFromNow: Int?) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "testkey@example.com", passphrase: "testpass")
+        let key = try! keyGen.generate(for: "testkey@example.com", passphrase: "testpass")
         return PGPKeyModel(from: key)
     }
 
@@ -48,7 +42,7 @@ struct KeyExpirationServiceTests {
     ) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: email, passphrase: passphrase)
+        let key = try! keyGen.generate(for: email, passphrase: passphrase)
 
         if isSecret {
             return PGPKeyModel(from: key)
@@ -137,8 +131,8 @@ struct KeyExpirationServiceTests {
         // Generate keys without expiration dates
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key1 = keyGen.generate(for: "test1@example.com", passphrase: "pass1")
-        let key2 = keyGen.generate(for: "test2@example.com", passphrase: "pass2")
+        let key1 = try! keyGen.generate(for: "test1@example.com", passphrase: "pass1")
+        let key2 = try! keyGen.generate(for: "test2@example.com", passphrase: "pass2")
 
         let keys = [PGPKeyModel(from: key1), PGPKeyModel(from: key2)]
 
@@ -154,7 +148,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keys = [PGPKeyModel(from: key)]
 
         let result = service.getExpiringKeys(within: 0, from: keys)
@@ -168,7 +162,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keys = [PGPKeyModel(from: key)]
 
         let result = service.getExpiringKeys(within: 30, from: keys)
@@ -185,7 +179,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keys = [PGPKeyModel(from: key)]
 
         let result = service.getExpiredKeys(from: keys)
@@ -209,8 +203,8 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key1 = keyGen.generate(for: "test1@example.com", passphrase: "pass1")
-        let key2 = keyGen.generate(for: "test2@example.com", passphrase: "pass2")
+        let key1 = try! keyGen.generate(for: "test1@example.com", passphrase: "pass1")
+        let key2 = try! keyGen.generate(for: "test2@example.com", passphrase: "pass2")
 
         let keys = [PGPKeyModel(from: key1), PGPKeyModel(from: key2)]
 
@@ -230,7 +224,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keyModel = PGPKeyModel(from: key)
 
         let result = service.needsAttention(keyModel)
@@ -245,7 +239,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keyModel = PGPKeyModel(from: key)
 
         // Test logic: if key is expired, it needs attention
@@ -260,7 +254,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keyModel = PGPKeyModel(from: key)
 
         // Test logic: if key is expiring soon, it needs attention
@@ -277,7 +271,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keyModel = PGPKeyModel(from: key)
 
         let pastDate = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
@@ -294,7 +288,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keyModel = PGPKeyModel(from: key)
 
         // Set date to yesterday (before today's creation date)
@@ -312,7 +306,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keyModel = PGPKeyModel(from: key)
 
         let farFuture = Calendar.current.date(byAdding: .year, value: 10, to: Date())!
@@ -329,7 +323,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keyModel = PGPKeyModel(from: key)
 
         let validDate = Calendar.current.date(byAdding: .year, value: 2, to: Date())!
@@ -347,7 +341,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keyModel = PGPKeyModel(from: key)
 
         let issues = service.validateExpirationDate(Date(), forKey: keyModel)
@@ -362,7 +356,7 @@ struct KeyExpirationServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "pass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "pass")
         let keyModel = PGPKeyModel(from: key)
 
         let oneYear = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
@@ -379,7 +373,7 @@ struct KeyExpirationServiceTests {
         let service = KeyExpirationService.shared
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "expires@example.com", passphrase: "testpass")
+        let key = try! keyGen.generate(for: "expires@example.com", passphrase: "testpass")
         let keyModel = PGPKeyModel(from: key)
         let newExpirationDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
 
@@ -401,7 +395,7 @@ struct KeyExpirationServiceTests {
         let service = KeyExpirationService.shared
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "expires@example.com", passphrase: "testpass")
+        let key = try! keyGen.generate(for: "expires@example.com", passphrase: "testpass")
         let keyModel = PGPKeyModel(from: key)
         let newExpirationDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
 
@@ -571,7 +565,6 @@ struct KeyExpirationServiceTests {
                 newExpirationDate: futureDate,
                 passphrase: "pass"
             )
-            #expect(Thread.isMainThread)
             #expect(updatedKey.expirationDate != nil)
             if let expirationDate = updatedKey.expirationDate {
                 #expect(abs(expirationDate.timeIntervalSince(futureDate)) < 5)
@@ -597,7 +590,6 @@ struct KeyExpirationServiceTests {
             )
             Issue.record("Expected failure, got success")
         } catch let error as OperationError {
-            #expect(Thread.isMainThread)
             _ = expectUnknownError(error, containing: "future", context: #function)
         } catch {
             Issue.record("Expected OperationError.unknownError, got \(error)")
@@ -624,7 +616,6 @@ struct KeyExpirationServiceTests {
             )
             Issue.record("Expected failure for empty passphrase")
         } catch let error as OperationError {
-            #expect(Thread.isMainThread)
             expectPassphraseRequired(error, context: #function)
         } catch {
             Issue.record("Expected OperationError.passphraseRequired, got \(error)")

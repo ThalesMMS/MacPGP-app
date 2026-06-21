@@ -6,12 +6,21 @@
 //
 
 import Testing
+import Foundation
 @testable import MacPGP
 
 struct MacPGPTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test func appBundleRegistersPGPDocumentTypes() throws {
+        let appBundle = Bundle(identifier: "thalesmms.MacPGP") ?? Bundle.main
+        let documentTypes = try #require(appBundle.object(forInfoDictionaryKey: "CFBundleDocumentTypes") as? [[String: Any]])
+        let registeredExtensions = Set(
+            documentTypes
+                .compactMap { $0["CFBundleTypeExtensions"] as? [String] }
+                .flatMap { $0 }
+        )
+
+        #expect(registeredExtensions.isSuperset(of: ["asc", "gpg", "pgp"]))
     }
 
 }

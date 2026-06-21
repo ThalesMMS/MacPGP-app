@@ -7,7 +7,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
-- No unreleased changes yet.
+### Extensions
+- Scoped Quick Look to **metadata-only** previews of encrypted files (issue #136).
+  Because the shared App Group projection is public-key-only, the Quick Look
+  process holds no secret-key material; it shows encryption metadata and directs
+  the user to open MacPGP to decrypt, rather than attempting in-preview
+  decryption. Added `scripts/check-quicklook-scope.sh` (run in CI) to keep scope
+  documentation and the Quick Look surface in agreement.
 
 ## [1.0.0] - 2026-04-21
 
@@ -28,8 +34,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Extensions
 - Added Finder Sync integration for encrypted-file badges and Finder context menu actions.
-- Added Quick Look integration for encrypted-file metadata previews and in-preview decryption when the required data is available.
+- Added Quick Look integration for encrypted-file metadata previews (metadata-only; decryption happens in the app).
 - Added Thumbnail integration for custom previews of supported encrypted files.
+- Added Share extension integration to encrypt files from the macOS share sheet for synced recipient keys.
 
 ### Session State
 - Added release-visible session state persistence so users can return to core workflows without losing expected local context.

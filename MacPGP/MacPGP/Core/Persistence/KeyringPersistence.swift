@@ -1,26 +1,33 @@
 import Foundation
 import RNPKit
 
-struct KeyVerificationMetadata: Codable {
+nonisolated struct KeyVerificationMetadata: Codable {
     let fingerprint: String
     let isVerified: Bool
     let verificationDate: Date?
     let verificationMethod: String?
 }
 
-struct KeyTrustMetadata: Codable {
+nonisolated struct KeyTrustMetadata: Codable {
     let fingerprint: String
     let trustLevel: TrustLevel
     let lastModified: Date
     let notes: String?
 }
 
-struct KeyringMetadata: Codable {
+nonisolated struct KeyringMetadata: Codable {
     var verifications: [String: KeyVerificationMetadata] = [:]
     var trusts: [String: KeyTrustMetadata] = [:]
 }
 
-protocol KeyringPersisting {
+/// Failures specific to the transactional keyring commit (issue #144).
+nonisolated enum KeyringTransactionError: Error, Equatable {
+    /// The staged generation did not round-trip to the intended key set on
+    /// read-back, so it was not published.
+    case stagedValidationMismatch
+}
+
+nonisolated protocol KeyringPersisting {
     var shouldSyncSharedContainer: Bool { get }
 
     func loadKeys() throws -> [Key]
@@ -47,7 +54,7 @@ protocol KeyringPersisting {
     func removeTrustLevel(forFingerprint fingerprint: String) throws
 }
 
-final class KeyringPersistence: KeyringPersisting {
+nonisolated final class KeyringPersistence: KeyringPersisting {
     private let fileManager = FileManager.default
     private let directoryOverride: URL?
     private let testDirectory: URL?
@@ -75,12 +82,36 @@ final class KeyringPersistence: KeyringPersisting {
         return keyringDir
     }
 
-    var publicKeyringPath: URL {
+    /// Atomically-published keyring generation. `current/` holds the committed
+    /// `pubring.gpg` + `secring.gpg` as one unit; a new generation is staged in a
+    /// sibling temp directory and swapped in via an atomic directory replace, so
+    /// the two keyrings can never refer to different generations (issue #144).
+    var currentDirectory: URL {
+        keyringDirectory.appendingPathComponent("current", isDirectory: true)
+    }
+
+    /// Legacy flat layout (pre-#144): keyrings directly under the keyring dir.
+    /// Still read on load until the first transactional save publishes `current/`.
+    var legacyPublicKeyringPath: URL {
         keyringDirectory.appendingPathComponent("pubring.gpg")
     }
 
-    var secretKeyringPath: URL {
+    var legacySecretKeyringPath: URL {
         keyringDirectory.appendingPathComponent("secring.gpg")
+    }
+
+    /// True once a committed generation exists; load/read uses it in preference to
+    /// the legacy flat files.
+    private var hasCurrentGeneration: Bool {
+        fileManager.fileExists(atPath: currentDirectory.path)
+    }
+
+    var publicKeyringPath: URL {
+        hasCurrentGeneration ? currentDirectory.appendingPathComponent("pubring.gpg") : legacyPublicKeyringPath
+    }
+
+    var secretKeyringPath: URL {
+        hasCurrentGeneration ? currentDirectory.appendingPathComponent("secring.gpg") : legacySecretKeyringPath
     }
 
     var metadataPath: URL {
@@ -109,6 +140,20 @@ final class KeyringPersistence: KeyringPersisting {
             try fileManager.createDirectory(at: keyringDirectory, withIntermediateDirectories: true)
         } catch {
             print("Failed to create keyring directory: \(error)")
+        }
+        cleanupStaleStagingDirectories()
+    }
+
+    /// Removes any `.staging-*` directories left behind by an interrupted commit.
+    /// A staged generation is never read (only `current/` is), so discarding it on
+    /// startup recovers cleanly to the last committed generation (issue #144).
+    private func cleanupStaleStagingDirectories() {
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: keyringDirectory,
+            includingPropertiesForKeys: nil
+        ) else { return }
+        for entry in entries where entry.lastPathComponent.hasPrefix(".staging-") {
+            try? fileManager.removeItem(at: entry)
         }
     }
 
@@ -171,36 +216,84 @@ final class KeyringPersistence: KeyringPersisting {
     }
 
     func saveKeys(_ keys: [Key]) throws {
+        // Commit the keyrings as one atomically-published generation. Only after a
+        // durable commit is the derived shared projection regenerated; a projection
+        // failure is logged and never rolls back the committed canonical keyring.
+        try commitGeneration(keys)
+        syncSharedProjectionIfNeeded(keys: keys)
+    }
+
+    /// Stages a new keyring generation in a sibling temp directory, validates it by
+    /// reading it back, and atomically publishes it as `current/`. Throws on any
+    /// staging/validation/publish failure, leaving the previously committed
+    /// generation (and therefore the caller's in-memory state) untouched.
+    private func commitGeneration(_ keys: [Key]) throws {
         var publicData = Data()
         var secretData = Data()
-
         for key in keys {
             publicData.append(try PublicKeyExport.export(key))
-
             if key.isSecret {
                 secretData.append(try key.export())
             }
         }
 
-        // Only write keyring files if there's data, otherwise delete them
+        let stagingDir = keyringDirectory.appendingPathComponent(".staging-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+        var published = false
+        defer {
+            if !published, fileManager.fileExists(atPath: stagingDir.path) {
+                try? fileManager.removeItem(at: stagingDir)
+            }
+        }
+
+        let stagedPublic = stagingDir.appendingPathComponent("pubring.gpg")
+        let stagedSecret = stagingDir.appendingPathComponent("secring.gpg")
         if !publicData.isEmpty {
-            try publicData.write(to: publicKeyringPath, options: .atomic)
-        } else {
-            // Delete public keyring file if it exists and we have no keys
-            if fileManager.fileExists(atPath: publicKeyringPath.path) {
-                try fileManager.removeItem(at: publicKeyringPath)
-            }
+            try publicData.write(to: stagedPublic, options: .atomic)
         }
-
         if !secretData.isEmpty {
-            try secretData.write(to: secretKeyringPath, options: .atomic)
-        } else {
-            // Delete secret keyring file if it exists and we have no secret keys
-            if fileManager.fileExists(atPath: secretKeyringPath.path) {
-                try fileManager.removeItem(at: secretKeyringPath)
-            }
+            try secretData.write(to: stagedSecret, options: .atomic)
         }
 
+        // Validate the staged generation before committing: read it back and
+        // confirm the key set (and which keys are secret) matches what we intended.
+        try validateStagedGeneration(publicPath: stagedPublic, secretPath: stagedSecret, expected: keys)
+
+        // Atomically publish: replace (or create) current/ in one filesystem op so
+        // pubring and secring can never refer to different generations.
+        if fileManager.fileExists(atPath: currentDirectory.path) {
+            _ = try fileManager.replaceItemAt(currentDirectory, withItemAt: stagingDir)
+        } else {
+            try fileManager.moveItem(at: stagingDir, to: currentDirectory)
+        }
+        published = true
+
+        // current/ is now authoritative; remove any superseded legacy flat files.
+        try? fileManager.removeItem(at: legacyPublicKeyringPath)
+        try? fileManager.removeItem(at: legacySecretKeyringPath)
+    }
+
+    /// Reads the staged keyrings back and asserts they round-trip to exactly the
+    /// intended key set, so a serialization/corruption failure is caught before
+    /// the generation is published rather than after.
+    private func validateStagedGeneration(publicPath: URL, secretPath: URL, expected: [Key]) throws {
+        let publicKeys = fileManager.fileExists(atPath: publicPath.path)
+            ? try RNP.readKeys(fromPath: publicPath.path) : []
+        let secretKeys = fileManager.fileExists(atPath: secretPath.path)
+            ? try RNP.readKeys(fromPath: secretPath.path) : []
+        let readBack = mergeKeys(publicKeys: publicKeys, secretKeys: secretKeys)
+
+        let expectedFingerprints = Set(expected.map(\.fingerprint).filter { !$0.isEmpty })
+        let actualFingerprints = Set(readBack.map(\.fingerprint).filter { !$0.isEmpty })
+        let expectedSecret = Set(expected.filter(\.isSecret).map(\.fingerprint).filter { !$0.isEmpty })
+        let actualSecret = Set(readBack.filter(\.isSecret).map(\.fingerprint).filter { !$0.isEmpty })
+
+        guard expectedFingerprints == actualFingerprints, expectedSecret == actualSecret else {
+            throw OperationError.persistenceError(underlying: KeyringTransactionError.stagedValidationMismatch)
+        }
+    }
+
+    private func syncSharedProjectionIfNeeded(keys: [Key]) {
         guard shouldSyncSharedContainer else { return }
 
         do {
@@ -295,6 +388,14 @@ final class KeyringPersistence: KeyringPersisting {
             decoder.dateDecodingStrategy = .iso8601
             return try decoder.decode(KeyringMetadata.self, from: data)
         } catch {
+            // Surface corruption rather than silently presenting empty trust/
+            // verification state (issue #144): preserve the unreadable file under a
+            // .corrupt name (so it is not overwritten by the next save) and log it.
+            // Trust/verification are auxiliary, so the keyring still loads.
+            let quarantine = metadataPath.deletingLastPathComponent()
+                .appendingPathComponent("metadata.json.corrupt-\(UUID().uuidString)")
+            try? fileManager.moveItem(at: metadataPath, to: quarantine)
+            NSLog("[KeyringPersistence] metadata.json was unreadable (\(error.localizedDescription)); quarantined to \(quarantine.lastPathComponent). Trust/verification reset to empty.")
             return KeyringMetadata()
         }
     }
@@ -304,7 +405,7 @@ final class KeyringPersistence: KeyringPersisting {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(metadata)
-        try data.write(to: metadataPath)
+        try data.write(to: metadataPath, options: .atomic)
     }
 
     func getVerificationStatus(forFingerprint fingerprint: String) -> KeyVerificationMetadata? {

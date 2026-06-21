@@ -14,12 +14,12 @@ struct DecryptView: View {
             inputPane
             outputPane
         }
-        .navigationTitle("Decrypt")
+        .navigationTitle("sidebar.decrypt")
         .toolbar {
             ToolbarItemGroup {
-                Picker("Mode", selection: $state.decryptInputMode) {
-                    Text("Text").tag(InputMode.text)
-                    Text("File").tag(InputMode.file)
+                Picker("encrypt.mode", selection: $state.decryptInputMode) {
+                    Text("encrypt.text").tag(InputMode.text)
+                    Text("encrypt.file").tag(InputMode.file)
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 120)
@@ -27,14 +27,14 @@ struct DecryptView: View {
                 Button {
                     viewModel?.decryptFromClipboard()
                 } label: {
-                    Label("Decrypt from Clipboard", systemImage: "doc.on.clipboard.fill")
+                    Label("decrypt.from_clipboard", systemImage: "doc.on.clipboard.fill")
                 }
                 .disabled(!(viewModel?.canDecryptFromClipboard ?? false))
 
                 Button {
                     viewModel?.requestPassphraseAndDecrypt(fromClipboard: false)
                 } label: {
-                    Label("Decrypt", systemImage: "lock.open.fill")
+                    Label("sidebar.decrypt", systemImage: "lock.open.fill")
                 }
                 .disabled(!canDecrypt || viewModel?.isProcessing == true)
             }
@@ -73,6 +73,9 @@ struct DecryptView: View {
                     notificationService: notificationService
                 )
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .macPGPDidLock)) { _ in
+            viewModel?.handleLock()
         }
         .onDisappear {
             viewModel?.cancel()
@@ -129,25 +132,25 @@ struct DecryptView: View {
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Decryption Key")
+                Text("decrypt.decryption_key")
                     .font(.headline)
 
                 Spacer()
 
-                Toggle("Auto-detect", isOn: $state.decryptAutoDetectKey)
+                Toggle("decrypt.auto_detect", isOn: $state.decryptAutoDetectKey)
                     .toggleStyle(.checkbox)
             }
 
             if !sessionState.decryptAutoDetectKey {
-                Picker("Select Key", selection: $state.decryptSelectedKey) {
-                    Text("Select a key...").tag(nil as PGPKeyModel?)
+                Picker("decrypt.select_key", selection: $state.decryptSelectedKey) {
+                    Text("decrypt.select_key_placeholder").tag(nil as PGPKeyModel?)
                     ForEach(keyringService.secretKeys()) { key in
                         Text(key.displayName).tag(key as PGPKeyModel?)
                     }
                 }
                 .labelsHidden()
             } else {
-                Text("Will try all available secret keys")
+                Text("decrypt.will_try_all_available_secret_keys")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -156,7 +159,7 @@ struct DecryptView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                    Text("No secret keys available for decryption")
+                    Text("content.no_secret_keys_decryption")
                         .font(.caption)
                 }
             }
@@ -168,7 +171,7 @@ struct DecryptView: View {
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Encrypted Message")
+                Text("decrypt.encrypted_message")
                     .font(.headline)
 
                 Spacer()
@@ -176,7 +179,7 @@ struct DecryptView: View {
                 Button {
                     viewModel?.pasteFromClipboard()
                 } label: {
-                    Label("Paste", systemImage: "doc.on.clipboard")
+                    Label("sign.paste", systemImage: "doc.on.clipboard")
                 }
                 .buttonStyle(.borderless)
             }
@@ -202,7 +205,7 @@ struct DecryptView: View {
     private var outputPane: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Decrypted Output")
+                Text("decrypt.decrypted_output")
                     .font(.headline)
                 Spacer()
 

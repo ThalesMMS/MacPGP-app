@@ -7,7 +7,7 @@ import RNPKit
 /// backward-compatible facade that forwards verification entry points to `VerificationService`.
 
 private struct SigningKeySnapshot: @unchecked Sendable {
-    nonisolated(unsafe) let rawKey: Key
+    let rawKey: Key
     let shortKeyID: String
     let isSecret: Bool
     let isRevoked: Bool
@@ -17,9 +17,11 @@ private struct SigningKeySnapshot: @unchecked Sendable {
 internal final class SigningService {
     private let verificationService: VerificationService
     private let keyringService: KeyringService
+    private let clock: DateProviding
 
-    init(keyringService: KeyringService) {
+    init(keyringService: KeyringService, clock: DateProviding = SystemDateProvider()) {
         self.keyringService = keyringService
+        self.clock = clock
         self.verificationService = VerificationService(keyringService: keyringService)
     }
 
@@ -28,12 +30,14 @@ internal final class SigningService {
             throw OperationError.keyNotFound(keyID: key.shortKeyID)
         }
 
+        // Capture expiration against the current time at operation start, not the
+        // value cached when the model was built.
         return SigningKeySnapshot(
             rawKey: rawKey,
             shortKeyID: key.shortKeyID,
             isSecret: rawKey.isSecret,
             isRevoked: key.isRevoked,
-            isExpired: key.isExpired
+            isExpired: key.isExpired(asOf: clock.now)
         )
     }
 
@@ -90,26 +94,33 @@ internal final class SigningService {
         }
 
         if cleartext && !detached && armored {
-            let signatureData = try signData(
-                messageData,
-                using: snapshot,
-                passphrase: passphrase,
-                detached: true,
-                armored: false
-            )
-
-            let armoredSignature = try Armor.armored(signatureData, as: .signature)
-
-            var result = "-----BEGIN PGP SIGNED MESSAGE-----\n"
-            result += "Hash: SHA256\n"
-            result += "\n"
-            result += message
-            if !message.hasSuffix("\n") {
-                result += "\n"
+            // Use librnp's native cleartext signing so dash-escaping and
+            // line-ending normalization follow the OpenPGP canonical rules
+            // instead of being assembled by hand.
+            guard snapshot.isSecret else {
+                throw OperationError.noSecretKey
             }
-            result += armoredSignature
+            if snapshot.isRevoked {
+                throw OperationError.keyRevoked
+            }
+            if snapshot.isExpired {
+                throw OperationError.keyExpired
+            }
 
-            return result
+            do {
+                let signed = try RNP.signCleartext(
+                    messageData,
+                    using: [snapshot.rawKey],
+                    passphraseForKey: { _ in passphrase }
+                )
+                return String(data: signed, encoding: .utf8) ?? ""
+            } catch RNPError.invalidPassphrase {
+                throw OperationError.invalidPassphrase
+            } catch let error as OperationError {
+                throw error
+            } catch {
+                throw OperationError.signingFailed(underlying: error)
+            }
         }
 
         let signedData = try signData(
@@ -127,23 +138,53 @@ internal final class SigningService {
         }
     }
 
+    /// Streams signing directly between file paths via the backend, so the file is
+    /// not buffered in memory. librnp produces armored output as it writes.
+    nonisolated private static func performStreamingSigning(
+        inputPath: String,
+        outputPath: String,
+        using snapshot: SigningKeySnapshot,
+        passphrase: String,
+        detached: Bool,
+        armored: Bool
+    ) throws {
+        guard snapshot.isSecret else {
+            throw OperationError.noSecretKey
+        }
+        if snapshot.isRevoked {
+            throw OperationError.keyRevoked
+        }
+        if snapshot.isExpired {
+            throw OperationError.keyExpired
+        }
+
+        do {
+            try RNP.signFile(
+                inputPath: inputPath,
+                outputPath: outputPath,
+                detached: detached,
+                armored: armored,
+                using: [snapshot.rawKey],
+                passphraseForKey: { _ in passphrase }
+            )
+        } catch RNPError.invalidPassphrase {
+            throw OperationError.invalidPassphrase
+        } catch let error as OperationError {
+            throw error
+        } catch {
+            throw OperationError.signingFailed(underlying: error)
+        }
+    }
+
     nonisolated private static func signFile(
         _ file: URL,
         using snapshot: SigningKeySnapshot,
         passphrase: String,
         detached: Bool,
         outputURL: URL?,
-        armored: Bool
+        armored: Bool,
+        commitGate: FileCommitGate? = nil
     ) throws -> URL {
-        let fileData = try SecureScopedFileAccess.readData(from: file)
-        let signedData = try signData(
-            fileData,
-            using: snapshot,
-            passphrase: passphrase,
-            detached: detached,
-            armored: armored
-        )
-
         let outputPath: URL
         if let output = outputURL {
             outputPath = output
@@ -152,7 +193,23 @@ internal final class SigningService {
             outputPath = file.appendingPathExtension(outputExtension)
         }
 
-        try SecureScopedFileAccess.writeData(signedData, to: outputPath)
+        try SecureScopedFileAccess.withSecurityScopedAccess(to: file) { inputScoped in
+            try SecureScopedFileAccess.writeFileWithoutOverwriting(
+                finalOutput: outputPath,
+                scopedBy: outputURL,
+                overwrite: true,
+                canCommit: { commitGate?.isAuthorized ?? true }
+            ) { tempPath in
+                try performStreamingSigning(
+                    inputPath: inputScoped.path,
+                    outputPath: tempPath,
+                    using: snapshot,
+                    passphrase: passphrase,
+                    detached: detached,
+                    armored: armored
+                )
+            }
+        }
         return outputPath
     }
 
@@ -239,7 +296,8 @@ internal final class SigningService {
         passphrase: String,
         detached: Bool = true,
         outputURL: URL? = nil,
-        armored: Bool = true
+        armored: Bool = true,
+        commitGate: FileCommitGate? = nil
     ) async throws -> URL {
         let snapshot = try signingSnapshot(for: key)
 
@@ -250,7 +308,8 @@ internal final class SigningService {
                 passphrase: passphrase,
                 detached: detached,
                 outputURL: outputURL,
-                armored: armored
+                armored: armored,
+                commitGate: commitGate
             )
         }.value
     }

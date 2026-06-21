@@ -3,6 +3,7 @@ import RNPKit
 import Testing
 @testable import MacPGP
 
+@MainActor
 @Suite("ServicesProvider Tests")
 struct ServicesProviderTests {
     @Test("Services provider reads live keyring mutations")
@@ -39,6 +40,6 @@ struct ServicesProviderTests {
     private func makeSecretKey(email: String) -> PGPKeyModel {
         let generator = KeyGenerator()
         generator.keyBitsLength = 2048
-        return PGPKeyModel(from: generator.generate(for: email, passphrase: "TestPassword123!"))
+        return PGPKeyModel(from: try! generator.generate(for: email, passphrase: "TestPassword123!"))
     }
 }

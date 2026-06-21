@@ -19,7 +19,7 @@ struct KeyRowView: View {
                         .lineLimit(1)
 
                     if key.isExpired {
-                        Text("Expired")
+                        Text("key.expired")
                             .font(.caption2)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
@@ -29,7 +29,7 @@ struct KeyRowView: View {
                     }
 
                     if key.isRevoked {
-                        Text("Revoked")
+                        Text("key.revoked")
                             .font(.caption2)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)

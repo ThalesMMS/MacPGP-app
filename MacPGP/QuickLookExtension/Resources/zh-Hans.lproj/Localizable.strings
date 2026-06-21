@@ -1,0 +1,17 @@
+/* quicklook localized strings (zh-Hans) - issue #148 */
+"quicklook_algorithm_label" = "算法";
+"quicklook_compression_label" = "压缩";
+"quicklook_created_label" = "创建时间";
+"quicklook_encryption_information_section" = "加密信息";
+"quicklook_encryption_pgp_encrypted_file" = "PGP 加密文件";
+"quicklook_file_information_section" = "文件信息";
+"quicklook_file_size_label" = "文件大小";
+"quicklook_integrity_protection_label" = "完整性保护";
+"quicklook_integrity_protection_yes_mdc" = "是（MDC）";
+"quicklook_no" = "否";
+"quicklook_no_recipient_information" = "无可用的收件人信息";
+"quicklook_open_in_app_to_decrypt" = "要解密此文件，请在 MacPGP 中打开它。";
+"quicklook_original_name_label" = "原始名称";
+"quicklook_recipients_section" = "收件人";
+"quicklook_unable_to_read_message" = "MacPGP 无法显示此预览。请在 MacPGP 中打开该文件以查看。";
+"quicklook_unable_to_read_title" = "无法读取加密文件";

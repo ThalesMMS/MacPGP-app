@@ -2,10 +2,10 @@ import Foundation
 import RNPKit
 
 /// Extracts metadata from PGP encrypted files without performing decryption
-final class PGPMetadataExtractor {
+nonisolated final class PGPMetadataExtractor {
 
     /// Represents encryption algorithm information
-    struct EncryptionAlgorithm {
+    nonisolated struct EncryptionAlgorithm {
         let name: String
         let keySize: Int?
 
@@ -18,7 +18,7 @@ final class PGPMetadataExtractor {
     }
 
     /// Represents metadata extracted from an encrypted file
-    struct Metadata {
+    nonisolated struct Metadata {
         let recipientKeyIDs: [String]
         let encryptionAlgorithm: EncryptionAlgorithm?
         let compressionAlgorithm: String?
@@ -32,7 +32,42 @@ final class PGPMetadataExtractor {
     /// - Parameter url: The URL of the encrypted file
     /// - Returns: Metadata extracted from the file
     /// - Throws: Error if file cannot be read or is not encrypted
-    func extractMetadata(from url: URL) throws -> Metadata {
+    /// Default bounded header read for file-based metadata extraction. OpenPGP
+    /// encryption metadata (PKESK recipients, SEIPD integrity/version) lives at
+    /// the very start of the message, so a generous header prefix is sufficient
+    /// for the metadata Quick Look can show. Generous enough for hundreds of
+    /// recipients without approaching whole-file reads on large inputs.
+    static let defaultMetadataHeaderByteLimit = 512 * 1024
+
+    func extractMetadata(from url: URL, maxHeaderBytes: Int = PGPMetadataExtractor.defaultMetadataHeaderByteLimit) throws -> Metadata {
+        // Read a bounded header prefix rather than the whole file (issue #142):
+        // Quick Look only needs header-derived metadata. For small files the
+        // prefix IS the whole file; for large files we use header-only metadata
+        // and fall back to a full read only if the bounded header is insufficient
+        // to identify the encrypted message, so correctness is never worse than
+        // the previous whole-file behavior.
+        let actualFileSize = (try? SecureScopedFileAccess.fileSize(of: url)) ?? 0
+
+        let prefix: Data
+        do {
+            prefix = try SecureScopedFileAccess.readPrefix(from: url, maxBytes: maxHeaderBytes)
+        } catch let error as OperationError {
+            throw error
+        } catch {
+            throw OperationError.fileAccessError(path: url.path)
+        }
+
+        // Whole file already in hand (file no larger than the prefix).
+        if Int64(prefix.count) >= actualFileSize {
+            return try extractMetadata(from: prefix, fileURL: url)
+        }
+
+        // Large file: prefer header-only metadata; only fall back to a full read
+        // if the bounded header cannot be parsed as an encrypted message.
+        if let metadata = try? extractMetadata(from: prefix, fileURL: url, fileSizeOverride: actualFileSize) {
+            return metadata
+        }
+
         let data: Data
         do {
             data = try SecureScopedFileAccess.readData(from: url)
@@ -41,17 +76,18 @@ final class PGPMetadataExtractor {
         } catch {
             throw OperationError.fileAccessError(path: url.path)
         }
-
         return try extractMetadata(from: data, fileURL: url)
     }
 
     /// Extracts metadata from PGP encrypted data
     /// - Parameters:
-    ///   - data: The encrypted data
+    ///   - data: The encrypted data (may be a bounded header prefix for large files)
     ///   - fileURL: Optional file URL for additional context
+    ///   - fileSizeOverride: Real file size to report when `data` is only a header
+    ///     prefix; defaults to `data.count` for whole-buffer callers.
     /// - Returns: Metadata extracted from the data
     /// - Throws: Error if data is not encrypted or cannot be parsed
-    func extractMetadata(from data: Data, fileURL: URL? = nil) throws -> Metadata {
+    func extractMetadata(from data: Data, fileURL: URL? = nil, fileSizeOverride: Int64? = nil) throws -> Metadata {
         let inspection = try RNP.inspect(data)
         guard inspection.isEncrypted else {
             throw OperationError.decryptionFailed(underlying: nil)
@@ -70,7 +106,7 @@ final class PGPMetadataExtractor {
             isIntegrityProtected: isIntegrityProtected,
             creationDate: creationDate,
             filename: filename,
-            fileSize: Int64(data.count)
+            fileSize: fileSizeOverride ?? Int64(data.count)
         )
     }
 

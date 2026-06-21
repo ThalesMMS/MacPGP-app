@@ -1,10 +1,10 @@
 import Foundation
-import UserNotifications
+@preconcurrency import UserNotifications
 
 @Observable
 final class NotificationService {
-    private static let authorizationQueue = DispatchQueue(label: "com.macpgp.notification-authorization")
-    private static var hasRequestedAuthorizationThisSession = false
+    nonisolated private static let authorizationQueue = DispatchQueue(label: "com.macpgp.notification-authorization")
+    nonisolated(unsafe) private static var hasRequestedAuthorizationThisSession = false
 
     private let notificationCenter = UNUserNotificationCenter.current()
 

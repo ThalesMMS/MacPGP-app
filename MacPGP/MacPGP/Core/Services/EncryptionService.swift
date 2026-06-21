@@ -24,10 +24,12 @@ private struct TryDecryptionFileResult: @unchecked Sendable {
 final class EncryptionService {
     private let keyringService: KeyringService
     private let trustService: TrustService
+    private let clock: DateProviding
 
-    init(keyringService: KeyringService) {
+    init(keyringService: KeyringService, clock: DateProviding = SystemDateProvider()) {
         self.keyringService = keyringService
-        self.trustService = TrustService(keyringService: keyringService)
+        self.clock = clock
+        self.trustService = TrustService(keyringService: keyringService, clock: clock)
     }
 
     func encrypt(
@@ -92,7 +94,7 @@ final class EncryptionService {
             return .keyRevoked
         }
 
-        if recipient.isExpired {
+        if recipient.isExpired(asOf: clock.now) {
             return .keyExpired
         }
 
@@ -174,6 +176,75 @@ final class EncryptionService {
         return try PGPDecryption.decrypt(data: data, using: snapshot.rawKey, passphrase: passphrase)
     }
 
+    /// Streams encryption directly between file paths via the backend, so neither the
+    /// full plaintext nor the full ciphertext is buffered in memory. librnp produces
+    /// armored output as it writes, so large armored output streams too.
+    nonisolated private static func performStreamingEncryption(
+        inputPath: String,
+        outputPath: String,
+        recipientKeys: [Key],
+        signerKey: Key?,
+        passphrase: String?,
+        armored: Bool
+    ) throws {
+        do {
+            if let signerKey, let passphrase {
+                var allKeys = recipientKeys
+                allKeys.append(signerKey)
+                try RNP.encryptFile(
+                    inputPath: inputPath,
+                    outputPath: outputPath,
+                    armored: armored,
+                    addSignature: true,
+                    using: allKeys,
+                    passphraseForKey: { _ in passphrase }
+                )
+            } else {
+                try RNP.encryptFile(
+                    inputPath: inputPath,
+                    outputPath: outputPath,
+                    armored: armored,
+                    addSignature: false,
+                    using: recipientKeys
+                )
+            }
+        } catch RNPError.invalidPassphrase {
+            throw OperationError.invalidPassphrase
+        } catch RNPError.missingSigningKey {
+            throw OperationError.signerKeyMissing
+        } catch let error as OperationError {
+            throw error
+        } catch {
+            throw OperationError.encryptionFailed(underlying: error)
+        }
+    }
+
+    /// Streams decryption directly between file paths via the backend.
+    nonisolated private static func performStreamingDecryption(
+        inputPath: String,
+        outputPath: String,
+        using snapshot: DecryptionKeySnapshot,
+        passphrase: String
+    ) throws {
+        guard snapshot.isSecret else {
+            throw OperationError.noSecretKey
+        }
+        do {
+            try RNP.decryptFile(
+                inputPath: inputPath,
+                outputPath: outputPath,
+                using: [snapshot.rawKey],
+                passphraseForKey: { _ in passphrase }
+            )
+        } catch RNPError.invalidPassphrase {
+            throw OperationError.invalidPassphrase
+        } catch let error as OperationError {
+            throw error
+        } catch {
+            throw OperationError.decryptionFailed(underlying: error)
+        }
+    }
+
     nonisolated private static func performTryDecryption(
         data: Data,
         using snapshots: [TryDecryptionKeySnapshot],
@@ -190,6 +261,50 @@ final class EncryptionService {
         }
 
         return TryDecryptionResult(decryptedData: result.decryptedData, key: snapshot.model)
+    }
+
+    /// Streams auto-detect decryption from `inputPath` to `outputPath`, trying all
+    /// available secret keys, and returns the key that librnp used. Neither the
+    /// ciphertext nor the plaintext is materialized in memory — this is the
+    /// file-mode counterpart of `performTryDecryption`, which stays Data-based for
+    /// small/text inputs.
+    nonisolated private static func performStreamingTryDecryption(
+        inputPath: String,
+        outputPath: String,
+        using snapshots: [TryDecryptionKeySnapshot],
+        passphrase: String
+    ) throws -> PGPKeyModel {
+        guard !snapshots.isEmpty else {
+            throw OperationError.noSecretKey
+        }
+
+        do {
+            let usedFingerprint = try RNP.decryptFileTryingKeys(
+                inputPath: inputPath,
+                outputPath: outputPath,
+                using: snapshots.map(\.rawKey),
+                passphraseForKey: { _ in passphrase }
+            )
+
+            // Attribute the streamed decryption to a key. librnp reports the
+            // primary fingerprint of the recipient it used; match it. When the
+            // recipient cannot be attributed (e.g. a hidden/wildcard recipient)
+            // decryption still succeeded, so fall back rather than fail: the sole
+            // secret key when there is one, otherwise the first candidate.
+            if let usedFingerprint,
+               let match = snapshots.first(where: {
+                   $0.rawKey.fingerprint.caseInsensitiveCompare(usedFingerprint) == .orderedSame
+               }) {
+                return match.model
+            }
+            return snapshots[0].model
+        } catch RNPError.invalidPassphrase {
+            throw OperationError.invalidPassphrase
+        } catch let error as OperationError {
+            throw error
+        } catch {
+            throw OperationError.decryptionFailed(underlying: error)
+        }
     }
 
     func encrypt(
@@ -268,20 +383,22 @@ final class EncryptionService {
     ) throws -> URL {
         progressCallback?(0.0)
 
-        let fileData = try SecureScopedFileAccess.readData(from: file)
+        let (recipientKeys, signerKey) = try encryptionKeys(for: recipients, signedBy: signer)
+        let outputPath = Self.resolvedEncryptedOutputURL(for: file, outputURL: outputURL, armored: armored)
         progressCallback?(0.3)
 
-        let encryptedData = try encrypt(
-            data: fileData,
-            for: recipients,
-            signedBy: signer,
-            passphrase: passphrase,
-            armored: armored
-        )
-        progressCallback?(0.7)
-
-        let outputPath = Self.resolvedEncryptedOutputURL(for: file, outputURL: outputURL, armored: armored)
-        try Self.writeData(encryptedData, to: outputPath, scopedBy: outputURL)
+        try SecureScopedFileAccess.withSecurityScopedAccess(to: file) { inputScoped in
+            try SecureScopedFileAccess.writeFileWithoutOverwriting(finalOutput: outputPath, scopedBy: outputURL, afterWrite: { progressCallback?(0.7) }) { tempPath in
+                try Self.performStreamingEncryption(
+                    inputPath: inputScoped.path,
+                    outputPath: tempPath,
+                    recipientKeys: recipientKeys,
+                    signerKey: signerKey,
+                    passphrase: passphrase,
+                    armored: armored
+                )
+            }
+        }
 
         progressCallback?(1.0)
         return outputPath
@@ -353,15 +470,20 @@ final class EncryptionService {
     ) throws -> URL {
         progressCallback?(0.0)
 
-        let fileData = try SecureScopedFileAccess.readData(from: file)
+        let snapshot = try decryptionSnapshot(for: key)
+        let outputPath = Self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
         progressCallback?(0.3)
 
-        let decryptedData = try decrypt(data: fileData, using: key, passphrase: passphrase)
-        progressCallback?(0.7)
-
-        let outputPath = Self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
-
-        try Self.writeData(decryptedData, to: outputPath, scopedBy: outputURL)
+        try SecureScopedFileAccess.withSecurityScopedAccess(to: file) { inputScoped in
+            try SecureScopedFileAccess.writeFileWithoutOverwriting(finalOutput: outputPath, scopedBy: outputURL, afterWrite: { progressCallback?(0.7) }) { tempPath in
+                try Self.performStreamingDecryption(
+                    inputPath: inputScoped.path,
+                    outputPath: tempPath,
+                    using: snapshot,
+                    passphrase: passphrase
+                )
+            }
+        }
         progressCallback?(1.0)
         return outputPath
     }
@@ -383,6 +505,7 @@ final class EncryptionService {
         passphrase: String? = nil,
         outputURL: URL? = nil,
         armored: Bool = false,
+        commitGate: FileCommitGate? = nil,
         progressCallback: (@Sendable (Double) -> Void)? = nil
     ) async throws -> URL {
         progressCallback?(0.0)
@@ -390,19 +513,20 @@ final class EncryptionService {
         let outputPath = Self.resolvedEncryptedOutputURL(for: file, outputURL: outputURL, armored: armored)
 
         return try await Task.detached {
-            let fileData = try SecureScopedFileAccess.readData(from: file)
             await MainActor.run { progressCallback?(0.3) }
 
-            let encryptedData = try Self.performEncryption(
-                data: fileData,
-                recipientKeys: recipientKeys,
-                signerKey: signerKey,
-                passphrase: passphrase,
-                armored: armored
-            )
-            await MainActor.run { progressCallback?(0.7) }
-
-            try Self.writeData(encryptedData, to: outputPath, scopedBy: outputURL)
+            try SecureScopedFileAccess.withSecurityScopedAccess(to: file) { inputScoped in
+                try SecureScopedFileAccess.writeFileWithoutOverwriting(finalOutput: outputPath, scopedBy: outputURL, afterWrite: { progressCallback?(0.7) }, canCommit: { commitGate?.isAuthorized ?? true }) { tempPath in
+                    try Self.performStreamingEncryption(
+                        inputPath: inputScoped.path,
+                        outputPath: tempPath,
+                        recipientKeys: recipientKeys,
+                        signerKey: signerKey,
+                        passphrase: passphrase,
+                        armored: armored
+                    )
+                }
+            }
 
             await MainActor.run { progressCallback?(1.0) }
             return outputPath
@@ -422,6 +546,7 @@ final class EncryptionService {
         using key: PGPKeyModel,
         passphrase: String,
         outputURL: URL? = nil,
+        commitGate: FileCommitGate? = nil,
         progressCallback: (@Sendable (Double) -> Void)? = nil
     ) async throws -> URL {
         progressCallback?(0.0)
@@ -429,13 +554,19 @@ final class EncryptionService {
         let outputPath = Self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
 
         return try await Task.detached {
-            let fileData = try SecureScopedFileAccess.readData(from: file)
             await MainActor.run { progressCallback?(0.3) }
 
-            let decryptedData = try Self.performDecryption(data: fileData, using: snapshot, passphrase: passphrase)
-            await MainActor.run { progressCallback?(0.7) }
+            try SecureScopedFileAccess.withSecurityScopedAccess(to: file) { inputScoped in
+                try SecureScopedFileAccess.writeFileWithoutOverwriting(finalOutput: outputPath, scopedBy: outputURL, afterWrite: { progressCallback?(0.7) }, canCommit: { commitGate?.isAuthorized ?? true }) { tempPath in
+                    try Self.performStreamingDecryption(
+                        inputPath: inputScoped.path,
+                        outputPath: tempPath,
+                        using: snapshot,
+                        passphrase: passphrase
+                    )
+                }
+            }
 
-            try Self.writeData(decryptedData, to: outputPath, scopedBy: outputURL)
             await MainActor.run { progressCallback?(1.0) }
             return outputPath
         }.value
@@ -482,14 +613,29 @@ final class EncryptionService {
     ) throws -> (URL, PGPKeyModel) {
         progressCallback?(0.0)
 
-        let fileData = try SecureScopedFileAccess.readData(from: file)
+        let snapshots = tryDecryptionSnapshots()
+        let resolvedOutputURL = Self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
         progressCallback?(0.3)
 
-        let (decryptedData, key) = try tryDecrypt(data: fileData, passphrase: passphrase)
-        progressCallback?(0.7)
-
-        let resolvedOutputURL = Self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
-        try Self.writeData(decryptedData, to: resolvedOutputURL, scopedBy: outputURL)
+        let key: PGPKeyModel = try SecureScopedFileAccess.withSecurityScopedAccess(to: file) { inputScoped in
+            var attributed: PGPKeyModel?
+            try SecureScopedFileAccess.writeFileWithoutOverwriting(
+                finalOutput: resolvedOutputURL,
+                scopedBy: outputURL,
+                afterWrite: { progressCallback?(0.7) }
+            ) { tempPath in
+                attributed = try Self.performStreamingTryDecryption(
+                    inputPath: inputScoped.path,
+                    outputPath: tempPath,
+                    using: snapshots,
+                    passphrase: passphrase
+                )
+            }
+            guard let attributed else {
+                throw OperationError.decryptionFailed(underlying: nil)
+            }
+            return attributed
+        }
 
         progressCallback?(1.0)
         return (resolvedOutputURL, key)
@@ -507,26 +653,41 @@ final class EncryptionService {
         file: URL,
         passphrase: String,
         outputURL: URL? = nil,
+        commitGate: FileCommitGate? = nil,
         progressCallback: (@Sendable (Double) -> Void)? = nil
     ) async throws -> (URL, PGPKeyModel) {
         progressCallback?(0.0)
         let snapshots = tryDecryptionSnapshots()
         let resolvedOutputURL = Self.resolvedDecryptedOutputURL(for: file, outputURL: outputURL)
         let result = try await Task.detached {
-            let fileData = try SecureScopedFileAccess.readData(from: file)
             await MainActor.run { progressCallback?(0.3) }
 
-            let decryptionResult = try Self.performTryDecryption(
-                data: fileData,
-                using: snapshots,
-                passphrase: passphrase
-            )
-            await MainActor.run { progressCallback?(0.7) }
-
-            try Self.writeData(decryptionResult.decryptedData, to: resolvedOutputURL, scopedBy: outputURL)
+            // Stream directly between paths so neither the ciphertext nor the
+            // plaintext is buffered. The commit gate still ensures no decrypted
+            // file is promoted after a cancel or Lock MacPGP mid-operation.
+            let key: PGPKeyModel = try SecureScopedFileAccess.withSecurityScopedAccess(to: file) { inputScoped in
+                var attributed: PGPKeyModel?
+                try SecureScopedFileAccess.writeFileWithoutOverwriting(
+                    finalOutput: resolvedOutputURL,
+                    scopedBy: outputURL,
+                    afterWrite: { progressCallback?(0.7) },
+                    canCommit: { commitGate?.isAuthorized ?? true }
+                ) { tempPath in
+                    attributed = try Self.performStreamingTryDecryption(
+                        inputPath: inputScoped.path,
+                        outputPath: tempPath,
+                        using: snapshots,
+                        passphrase: passphrase
+                    )
+                }
+                guard let attributed else {
+                    throw OperationError.decryptionFailed(underlying: nil)
+                }
+                return attributed
+            }
 
             await MainActor.run { progressCallback?(1.0) }
-            return TryDecryptionFileResult(outputURL: resolvedOutputURL, key: decryptionResult.key)
+            return TryDecryptionFileResult(outputURL: resolvedOutputURL, key: key)
         }.value
 
         return (result.outputURL, result.key)
@@ -590,13 +751,5 @@ final class EncryptionService {
 
         let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey])
         return resourceValues?.isDirectory == true
-    }
-
-    nonisolated private static func writeData(_ data: Data, to outputPath: URL, scopedBy outputURL: URL?) throws {
-        let scopedURL = outputURL ?? outputPath
-
-        try SecureScopedFileAccess.withSecurityScopedAccess(to: scopedURL) { _ in
-            try SecureScopedFileAccess.writeData(data, to: outputPath, options: .withoutOverwriting)
-        }
     }
 }

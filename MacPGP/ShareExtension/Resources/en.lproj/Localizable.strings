@@ -1,9 +1,8 @@
-/*
- * Localizable.strings
- * ShareExtension
- *
- * English (Base) localization strings
- * This file contains all user-facing strings for the Share Extension.
- */
-
-/* Base localization file - strings will be populated during string extraction phase */
+/* ShareExtension localized strings (issue #148) */
+"shareext.encrypt_files" = "Encrypt Files";
+"shareext.files_to_encrypt" = "Files to Encrypt";
+"shareext.select_recipients" = "Select recipients to encrypt the shared files";
+"shareext.cancel" = "Cancel";
+"shareext.encrypt" = "Encrypt";
+"shareext.recipients" = "Recipients";
+"shareext.selected_count" = "Selected (%lld)";

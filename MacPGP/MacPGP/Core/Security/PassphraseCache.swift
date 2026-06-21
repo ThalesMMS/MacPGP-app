@@ -14,6 +14,12 @@ final class PassphraseCache {
     private let timeoutMinutes: @MainActor () -> Int
     private let now: () -> Date
 
+    /// Monotonically increasing generation that advances every time the cache is
+    /// locked. Callers capture this before an async passphrase retrieval and pass
+    /// it back to `store(_:forKeyID:lockGeneration:)` so a completion that lands
+    /// after a lock cannot repopulate the cache.
+    private(set) var lockGeneration: Int = 0
+
     init(
         isEnabled: @escaping @MainActor () -> Bool = { PreferencesManager.shared.rememberPassphrase },
         timeoutMinutes: @escaping @MainActor () -> Int = { PreferencesManager.shared.passphraseTimeoutMinutes },
@@ -26,6 +32,20 @@ final class PassphraseCache {
 
     func store(_ passphrase: String, for key: PGPKeyModel) {
         store(passphrase, forKeyID: Self.cacheKey(for: key))
+    }
+
+    /// Generation-guarded store for results produced by asynchronous work. If the
+    /// cache has been locked since `generation` was captured, the store is skipped.
+    func store(_ passphrase: String, for key: PGPKeyModel, lockGeneration generation: Int) {
+        guard generation == lockGeneration else { return }
+        store(passphrase, for: key)
+    }
+
+    /// Generation-guarded store for results produced by asynchronous work. If the
+    /// cache has been locked since `generation` was captured, the store is skipped.
+    func store(_ passphrase: String, forKeyID keyID: String, lockGeneration generation: Int) {
+        guard generation == lockGeneration else { return }
+        store(passphrase, forKeyID: keyID)
     }
 
     func store(_ passphrase: String, forKeyID keyID: String) {
@@ -66,6 +86,17 @@ final class PassphraseCache {
     }
 
     func clear() {
+        entries.removeAll()
+    }
+
+    /// Immediately invalidates every cached passphrase and advances the lock
+    /// generation, regardless of the configured timeout (including "Never clear").
+    /// Persisted Keychain items are not affected. Note that Swift `String` storage
+    /// cannot be guaranteed to be zeroized in memory; this removes the only
+    /// references MacPGP holds, but does not promise secure erasure of copies the
+    /// runtime may have made.
+    func lock() {
+        lockGeneration &+= 1
         entries.removeAll()
     }
 

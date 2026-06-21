@@ -1,7 +1,7 @@
 import Cocoa
 import FinderSync
 
-class FinderSync: FIFinderSync {
+nonisolated class FinderSync: FIFinderSync {
 
     private let fileAnalyzer = PGPFileAnalyzer()
     private let encryptedBadgeIdentifier = "com.macpgp.finder.encrypted"
@@ -137,7 +137,7 @@ class FinderSync: FIFinderSync {
 
     private func openFilesWithMainApp(_ fileURLs: [URL]) {
         guard let mainAppURL = resolveMainAppURL() else {
-            forwardErrorToContainingApp(
+            Self.forwardErrorToContainingApp(
                 title: "MacPGP app not found",
                 message: "Install or reinstall MacPGP, then try the Finder action again."
             )
@@ -149,10 +149,10 @@ class FinderSync: FIFinderSync {
             fileURLs,
             withApplicationAt: mainAppURL,
             configuration: configuration
-        ) { [weak self] _, error in
+        ) { _, error in
             if let error = error {
                 NSLog("Failed to open files with MacPGP: \(error.localizedDescription)")
-                self?.forwardErrorToContainingApp(
+                Self.forwardErrorToContainingApp(
                     title: "Could not open MacPGP",
                     message: "Open MacPGP, then try the Finder action again."
                 )
@@ -175,7 +175,7 @@ class FinderSync: FIFinderSync {
         return NSWorkspace.shared.urlForApplication(withBundleIdentifier: SharedConfiguration.mainAppBundleIdentifier)
     }
 
-    private func forwardErrorToContainingApp(title: String, message: String) {
+    private static func forwardErrorToContainingApp(title: String, message: String) {
         NSLog("Finder Sync error: \(title) - \(message)")
 
         if !FinderSyncErrorQueue.enqueue(title: title, message: message) {

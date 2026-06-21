@@ -20,7 +20,7 @@ struct FingerprintComparisonView: View {
                 Spacer()
             }
             .padding(24)
-            .navigationTitle("Compare Fingerprints")
+            .navigationTitle("keydetails.compare_fingerprints")
             .frame(width: 600, height: 500)
         }
         .onChange(of: comparisonFingerprint) { _, newValue in
@@ -36,11 +36,11 @@ struct FingerprintComparisonView: View {
             HStack {
                 Image(systemName: "info.circle.fill")
                     .foregroundStyle(.blue)
-                Text("How to Verify")
+                Text("keydetails.how_to_verify")
                     .font(.headline)
             }
 
-            Text("Compare the fingerprint below with the one received through a trusted channel (in person, phone call, or secure message). Paste or type the received fingerprint to check if they match.")
+            Text("keydetails.compare_the_fingerprint_below_with_the_o")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -57,7 +57,7 @@ struct FingerprintComparisonView: View {
         HStack(alignment: .top, spacing: 16) {
             // Left Column - Key's Fingerprint
             VStack(alignment: .leading, spacing: 8) {
-                Text("This Key's Fingerprint")
+                Text("keydetails.this_key_s_fingerprint")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
@@ -71,7 +71,7 @@ struct FingerprintComparisonView: View {
 
             // Right Column - Comparison Input
             VStack(alignment: .leading, spacing: 8) {
-                Text("Fingerprint to Compare")
+                Text("keydetails.fingerprint_to_compare")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
@@ -113,7 +113,7 @@ struct FingerprintComparisonView: View {
             )
             .overlay(alignment: .topLeading) {
                 if comparisonFingerprint.isEmpty {
-                    Text("Paste or type fingerprint here...")
+                    Text("keydetails.paste_or_type_fingerprint_here")
                         .font(.system(.body, design: .monospaced))
                         .foregroundStyle(.secondary.opacity(0.5))
                         .padding(.horizontal, 12)
@@ -144,11 +144,11 @@ struct FingerprintComparisonView: View {
                 .foregroundStyle(.green)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Fingerprints Match")
+                Text("keydetails.fingerprints_match")
                     .font(.headline)
                     .foregroundStyle(.green)
 
-                Text("The fingerprints are identical. You have verified this key's fingerprint.")
+                Text("keydetails.the_fingerprints_are_identical_you_have")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -172,11 +172,11 @@ struct FingerprintComparisonView: View {
                 .foregroundStyle(.red)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Fingerprints Don't Match")
+                Text("keydetails.fingerprints_don_t_match")
                     .font(.headline)
                     .foregroundStyle(.red)
 
-                Text("The fingerprints are different. Do NOT trust this key. It may be compromised or incorrect.")
+                Text("keydetails.the_fingerprints_are_different_do_not_tr")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -10,6 +10,31 @@ import Foundation
 import RNPKit
 @testable import MacPGP
 
+nonisolated private final class ProgressRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [Double] = []
+
+    func append(_ value: Double) {
+        lock.lock()
+        values.append(value)
+        lock.unlock()
+    }
+
+    var snapshot: [Double] {
+        lock.lock()
+        defer { lock.unlock() }
+        return values
+    }
+}
+
+nonisolated private func waitForSemaphore(
+    _ semaphore: DispatchSemaphore,
+    timeout: DispatchTime
+) -> DispatchTimeoutResult {
+    semaphore.wait(timeout: timeout)
+}
+
+@MainActor
 @Suite("EncryptionService Tests")
 struct EncryptionServiceTests {
 
@@ -26,7 +51,7 @@ struct EncryptionServiceTests {
     func createTestKeyPair(email: String, passphrase: String) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: email, passphrase: passphrase)
+        let key = try! keyGen.generate(for: email, passphrase: passphrase)
         return PGPKeyModel(from: key)
     }
 
@@ -847,7 +872,14 @@ struct EncryptionServiceTests {
         #expect(progressValues.first == 0.0)
         #expect(progressValues.last == 1.0)
         #expect(progressValues.contains(0.3))
+        // 0.7 is reported after the streamed output is written, before the (fast)
+        // atomic promotion, so observers are not left stalled during the write.
         #expect(progressValues.contains(0.7))
+        // File-mode crypto streams via librnp; progress is monotonic and only
+        // reaches 1.0 after the output is durably written.
+        for index in 0..<max(progressValues.count - 1, 0) {
+            #expect(progressValues[index] <= progressValues[index + 1])
+        }
     }
 
     @Test("Decrypt large file with progress tracking")
@@ -897,7 +929,14 @@ struct EncryptionServiceTests {
         #expect(progressValues.first == 0.0)
         #expect(progressValues.last == 1.0)
         #expect(progressValues.contains(0.3))
+        // 0.7 is reported after the streamed output is written, before the (fast)
+        // atomic promotion, so observers are not left stalled during the write.
         #expect(progressValues.contains(0.7))
+        // File-mode crypto streams via librnp; progress is monotonic and only
+        // reaches 1.0 after the output is durably written.
+        for index in 0..<max(progressValues.count - 1, 0) {
+            #expect(progressValues[index] <= progressValues[index + 1])
+        }
 
         let decryptedData = try Data(contentsOf: decryptedFile)
         #expect(decryptedData == largeData)
@@ -933,11 +972,85 @@ struct EncryptionServiceTests {
             try? FileManager.default.removeItem(at: outputFile)
         }
 
-        #expect(progressValues.count >= 4)
+        #expect(progressValues.count >= 3)
+        #expect(progressValues.first == 0.0)
+        #expect(progressValues.last == 1.0)
 
         for i in 0..<progressValues.count - 1 {
             #expect(progressValues[i] <= progressValues[i + 1])
         }
+    }
+
+    @Test("Streaming round trip preserves armored file content")
+    func testStreamingRoundTripArmored() throws {
+        let (service, keyring, recipientKey, senderKey) = setupTestEnvironment()
+        defer { cleanupTestKeys(keyring: keyring, keys: [recipientKey, senderKey]) }
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let original = tempDir.appendingPathComponent("stream-\(UUID().uuidString).bin")
+        let content = Data((0..<(64 * 1024)).map { UInt8($0 & 0xFF) })
+        try content.write(to: original)
+        defer { try? FileManager.default.removeItem(at: original) }
+
+        let encrypted = try service.encrypt(file: original, for: [recipientKey], armored: true)
+        defer { try? FileManager.default.removeItem(at: encrypted) }
+        #expect(encrypted.pathExtension == "asc")
+        let armored = try Data(contentsOf: encrypted)
+        #expect(String(data: armored.prefix(40), encoding: .utf8)?.contains("BEGIN PGP MESSAGE") == true)
+
+        // Decrypt to an explicit fresh path so it does not collide with the still
+        // present original (whose name the default derivation would reproduce).
+        let decryptedOut = tempDir.appendingPathComponent("stream-dec-\(UUID().uuidString).bin")
+        let decrypted = try service.decrypt(file: encrypted, using: recipientKey, passphrase: "recipient-pass", outputURL: decryptedOut)
+        defer { try? FileManager.default.removeItem(at: decrypted) }
+        #expect(try Data(contentsOf: decrypted) == content)
+    }
+
+    @Test("File encryption never overwrites an existing destination")
+    func testEncryptDoesNotOverwriteExistingDestination() throws {
+        let (service, keyring, recipientKey, senderKey) = setupTestEnvironment()
+        defer { cleanupTestKeys(keyring: keyring, keys: [recipientKey, senderKey]) }
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let original = tempDir.appendingPathComponent("ow-\(UUID().uuidString).bin")
+        try Data(repeating: 0x01, count: 4096).write(to: original)
+        defer { try? FileManager.default.removeItem(at: original) }
+
+        let first = try service.encrypt(file: original, for: [recipientKey], armored: false)
+        defer { try? FileManager.default.removeItem(at: first) }
+        let before = try Data(contentsOf: first)
+
+        // Re-encrypting resolves to the same destination, which now exists.
+        #expect(throws: (any Error).self) {
+            _ = try service.encrypt(file: original, for: [recipientKey], armored: false)
+        }
+        #expect(try Data(contentsOf: first) == before)
+    }
+
+    @Test("Failed decryption leaves no partial or temp output")
+    func testDecryptFailureLeavesNoPartialOutput() throws {
+        let (service, keyring, recipientKey, senderKey) = setupTestEnvironment()
+        defer { cleanupTestKeys(keyring: keyring, keys: [recipientKey, senderKey]) }
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let original = tempDir.appendingPathComponent("fail-src-\(UUID().uuidString).bin")
+        try Data(repeating: 0x09, count: 4096).write(to: original)
+        defer { try? FileManager.default.removeItem(at: original) }
+
+        let encrypted = try service.encrypt(file: original, for: [recipientKey], armored: false)
+        defer { try? FileManager.default.removeItem(at: encrypted) }
+
+        let outputDir = tempDir.appendingPathComponent("fail-dir-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outputDir) }
+        let output = outputDir.appendingPathComponent("out.dat")
+
+        #expect(throws: (any Error).self) {
+            _ = try service.decrypt(file: encrypted, using: recipientKey, passphrase: "WRONG-PASSPHRASE", outputURL: output)
+        }
+        // No final output, and no leftover temporary .part file.
+        let remaining = (try? FileManager.default.contentsOfDirectory(atPath: outputDir.path)) ?? []
+        #expect(remaining.isEmpty)
     }
 
     @Test("Async encrypt large file with progress tracking")
@@ -955,14 +1068,14 @@ struct EncryptionServiceTests {
             try? FileManager.default.removeItem(at: testFile)
         }
 
-        var progressValues: [Double] = []
+        let progressRecorder = ProgressRecorder()
 
         let outputFile = try await service.encryptAsync(
             file: testFile,
             for: [recipientKey],
             armored: false,
             progressCallback: { progress in
-                progressValues.append(progress)
+                progressRecorder.append(progress)
             }
         )
 
@@ -971,6 +1084,7 @@ struct EncryptionServiceTests {
         }
 
         #expect(FileManager.default.fileExists(atPath: outputFile.path))
+        let progressValues = progressRecorder.snapshot
         #expect(!progressValues.isEmpty)
         #expect(progressValues.contains(0.0))
         #expect(progressValues.contains(1.0))
@@ -1001,7 +1115,7 @@ struct EncryptionServiceTests {
             try? FileManager.default.removeItem(at: encryptedFile)
         }
 
-        var progressValues: [Double] = []
+        let progressRecorder = ProgressRecorder()
 
         try FileManager.default.removeItem(at: originalFile)
 
@@ -1010,7 +1124,7 @@ struct EncryptionServiceTests {
             using: recipientKey,
             passphrase: "recipient-pass",
             progressCallback: { progress in
-                progressValues.append(progress)
+                progressRecorder.append(progress)
             }
         )
 
@@ -1019,6 +1133,7 @@ struct EncryptionServiceTests {
         }
 
         #expect(FileManager.default.fileExists(atPath: decryptedFile.path))
+        let progressValues = progressRecorder.snapshot
         #expect(!progressValues.isEmpty)
         #expect(progressValues.contains(0.0))
         #expect(progressValues.contains(1.0))
@@ -1054,17 +1169,25 @@ struct EncryptionServiceTests {
             try? FileManager.default.removeItem(at: encryptedFile)
         }
 
+        let deletionCompleted = DispatchSemaphore(value: 0)
         let (decryptedFile, decryptingKey) = try await service.tryDecryptAsync(
             file: encryptedFile,
             passphrase: "recipient-pass",
             outputURL: outputDirectory,
             progressCallback: { progress in
                 if progress == 0.3 {
-                    try? keyring.deleteKey(recipientKey)
+                    Task { @MainActor in
+                        try? keyring.deleteKey(recipientKey)
+                        deletionCompleted.signal()
+                    }
                 }
             }
         )
 
+        let deletionResult = await Task.detached {
+            waitForSemaphore(deletionCompleted, timeout: .now() + 5)
+        }.value
+        #expect(deletionResult == .success)
         #expect(keyring.key(withFingerprint: recipientKey.fingerprint) == nil)
         #expect(decryptingKey.fingerprint == recipientKey.fingerprint)
         #expect(try String(contentsOf: decryptedFile, encoding: .utf8) == originalContent)

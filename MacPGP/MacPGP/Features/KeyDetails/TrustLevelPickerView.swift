@@ -64,13 +64,13 @@ struct TrustLevelPickerView: View {
             Divider()
 
             HStack {
-                Button("Cancel") {
+                Button("keygen.cancel") {
                     dismiss()
                 }
 
                 Spacer()
 
-                Button("Save Trust Level") {
+                Button("keydetails.save_trust_level") {
                     viewModel.saveTrustLevel(onSuccess: onTrustLevelUpdated)
                 }
                 .buttonStyle(.borderedProminent)
@@ -79,7 +79,7 @@ struct TrustLevelPickerView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
         }
-        .navigationTitle("Set Trust Level")
+        .navigationTitle("keydetails.set_trust_level")
     }
 
     // MARK: - Key Information Section
@@ -87,7 +87,7 @@ struct TrustLevelPickerView: View {
     @ViewBuilder
     private func keyInfoSection(key: PGPKeyModel) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Key Information")
+            Text("trust.key_information")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -107,7 +107,7 @@ struct TrustLevelPickerView: View {
 
                 HStack(spacing: 6) {
                     Image(systemName: "shield")
-                    Text("Current Trust: \(key.trustLevel.displayName)")
+                    Text(String.localizedStringWithFormat(NSLocalizedString("trust.current_format", comment: ""), key.trustLevel.displayName))
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -126,15 +126,15 @@ struct TrustLevelPickerView: View {
         @Bindable var vm = viewModel
 
         VStack(alignment: .leading, spacing: 12) {
-            Text("Trust Level")
+            Text("trust.trust_level")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Select how much you trust this key to certify other keys:")
+                Text("trust.select_trust_message")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Picker("Trust Level", selection: $vm.selectedTrustLevel) {
+                Picker("trust.trust_level", selection: $vm.selectedTrustLevel) {
                     ForEach(TrustLevel.allCases) { level in
                         HStack {
                             trustLevelIcon(for: level)
@@ -156,7 +156,7 @@ struct TrustLevelPickerView: View {
     @ViewBuilder
     private func trustDescriptionSection(viewModel: TrustLevelPickerViewModel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("What This Means")
+            Text("trust.what_this_means")
                 .font(.headline)
 
             HStack(spacing: 12) {
@@ -181,7 +181,7 @@ struct TrustLevelPickerView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
-                            Text("Can certify other keys")
+                            Text("trust.can_certify")
                                 .font(.caption2)
                                 .foregroundStyle(.green)
                                 .accessibilityIdentifier(
@@ -216,12 +216,12 @@ struct TrustLevelPickerView: View {
                     .foregroundStyle(.orange)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Ultimate Trust Warning")
+                    Text("trust.ultimate_warning")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(.orange)
 
-                    Text("Ultimate trust should only be assigned to your own keys. This level indicates absolute trust in the key's ability to certify other keys.")
+                    Text("trust.ultimate_warning_message")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier(
@@ -246,7 +246,7 @@ struct TrustLevelPickerView: View {
     @ViewBuilder
     private func saveStatusSection(viewModel: TrustLevelPickerViewModel) -> some View {
         if !viewModel.hasChanged {
-            Text("No changes to save")
+            Text("keydetails.no_changes_to_save")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -283,11 +283,11 @@ struct TrustLevelPickerView: View {
                 .foregroundStyle(viewModel.selectedTrustLevel.color)
 
             VStack(spacing: 8) {
-                Text("Trust Level Updated")
+                Text("keydetails.trust_level_updated")
                     .font(.title2)
                     .fontWeight(.bold)
 
-                Text("The trust level for \"\(viewModel.key.displayName)\" has been set to \(viewModel.selectedTrustLevel.displayName).")
+                Text(String.localizedStringWithFormat(NSLocalizedString("trust.set_to_format", comment: ""), viewModel.key.displayName, viewModel.selectedTrustLevel.displayName))
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -299,14 +299,14 @@ struct TrustLevelPickerView: View {
 
             Spacer()
 
-            Button("Done") {
+            Button("keygen.done") {
                 dismiss()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
         .padding(32)
-        .navigationTitle("Trust Level Updated")
+        .navigationTitle("keydetails.trust_level_updated")
     }
 
     // MARK: - Helper Functions

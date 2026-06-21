@@ -9,7 +9,8 @@ import Testing
 import Foundation
 @testable import MacPGP
 
-@Suite("BackupReminderService Tests", .serialized)
+@Suite("BackupReminderService Tests", .serialized, .serializedGlobalDefaults)
+@MainActor
 struct BackupReminderServiceTests {
 
     // MARK: - Test Setup

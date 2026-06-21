@@ -1,6 +1,6 @@
 import Foundation
 
-enum PGPFileExtensions {
+nonisolated enum PGPFileExtensions {
     static let asciiArmored = "asc"
     static let binaryMessage = "gpg"
     static let pgp = "pgp"

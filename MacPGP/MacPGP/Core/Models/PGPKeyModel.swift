@@ -1,21 +1,21 @@
 import Foundation
 import RNPKit
 
-enum ExpirationWarningLevel {
+nonisolated enum ExpirationWarningLevel {
     case none
     case warning    // 30 days or less
     case critical   // 7 days or less
     case expired
 }
 
-enum FingerprintVerificationMethod: String, Codable {
+nonisolated enum FingerprintVerificationMethod: String, Codable {
     case inPerson = "in_person"
     case phone = "phone"
     case qrCode = "qr_code"
     case trusted = "trusted"
 }
 
-struct PGPKeyModel: Identifiable, Hashable, PGPKeyCapabilityProviding {
+nonisolated struct PGPKeyModel: Identifiable, Hashable, PGPKeyCapabilityProviding {
     let id: String
     let fingerprint: String
     let shortKeyID: String
@@ -25,7 +25,6 @@ struct PGPKeyModel: Identifiable, Hashable, PGPKeyCapabilityProviding {
     let expirationDate: Date?
     let userIDs: [KeyIdentity]
     let isSecretKey: Bool
-    let isExpired: Bool
     let isRevoked: Bool
     let revokedDate: Date?
     let isVerified: Bool
@@ -48,12 +47,11 @@ struct PGPKeyModel: Identifiable, Hashable, PGPKeyCapabilityProviding {
 
     init(
         copying key: PGPKeyModel,
-        isExpired: Bool? = nil,
+        expirationDate: Date? = nil,
         isRevoked: Bool? = nil,
         revokedDate: Date? = nil,
         trustLevel: TrustLevel? = nil
     ) {
-        let expired = isExpired ?? key.isExpired
         let revoked = isRevoked ?? key.isRevoked
 
         self.id = key.id
@@ -62,10 +60,9 @@ struct PGPKeyModel: Identifiable, Hashable, PGPKeyCapabilityProviding {
         self.algorithm = key.algorithm
         self.keySize = key.keySize
         self.creationDate = key.creationDate
-        self.expirationDate = key.expirationDate
+        self.expirationDate = expirationDate ?? key.expirationDate
         self.userIDs = key.userIDs
         self.isSecretKey = key.isSecretKey
-        self.isExpired = expired
         self.isRevoked = revoked
         self.revokedDate = revokedDate ?? key.revokedDate
         self.isVerified = key.isVerified
@@ -95,7 +92,6 @@ struct PGPKeyModel: Identifiable, Hashable, PGPKeyCapabilityProviding {
         self.keySize = key.metadata.primaryKeySize
         self.creationDate = key.metadata.creationDate
         self.expirationDate = key.metadata.expirationDate
-        self.isExpired = key.metadata.expirationDate.map { $0 < Date() } ?? false
 
         self.isSecretKey = key.isSecret
         self.isRevoked = key.metadata.isRevoked
@@ -145,31 +141,61 @@ struct PGPKeyModel: Identifiable, Hashable, PGPKeyCapabilityProviding {
         "\(algorithm.displayName) \(keySize)"
     }
 
-    var daysUntilExpiration: Int? {
+    // MARK: - Time-dependent validity
+    //
+    // Expiration is derived from `expirationDate` at evaluation time rather than
+    // cached, so a key that crosses its expiration boundary while the app is open
+    // (or after a system clock change) is reported correctly without relaunching.
+    // Boundary semantics are inclusive: a key is expired once the current instant
+    // reaches or passes `expirationDate` (`expirationDate <= now`). Keys without an
+    // expiration date never expire. Revocation is tracked separately and is
+    // independent of the clock.
+
+    /// Whether the key is expired as of `now` (inclusive boundary).
+    func isExpired(asOf now: Date) -> Bool {
+        guard let expirationDate else { return false }
+        return expirationDate <= now
+    }
+
+    /// Convenience evaluation against the current system time. Service and
+    /// operation code should prefer ``isExpired(asOf:)`` with an injected clock.
+    var isExpired: Bool { isExpired(asOf: Date()) }
+
+    /// Whether the key is usable as an encryption recipient as of `now`.
+    func isUsableForEncryption(asOf now: Date) -> Bool {
+        !isExpired(asOf: now) && !isRevoked && canEncrypt
+    }
+
+    /// Whether the key is usable for signing as of `now`.
+    func isUsableForSigning(asOf now: Date) -> Bool {
+        isSecretKey && !isExpired(asOf: now) && !isRevoked && canSign
+    }
+
+    func daysUntilExpiration(asOf now: Date) -> Int? {
         guard let expDate = expirationDate else { return nil }
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let today = calendar.startOfDay(for: now)
         let expirationDay = calendar.startOfDay(for: expDate)
         let components = calendar.dateComponents([.day], from: today, to: expirationDay)
         return components.day
     }
 
-    var isExpiringSoon: Bool {
-        guard let expirationDate, expirationDate > Date() else { return false }
-        guard let days = daysUntilExpiration else { return false }
+    var daysUntilExpiration: Int? { daysUntilExpiration(asOf: Date()) }
+
+    func isExpiringSoon(asOf now: Date) -> Bool {
+        guard let expirationDate, expirationDate > now else { return false }
+        guard let days = daysUntilExpiration(asOf: now) else { return false }
         return days <= 30 && days >= 0
     }
 
-    var expirationWarningLevel: ExpirationWarningLevel {
-        if isExpired {
+    var isExpiringSoon: Bool { isExpiringSoon(asOf: Date()) }
+
+    func expirationWarningLevel(asOf now: Date) -> ExpirationWarningLevel {
+        if isExpired(asOf: now) {
             return .expired
         }
 
-        if let expirationDate, expirationDate <= Date() {
-            return .expired
-        }
-
-        guard let days = daysUntilExpiration else {
+        guard let days = daysUntilExpiration(asOf: now) else {
             return .none
         }
 
@@ -182,6 +208,8 @@ struct PGPKeyModel: Identifiable, Hashable, PGPKeyCapabilityProviding {
         }
     }
 
+    var expirationWarningLevel: ExpirationWarningLevel { expirationWarningLevel(asOf: Date()) }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
@@ -192,13 +220,18 @@ struct PGPKeyModel: Identifiable, Hashable, PGPKeyCapabilityProviding {
 
 }
 
+#if DEBUG
 extension PGPKeyModel {
+    /// SwiftUI preview fixture. DEBUG-only and never on a release-visible path;
+    /// `try!` here surfaces a misconfigured preview environment immediately
+    /// rather than masking it.
     static var preview: PGPKeyModel {
         let keyGenerator = KeyGenerator()
-        let key = keyGenerator.generate(
+        let key = try! keyGenerator.generate(
             for: "preview@example.com",
             passphrase: "preview"
         )
         return PGPKeyModel(from: key)
     }
 }
+#endif

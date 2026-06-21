@@ -28,6 +28,9 @@ struct RestoreWizardView: View {
                 viewModel = BackupViewModel(keyringService: keyringService)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .macPGPDidLock)) { _ in
+            viewModel?.handleLock()
+        }
     }
 
     @ViewBuilder
@@ -129,11 +132,11 @@ struct RestoreWizardView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.secondary)
 
-            Text("Select Backup File")
+            Text("restore.select_file")
                 .font(.title)
                 .fontWeight(.semibold)
 
-            Text("Choose a MacPGP backup file to restore your keys")
+            Text("restore.select_file_message")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
@@ -165,10 +168,10 @@ struct RestoreWizardView: View {
             Spacer()
         }
         .padding()
-        .navigationTitle("Restore Backup")
+        .navigationTitle("restore.title")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
+                Button("keygen.cancel") {
                     dismiss()
                 }
             }
@@ -242,9 +245,9 @@ struct RestoreWizardView: View {
                             .font(.title2)
                             .foregroundStyle(.blue)
                         VStack(alignment: .leading) {
-                            Text("Encrypted Backup")
+                            Text("restore.encrypted_backup")
                                 .font(.headline)
-                            Text("Enter the passphrase to decrypt this backup")
+                            Text("restore.enter_the_passphrase_to_decrypt_this_bac")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -263,16 +266,16 @@ struct RestoreWizardView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Decrypt Backup")
+        .navigationTitle("restore.decrypt_backup")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Back") {
+                Button("backup.back") {
                     currentStep = .fileSelection
                 }
             }
 
             ToolbarItem(placement: .confirmationAction) {
-                Button("Decrypt") {
+                Button("sidebar.decrypt") {
                     Task {
                         await decryptAndValidate(viewModel: viewModel)
                     }
@@ -305,7 +308,7 @@ struct RestoreWizardView: View {
     private func validationView(viewModel: BackupViewModel) -> some View {
         Form {
             if let backup = viewModel.validatedBackup {
-                Section("Backup Information") {
+                Section("backup.backup_information") {
                     LabeledContent("Created", value: backup.formattedCreatedDate)
                     LabeledContent("Created By", value: backup.createdBy)
                     LabeledContent("Encryption", value: backup.isEncrypted ? "AES-256" : "None")
@@ -321,7 +324,7 @@ struct RestoreWizardView: View {
                 }
 
                 if !viewModel.previewKeys.isEmpty {
-                    Section("Keys to Import") {
+                    Section("restore.keys_to_import") {
                         ForEach(viewModel.previewKeys, id: \.self) { fingerprint in
                             HStack {
                                 Image(systemName: "key.fill")
@@ -357,10 +360,10 @@ struct RestoreWizardView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Validate Backup")
+        .navigationTitle("restore.validate_backup")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Back") {
+                Button("backup.back") {
                     if viewModel.validatedBackup?.isEncrypted == true {
                         currentStep = .passphrase
                     } else {
@@ -370,7 +373,7 @@ struct RestoreWizardView: View {
             }
 
             ToolbarItem(placement: .confirmationAction) {
-                Button("Continue") {
+                Button("restore.continue") {
                     currentStep = .confirmation
                 }
                 .disabled(viewModel.validatedBackup == nil)
@@ -389,18 +392,18 @@ struct RestoreWizardView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.blue)
 
-            Text("Ready to Import")
+            Text("restore.ready_to_import")
                 .font(.title)
                 .fontWeight(.semibold)
 
             if let backup = viewModel.validatedBackup {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 12) {
-                        Label("\(backup.keyCount) key\(backup.keyCount == 1 ? "" : "s") will be imported", systemImage: "key.fill")
-                        Label("Keys will be added to your keyring", systemImage: "plus.circle.fill")
+                        Label(String.localizedStringWithFormat(NSLocalizedString("restore.import_key_count", comment: ""), backup.keyCount), systemImage: "key.fill")
+                        Label("restore.adds_keys_to_your_keyring", systemImage: "plus.circle.fill")
 
                         if backup.isEncrypted {
-                            Label("Backup will be decrypted using your passphrase", systemImage: "lock.open.fill")
+                            Label("restore.backup_will_be_decrypted_using_your_pass", systemImage: "lock.open.fill")
                         }
                     }
                     .font(.callout)
@@ -418,16 +421,16 @@ struct RestoreWizardView: View {
             Spacer()
         }
         .padding()
-        .navigationTitle("Confirm Import")
+        .navigationTitle("restore.confirm_import")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Back") {
+                Button("backup.back") {
                     currentStep = .validation
                 }
             }
 
             ToolbarItem(placement: .confirmationAction) {
-                Button("Import Keys") {
+                Button("restore.import_keys") {
                     Task {
                         await performRestore(viewModel: viewModel)
                     }
@@ -463,7 +466,7 @@ struct RestoreWizardView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.green)
 
-            Text("Restore Complete")
+            Text("restore.restore_complete")
                 .font(.title)
                 .fontWeight(.semibold)
 
@@ -482,8 +485,8 @@ struct RestoreWizardView: View {
             if let backup = viewModel.validatedBackup {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("\(backup.keyCount) key\(backup.keyCount == 1 ? "" : "s") imported successfully", systemImage: "key.fill")
-                        Label("Keys are now available in your keyring", systemImage: "checkmark.shield.fill")
+                        Label(String.localizedStringWithFormat(NSLocalizedString("restore.imported_count", comment: ""), backup.keyCount), systemImage: "key.fill")
+                        Label("restore.keys_are_now_available_in_your_keyring", systemImage: "checkmark.shield.fill")
                     }
                     .font(.callout)
                 }
@@ -492,14 +495,14 @@ struct RestoreWizardView: View {
 
             Spacer()
 
-            Button("Done") {
+            Button("keygen.done") {
                 dismiss()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
         .padding()
-        .navigationTitle("Success")
+        .navigationTitle("common.success")
     }
 
     // MARK: - Processing Overlay
@@ -517,7 +520,7 @@ struct RestoreWizardView: View {
                 Text(message)
                     .font(.headline)
 
-                Text("Please wait...")
+                Text("restore.please_wait")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -1,6 +1,6 @@
 import Foundation
 
-extension String {
+nonisolated extension String {
     func formattedAsFingerprint() -> String {
         let cleaned = String(filter(\.isHexDigit)).uppercased()
         return stride(from: 0, to: cleaned.count, by: 4).map { i -> String in

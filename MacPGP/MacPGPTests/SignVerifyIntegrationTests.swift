@@ -10,6 +10,7 @@ import Foundation
 import RNPKit
 @testable import MacPGP
 
+@MainActor
 @Suite("Sign/Verify Integration Tests")
 struct SignVerifyIntegrationTests {
 
@@ -18,7 +19,7 @@ struct SignVerifyIntegrationTests {
     func createTestKeyPair(email: String, passphrase: String) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: email, passphrase: passphrase)
+        let key = try! keyGen.generate(for: email, passphrase: passphrase)
         return PGPKeyModel(from: key)
     }
 
@@ -39,6 +40,16 @@ struct SignVerifyIntegrationTests {
         for key in keys {
             try? keyring.deleteKey(key)
         }
+    }
+
+    /// Cleartext verification now returns librnp's recovered canonical content,
+    /// which normalizes line endings and ends with a line ending (see #138). This
+    /// compares content integrity independent of the trailing line ending / CRLF.
+    func canonicalCleartext(_ text: String?) -> String? {
+        guard var t = text else { return nil }
+        t = t.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+        while t.hasSuffix("\n") { t.removeLast() }
+        return t
     }
 
     // MARK: - Cleartext Message Round-Trip Tests
@@ -71,7 +82,7 @@ struct SignVerifyIntegrationTests {
 
         #expect(result.isValid)
         #expect(result.message == "Signature is valid")
-        #expect(result.originalMessage == originalMessage)
+        #expect(canonicalCleartext(result.originalMessage) == canonicalCleartext(originalMessage))
         #expect(result.signerKey != nil)
         #expect(result.signerKey?.fingerprint == alice.fingerprint)
     }
@@ -93,7 +104,7 @@ struct SignVerifyIntegrationTests {
         let verified = try signing.verify(message: signed)
 
         #expect(verified.isValid)
-        #expect(verified.originalMessage == originalMessage)
+        #expect(canonicalCleartext(verified.originalMessage) == canonicalCleartext(originalMessage))
         #expect(verified.signerKey != nil)
         #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
@@ -103,7 +114,10 @@ struct SignVerifyIntegrationTests {
         let (keyring, signing, alice, bob) = setupIntegrationEnvironment()
         defer { cleanupKeys(keyring: keyring, keys: [alice, bob]) }
 
-        let originalMessage = String(repeating: "This is a very long message that should still sign and verify correctly. ", count: 100)
+        // Many lines (no trailing whitespace) so the canonical cleartext rules
+        // round-trip; trailing whitespace is stripped per spec and is covered
+        // separately in CleartextSignatureTests.
+        let originalMessage = Array(repeating: "This is a long line that should still sign and verify correctly.", count: 100).joined(separator: "\n")
 
         let signed = try signing.sign(
             message: originalMessage,
@@ -115,7 +129,7 @@ struct SignVerifyIntegrationTests {
         let verified = try signing.verify(message: signed)
 
         #expect(verified.isValid)
-        #expect(verified.originalMessage == originalMessage)
+        #expect(canonicalCleartext(verified.originalMessage) == canonicalCleartext(originalMessage))
         #expect(verified.signerKey != nil)
         #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
@@ -143,7 +157,7 @@ struct SignVerifyIntegrationTests {
         let verified = try signing.verify(message: signed)
 
         #expect(verified.isValid)
-        #expect(verified.originalMessage == originalMessage)
+        #expect(canonicalCleartext(verified.originalMessage) == canonicalCleartext(originalMessage))
         #expect(verified.signerKey != nil)
         #expect(verified.signerKey?.fingerprint == alice.fingerprint)
     }
@@ -614,7 +628,7 @@ struct SignVerifyIntegrationTests {
         // Step 7: Verify verification worked
         #expect(verificationResult.isValid)
         #expect(verificationResult.message == "Signature is valid")
-        #expect(verificationResult.originalMessage == secretMessage)
+        #expect(canonicalCleartext(verificationResult.originalMessage) == canonicalCleartext(secretMessage))
         #expect(verificationResult.signerKey != nil)
         #expect(verificationResult.signerKey?.fingerprint == signer.fingerprint)
     }
@@ -651,7 +665,7 @@ struct SignVerifyIntegrationTests {
         let result = try signing.verify(message: signedMessage)
 
         #expect(result.isValid)
-        #expect(result.originalMessage == message)
+        #expect(canonicalCleartext(result.originalMessage) == canonicalCleartext(message))
         #expect(result.signerKey != nil)
         #expect(result.signerKey?.fingerprint == alice.fingerprint)
     }
@@ -674,7 +688,7 @@ struct SignVerifyIntegrationTests {
         let result = try signing.verify(message: signedMessage)
 
         #expect(result.isValid)
-        #expect(result.originalMessage == message)
+        #expect(canonicalCleartext(result.originalMessage) == canonicalCleartext(message))
         #expect(result.signerKey != nil)
         #expect(result.signerKey?.fingerprint == alice.fingerprint)
     }

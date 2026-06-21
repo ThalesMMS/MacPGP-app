@@ -307,13 +307,14 @@
 "keyserver.no_keys_found" = "未找到密钥";
 "keyserver.no_keys_message" = "在 %@ 上未找到匹配\"%@\"的密钥。";
 "keyserver.try_different_server" = "尝试其他服务器";
-"keyserver.keys_found" = "找到 %d 个密钥";
 "keyserver.error" = "错误";
 "keyserver.cancel" = "取消";
 "keyserver.import" = "导入";
 
 /* MARK: - Settings View */
 "settings.general" = "通用";
+"settings.language" = "语言";
+"settings.language_picker" = "应用语言";
 "settings.display" = "显示";
 "settings.show_key_id" = "在列表中显示密钥 ID";
 "settings.confirm_delete" = "删除密钥前确认";
@@ -391,9 +392,6 @@
 "keyserver_settings.timeout_60s" = "60 秒";
 "keyserver_settings.timeout_90s" = "90 秒";
 "keyserver_settings.key_management" = "密钥管理";
-"keyserver_settings.auto_refresh" = "自动从密钥服务器刷新密钥";
-"keyserver_settings.auto_refresh_info" = "自动刷新检查密钥更新";
-"keyserver_settings.auto_refresh_message" = "将定期刷新密钥以从密钥服务器获取最新更新";
 "keyserver_settings.server_information" = "服务器信息";
 "keyserver_settings.about_keyservers" = "关于密钥服务器";
 "keyserver_settings.about_message" = "公共密钥服务器允许您共享公钥并发现其他用户的密钥。所选服务器将用于搜索、上传和刷新操作。";
@@ -588,4 +586,169 @@
 "settings.keys.algorithm_help.ecdsa" = "ECDSA 密钥会生成一个用于加密的 ECDH 子密钥。";
 "settings.keys.algorithm_help.eddsa" = "EdDSA 密钥会生成一个用于加密的 X25519 子密钥。";
 
+/* MARK: - Insecure Keyserver Transport */
+"error.insecure_transport.description" = "MacPGP 未连接“%@”，因为它使用不安全的（明文）连接。";
+"error.insecure_transport.recovery" = "在“设置 → 密钥服务器”中为该服务器启用不安全传输，或改用支持 HTTPS/HKPS 的服务器。";
+"error.insecure_upload.description" = "MacPGP 不会通过不安全的（明文）连接将密钥上传到“%@”。";
+"error.insecure_upload.recovery" = "请将你的公钥上传到支持 HTTPS/HKPS 的服务器。";
+"keyserver_settings.insecure_badge" = "不安全";
+"keyserver_settings.insecure_confirm_title" = "启用不安全的密钥服务器？";
+"keyserver_settings.insecure_confirm_message" = "%@ 使用未加密的 HKP/HTTP 连接。搜索词（例如电子邮件地址）以及你下载的密钥可能在传输过程中被监视或篡改。MacPGP 绝不会发送你的私钥，也不会通过明文上传密钥。仅在你了解风险时启用。";
+"keyserver_settings.insecure_confirm_enable" = "启用不安全的服务器";
+"keyserver_settings.insecure_confirm_cancel" = "取消";
+"keyserver_settings.transport_security_note" = "MacPGP 默认使用 HTTPS/HKPS。TLS 可保护传输中的数据，但并不能证明所下载的密钥属于指定的人——请务必核对指纹。";
+
+/* MARK: - Encrypted Backup Envelope */
+"error.backup_envelope.passphrase_required" = "加密或解密此备份需要口令。";
+"error.backup_envelope.malformed" = "加密备份的标头格式不正确。";
+"error.backup_envelope.truncated" = "加密备份文件不完整或已损坏。";
+"error.backup_envelope.unsupported_version" = "此备份使用了不受支持的封装版本（%d）。";
+"error.backup_envelope.unsupported_kdf" = "此备份使用了不受支持的密钥派生函数（%@）。";
+"error.backup_envelope.unsupported_cipher" = "此备份使用了不受支持的加密算法（%@）。";
+"error.backup_envelope.kdf_parameters_out_of_bounds" = "此备份声明的密钥派生参数超出了允许范围。";
+"error.backup_envelope.authentication_failed" = "无法验证此备份。口令不正确或文件已被修改。";
+
+/* MARK: - Lock MacPGP */
+"menu.lock_macpgp" = "锁定 MacPGP";
+"settings.security.session_lock" = "锁定 MacPGP";
+"settings.security.lock_now_title" = "内存中的口令";
+"settings.security.lock_now_description" = "锁定 MacPGP 会清除保存在临时内存中的口令，下次进行受保护操作时需要重新输入。它不会删除保存在钥匙串中的口令；当 Mac 进入睡眠或会话锁定时会自动锁定。";
+"settings.security.lock_now_button" = "立即锁定";
+
+/* MARK: - Sign / Verify Validation Errors */
+"sign.error.passphrase_required" = "需要口令";
+"sign.error.no_file_selected" = "请选择要签名的文件";
+"sign.error.no_key_selected" = "请选择签名密钥";
+"verify.error.no_file_selected" = "请选择要验证的文件";
+"verify.error.no_signature_file" = "请选择签名文件";
+
 /* End of Localizable.strings */
+
+/* Missing Data Protection Keychain entitlement (issue #145) */
+"error.keychain_entitlement_missing.description" = "钥匙串存储不可用，因为此构建缺少“数据保护钥匙串”授权。密码未被保存。";
+"error.keychain_entitlement_missing.recovery" = "这是此构建的签名或授权问题，您无法自行修复。请重新安装 MacPGP 的官方发行版。您仍可在出现提示时输入密码以继续。";
+"error.keychain_entitlement_missing.reason" = "此构建中不存在“数据保护钥匙串”授权。";
+
+/* Keyserver fetched-key identity mismatch (issue #139) */
+"error.fingerprint_mismatch.description" = "服务器返回的密钥与您所选结果的指纹不匹配，因此未被导入。";
+"error.fingerprint_mismatch.recovery" = "请重新搜索并选择您能够核验完整指纹的密钥，或从可信来源导入该密钥。";
+
+/* --- issue #148: localized backlog (main-app conversion) --- */
+"backup.backup_is_encrypted" = "备份已加密";
+"backup.encrypt_backup_with_passphrase" = "使用密码加密备份";
+"backup.expiring_soon" = "即将过期";
+"backup.keep_your_passphrase_safe_and_accessible" = "妥善保管密码并确保可访问";
+"backup.passphrases_match" = "密码匹配";
+"backup.store_your_backup_in_a_secure_location" = "将备份存储在安全位置";
+"backup.test_your_backup_by_restoring_to_a_test" = "通过恢复到测试密钥环来测试备份";
+"common.copy" = "拷贝";
+"common.fingerprint" = "指纹";
+"common.qr_code" = "二维码";
+"common.reveal" = "显示";
+"component.change" = "更改";
+"component.choose_output_location" = "选择输出位置";
+"component.copy_to_clipboard" = "拷贝到剪贴板";
+"component.or" = "或";
+"component.output_location" = "输出位置";
+"decrypt.decrypted_output" = "解密输出";
+"decrypt.encrypted_message" = "加密消息";
+"decrypt.will_try_all_available_secret_keys" = "将尝试所有可用的私钥";
+"encrypt.choose" = "选择…";
+"encrypt.choose_output_folder" = "选择输出文件夹";
+"encrypt.encrypted_output" = "加密输出";
+"keydetails.already_verified" = "已验证";
+"keydetails.compare_fingerprints" = "比较指纹";
+"keydetails.compare_the_fingerprint_below_with_the_o" = "将下方的指纹与通过可信渠道（当面、电话或安全消息）收到的指纹进行比较。粘贴或输入收到的指纹以检查它们是否匹配。";
+"keydetails.compare_with_received_fingerprint" = "与收到的指纹比较";
+"keydetails.edit_expiration" = "编辑有效期";
+"keydetails.edit_expiration_2" = "编辑有效期...";
+"keydetails.fingerprint_to_compare" = "要比较的指纹";
+"keydetails.fingerprints_don_t_match" = "指纹不匹配";
+"keydetails.fingerprints_match" = "指纹匹配";
+"keydetails.fingerprints_match_2" = "指纹匹配";
+"keydetails.how_to_verify" = "如何验证";
+"keydetails.key" = "密钥";
+"keydetails.key_verified_successfully" = "密钥验证成功";
+"keydetails.manage_key" = "管理密钥";
+"keydetails.manage_revocation" = "管理吊销...";
+"keydetails.mark_as_verified" = "标记为已验证";
+"keydetails.no_changes_to_save" = "没有要保存的更改";
+"keydetails.paste_a_matching_fingerprint_to_continue" = "粘贴匹配的指纹以继续。";
+"keydetails.paste_fingerprint_here" = "在此粘贴指纹...";
+"keydetails.paste_or_type_fingerprint_here" = "在此粘贴或输入指纹...";
+"keydetails.paste_or_type_the_fingerprint_you_receiv" = "粘贴或输入您通过可信渠道收到的指纹，以核验它是否与此密钥匹配。";
+"keydetails.paste_the_fingerprint_you_received_throu" = "粘贴您通过可信渠道收到的指纹。匹配后将记录您已验证该指纹，但不会将此密钥标记为受信任。";
+"keydetails.save_trust_level" = "保存信任级别";
+"keydetails.scan_this_qr_code_with_another_device_to" = "用另一台设备扫描此二维码，以当面核验指纹。";
+"keydetails.scan_to_verify_fingerprint" = "扫描以验证指纹";
+"keydetails.set_trust_level_for_this_key" = "设置此密钥的信任级别";
+"keydetails.the_fingerprints_are_different_do_not_tr" = "指纹不一致。请勿信任此密钥。它可能已被泄露或不正确。";
+"keydetails.the_fingerprints_are_identical_tap_verif" = "指纹一致。点按“验证”以将此密钥标记为已验证。";
+"keydetails.the_fingerprints_are_identical_you_have" = "指纹一致。您已验证此密钥的指纹。";
+"keydetails.this_key_s_fingerprint" = "此密钥的指纹";
+"keydetails.trust_level_updated" = "信任级别已更新";
+"keydetails.update" = "更新";
+"keydetails.verification_complete" = "验证完成";
+"keydetails.verification_method" = "验证方式";
+"keydetails.verify_key_fingerprint" = "验证密钥指纹";
+"keydetails.verify_this_key_s_fingerprint" = "验证此密钥的指纹";
+"keygen.creates_an_ecdsa_primary_key_with_an_ecd" = "创建一个 ECDSA 主密钥，并附带一个用于加密的 ECDH 子密钥。";
+"keygen.creates_an_ed25519_primary_key_with_an_x" = "创建一个 Ed25519 主密钥，并附带一个用于加密的 X25519 子密钥。";
+"keygen.key_generated_successfully" = "密钥生成成功";
+"keygen.passphrase_stored_in_keychain" = "密码已存储在钥匙串中";
+"keygen.your_key_has_been_added_to_the_keyring" = "您的密钥已添加到密钥环";
+"keyring.clear_filters" = "清除筛选";
+"keyring.no_keys_match_your_search_or_filter" = "没有与您的搜索或筛选匹配的密钥。";
+"keyring.no_results" = "无结果";
+"keyserver_search.search_again" = "重新搜索";
+"paperkey.failed_to_load_key" = "无法加载密钥";
+"paperkey.important_security_notice" = "重要安全提示";
+"paperkey.paper_key_backup" = "纸质密钥备份";
+"paperkey.pgp_key_paper_backup" = "PGP 密钥纸质备份";
+"paperkey.print" = "打印";
+"paperkey.private_key_ascii_armored" = "私钥（ASCII 装甲）";
+"paperkey.scan_to_import_this_key" = "扫描以导入此密钥";
+"paperkey.this_paper_backup_contains_your_private" = "此纸质备份包含您的私钥。请将其存放在安全的地方。任何人只要能接触到这张纸，就能解密您的消息并以您的名义签署文档。";
+"quicklook.macpgp_could_not_display_this_preview_op" = "MacPGP 无法显示此预览。请在 MacPGP 中打开该文件以查看。";
+"quicklook.unable_to_read_encrypted_file" = "无法读取加密文件";
+"restore.adds_keys_to_your_keyring" = "将密钥添加到您的密钥环";
+"restore.backup_will_be_decrypted_using_your_pass" = "将使用您的密码解密备份";
+"restore.confirm_import" = "确认导入";
+"restore.decrypt_backup" = "解密备份";
+"restore.encrypted_backup" = "已加密的备份";
+"restore.enter_the_passphrase_to_decrypt_this_bac" = "输入密码以解密此备份";
+"restore.keys_are_now_available_in_your_keyring" = "密钥现已在您的密钥环中可用";
+"restore.keys_to_import" = "要导入的密钥";
+"restore.please_wait" = "请稍候…";
+"restore.ready_to_import" = "准备导入";
+"restore.restore_complete" = "恢复完成";
+"restore.validate_backup" = "验证备份";
+"services.key" = "密钥：";
+"services.passphrase" = "密码：";
+"services.select_one_or_more_recipients_to_encrypt" = "选择一个或多个加密收件人：";
+"settings.at_least_one_keyserver_must_remain_enabl" = "必须至少启用一个密钥服务器。";
+"settings.enabled_keyservers" = "已启用的密钥服务器";
+"shareext.encrypt_files" = "加密文件";
+"shareext.files_to_encrypt" = "要加密的文件";
+"shareext.select_recipients_to_encrypt_the_shared" = "选择收件人以加密共享的文件";
+"verification.signed_by" = "签名者";
+"verification.verification_result" = "验证结果";
+"verification.verification_result_will_appear_here" = "验证结果将显示在此处";
+
+/* --- issue #148: interpolated/format strings --- */
+"common.selected_count_format" = "已选择 (%lld)";
+"keydetails.confirm_delete_format" = "您确定要删除\"%@\"吗？此操作无法撤销。";
+"keydetails.trust_inline_format" = "信任：%@";
+"keygen.bits_format" = "%lld 位";
+"keygen.strength_format" = "强度：%@";
+"keyserver_search.expires_format" = "过期时间 %@";
+"keyserver_search.no_results_format" = "在 %2$@ 上未找到匹配\"%1$@\"的密钥。";
+"keyserver_search.prompt_format" = "输入电子邮件地址或密钥 ID 以在 %@ 上搜索公钥。";
+"paperkey.generated_on_format" = "生成于 %@";
+"revocation.confirm_revoke_format" = "这将永久吊销\"%@\"。此操作无法撤销，且该密钥将无法再用于加密或签名。";
+"services.select_key_for_format" = "选择用于 %@ 的密钥：";
+"trust.current_format" = "当前信任：%@";
+"trust.set_to_format" = "“%1$@”的信任级别已设置为 %2$@。";
+"verification.marked_verified_format" = "已使用 %2$@ 将密钥“%1$@”标记为已验证。";
+"verification.signed_on_relative_format" = "于 %@";
+"verify.signed_on_format" = "签名于 %@";

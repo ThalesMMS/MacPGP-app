@@ -13,84 +13,84 @@ struct SettingsView: View {
         TabView {
             generalSettings
                 .tabItem {
-                    Label(String(localized: "settings.tab.general", defaultValue: "General", comment: "General settings tab label"), systemImage: "gearshape")
+                    Label(String(localized: "settings.general", comment: "General settings tab label"), systemImage: "gearshape")
                 }
 
             keySettings
                 .tabItem {
-                    Label(String(localized: "settings.tab.keys", defaultValue: "Keys", comment: "Keys settings tab label"), systemImage: "key")
+                    Label(String(localized: "settings.keys", comment: "Keys settings tab label"), systemImage: "key")
                 }
 
             securitySettings
                 .tabItem {
-                    Label(String(localized: "settings.tab.security", defaultValue: "Security", comment: "Security settings tab label"), systemImage: "lock.shield")
+                    Label(String(localized: "settings.security", comment: "Security settings tab label"), systemImage: "lock.shield")
                 }
 
             backupSettings
                 .tabItem {
-                    Label(String(localized: "settings.tab.backup", defaultValue: "Backup", comment: "Backup settings tab label"), systemImage: "externaldrive")
+                    Label(String(localized: "settings.backup", comment: "Backup settings tab label"), systemImage: "externaldrive")
                 }
 
             keyserverSettings
                 .tabItem {
-                    Label(String(localized: "settings.tab.keyserver", defaultValue: "Keyserver", comment: "Keyserver settings tab label"), systemImage: "server.rack")
+                    Label(String(localized: "settings.keyserver", comment: "Keyserver settings tab label"), systemImage: "server.rack")
                 }
         }
         .frame(width: 500, height: 420)
         .confirmationDialog(
-            String(localized: "settings.reset_dialog.title", comment: "Title for reset settings confirmation dialog"),
+            String(localized: "settings.reset_settings", comment: "Title for reset settings confirmation dialog"),
             isPresented: $showingResetConfirmation
         ) {
-            Button(String(localized: "settings.reset_dialog.reset_button", comment: "Button to confirm reset to defaults"), role: .destructive) {
+            Button(String(localized: "settings.reset_defaults", comment: "Button to confirm reset to defaults"), role: .destructive) {
                 resetPreferencesToDefaults()
             }
-            Button(String(localized: "settings.button.cancel", comment: "Cancel button"), role: .cancel) {}
+            Button(String(localized: "common.cancel", comment: "Cancel button"), role: .cancel) {}
         } message: {
-            Text(String(localized: "settings.reset_dialog.message", comment: "Message explaining reset will restore default values"))
+            Text(String(localized: "settings.reset_confirmation", comment: "Message explaining reset will restore default values"))
         }
         .confirmationDialog(
-            String(localized: "settings.clear_keychain_dialog.title", comment: "Title for clear keychain confirmation dialog"),
+            String(localized: "settings.clear_keychain_title", comment: "Title for clear keychain confirmation dialog"),
             isPresented: $showingClearKeychainConfirmation
         ) {
-            Button(String(localized: "settings.clear_keychain_dialog.clear_button", comment: "Button to confirm clearing all passphrases"), role: .destructive) {
+            Button(String(localized: "settings.clear_keychain", comment: "Button to confirm clearing all passphrases"), role: .destructive) {
                 clearKeychain()
             }
-            Button(String(localized: "settings.button.cancel", comment: "Cancel button"), role: .cancel) {}
+            Button(String(localized: "common.cancel", comment: "Cancel button"), role: .cancel) {}
         } message: {
-            Text(String(localized: "settings.clear_keychain_dialog.message", comment: "Message explaining keychain clear will remove stored passphrases"))
+            Text(String(localized: "settings.clear_keychain_confirmation", comment: "Message explaining keychain clear will remove stored passphrases"))
         }
-        .alert(String(localized: "settings.alert.error", comment: "Error alert title"), isPresented: $showingAlert) {
-            Button(String(localized: "settings.button.ok", comment: "OK button")) {}
+        .alert(String(localized: "common.error", comment: "Error alert title"), isPresented: $showingAlert) {
+            Button(String(localized: "common.ok", comment: "OK button")) {}
         } message: {
-            Text(alertMessage ?? String(localized: "settings.alert.error_occurred", comment: "Generic error message"))
+            Text(alertMessage ?? String(localized: "error.generic", comment: "Generic error message"))
         }
     }
 
     private var generalSettings: some View {
         Form {
-            Section(String(localized: "settings.general.language", comment: "Language section header")) {
-                Picker(String(localized: "settings.general.language_picker", comment: "Label for language picker"), selection: $preferences.appLanguage) {
+            Section(String(localized: "settings.language", comment: "Language section header")) {
+                Picker(String(localized: "settings.language_picker", comment: "Label for language picker"), selection: $preferences.appLanguage) {
                     ForEach(AppLanguage.allCases) { language in
                         Text(language.displayName).tag(language)
                     }
                 }
             }
 
-            Section(String(localized: "settings.general.display", comment: "Display section header")) {
-                Toggle(String(localized: "settings.general.show_key_id", comment: "Toggle to show Key ID in list"), isOn: $preferences.showKeyIDInList)
+            Section(String(localized: "settings.display", comment: "Display section header")) {
+                Toggle(String(localized: "settings.show_key_id", comment: "Toggle to show Key ID in list"), isOn: $preferences.showKeyIDInList)
 
-                Toggle(String(localized: "settings.general.confirm_delete", comment: "Toggle to confirm before deleting keys"), isOn: $preferences.confirmBeforeDelete)
+                Toggle(String(localized: "settings.confirm_delete", comment: "Toggle to confirm before deleting keys"), isOn: $preferences.confirmBeforeDelete)
             }
 
-            Section(String(localized: "settings.general.output", comment: "Output section header")) {
-                Toggle(String(localized: "settings.general.armor_output", comment: "Toggle for ASCII armor output by default"), isOn: $preferences.armorOutput)
+            Section(String(localized: "settings.output", comment: "Output section header")) {
+                Toggle(String(localized: "settings.ascii_armor_default", comment: "Toggle for ASCII armor output by default"), isOn: $preferences.armorOutput)
             }
 
-            Section(String(localized: "settings.general.storage", comment: "Storage section header")) {
-                Toggle(String(localized: "settings.general.auto_save", comment: "Toggle to auto-save keyring changes"), isOn: $preferences.autoSaveKeyring)
+            Section(String(localized: "settings.storage", comment: "Storage section header")) {
+                Toggle(String(localized: "settings.auto_save", comment: "Toggle to auto-save keyring changes"), isOn: $preferences.autoSaveKeyring)
 
                 HStack {
-                    Text(String(localized: "settings.general.keyring_location", comment: "Label for keyring location"))
+                    Text(String(localized: "settings.keyring_location", comment: "Label for keyring location"))
                     Spacer()
                     Text(KeyringPersistence().keyringDirectory.path)
                         .foregroundStyle(.secondary)
@@ -107,7 +107,7 @@ struct SettingsView: View {
             }
 
             Section {
-                Button(String(localized: "settings.general.reset_button", comment: "Button to reset settings to defaults")) {
+                Button(String(localized: "settings.reset_defaults", comment: "Button to reset settings to defaults")) {
                     showingResetConfirmation = true
                 }
             }
@@ -118,26 +118,26 @@ struct SettingsView: View {
 
     private var keySettings: some View {
         Form {
-            Section(String(localized: "settings.keys.section_title", comment: "Default key generation settings section header")) {
-                Picker(String(localized: "settings.keys.algorithm", comment: "Label for algorithm picker"), selection: $preferences.defaultKeyAlgorithm) {
+            Section(String(localized: "settings.default_keygen", comment: "Default key generation settings section header")) {
+                Picker(String(localized: "settings.algorithm", comment: "Label for algorithm picker"), selection: $preferences.defaultKeyAlgorithm) {
                     ForEach([KeyAlgorithm.rsa, .ecdsa, .eddsa]) { algo in
                         Text(algo.displayName).tag(algo)
                     }
                 }
 
-                Picker(String(localized: "settings.keys.key_size", comment: "Label for key size picker"), selection: $preferences.defaultKeySize) {
+                Picker(String(localized: "settings.key_size", comment: "Label for key size picker"), selection: $preferences.defaultKeySize) {
                     ForEach(preferences.defaultKeyAlgorithm.supportedKeySizes, id: \.self) { size in
-                        Text("\(size) bits").tag(size)
+                        Text(String.localizedStringWithFormat(NSLocalizedString("keygen.bits_format", comment: ""), size)).tag(size)
                     }
                 }
                 .disabled(preferences.defaultKeyAlgorithm.supportedKeySizes.count == 1)
 
-                Picker(String(localized: "settings.keys.expiration", comment: "Label for expiration picker"), selection: $preferences.defaultKeyExpirationMonths) {
-                    Text(String(localized: "settings.keys.expiration.6_months", comment: "6 months expiration option")).tag(6)
-                    Text(String(localized: "settings.keys.expiration.1_year", comment: "1 year expiration option")).tag(12)
-                    Text(String(localized: "settings.keys.expiration.2_years", comment: "2 years expiration option")).tag(24)
-                    Text(String(localized: "settings.keys.expiration.5_years", comment: "5 years expiration option")).tag(60)
-                    Text(String(localized: "settings.keys.expiration.never", comment: "Never expire option")).tag(0)
+                Picker(String(localized: "settings.expiration", comment: "Label for expiration picker"), selection: $preferences.defaultKeyExpirationMonths) {
+                    Text(String(localized: "settings.expiry_6_months", comment: "6 months expiration option")).tag(6)
+                    Text(String(localized: "settings.expiry_1_year", comment: "1 year expiration option")).tag(12)
+                    Text(String(localized: "settings.expiry_2_years", comment: "2 years expiration option")).tag(24)
+                    Text(String(localized: "settings.expiry_5_years", comment: "5 years expiration option")).tag(60)
+                    Text(String(localized: "settings.never", comment: "Never expire option")).tag(0)
                 }
 
                 if preferences.defaultKeyAlgorithm == .ecdsa {
@@ -157,8 +157,8 @@ struct SettingsView: View {
 
     private var securitySettings: some View {
         Form {
-            Section(String(localized: "settings.security.passphrase_storage", comment: "Passphrase storage section header")) {
-                Toggle(String(localized: "settings.security.remember_passphrases", comment: "Toggle to remember passphrases in Keychain"), isOn: $preferences.rememberPassphrase)
+            Section(String(localized: "settings.passphrase_storage", comment: "Passphrase storage section header")) {
+                Toggle(String(localized: "settings.remember_passphrases", comment: "Toggle to remember passphrases in Keychain"), isOn: $preferences.rememberPassphrase)
                     .onChange(of: preferences.rememberPassphrase) { _, rememberPassphrases in
                         if !rememberPassphrases {
                             PassphraseCache.shared.clear()
@@ -166,37 +166,53 @@ struct SettingsView: View {
                     }
 
                 if preferences.rememberPassphrase {
-                    Picker(String(localized: "settings.security.clear_after", comment: "Label for passphrase timeout picker"), selection: $preferences.passphraseTimeoutMinutes) {
-                        Text(String(localized: "settings.security.timeout.5_minutes", comment: "5 minutes timeout option")).tag(5)
-                        Text(String(localized: "settings.security.timeout.10_minutes", comment: "10 minutes timeout option")).tag(10)
-                        Text(String(localized: "settings.security.timeout.30_minutes", comment: "30 minutes timeout option")).tag(30)
-                        Text(String(localized: "settings.security.timeout.1_hour", comment: "1 hour timeout option")).tag(60)
-                        Text(String(localized: "settings.security.timeout.never", comment: "Never clear timeout option")).tag(0)
+                    Picker(String(localized: "settings.clear_after", comment: "Label for passphrase timeout picker"), selection: $preferences.passphraseTimeoutMinutes) {
+                        Text(String(localized: "settings.clear_5_min", comment: "5 minutes timeout option")).tag(5)
+                        Text(String(localized: "settings.clear_10_min", comment: "10 minutes timeout option")).tag(10)
+                        Text(String(localized: "settings.clear_30_min", comment: "30 minutes timeout option")).tag(30)
+                        Text(String(localized: "settings.clear_1_hour", comment: "1 hour timeout option")).tag(60)
+                        Text(String(localized: "settings.never", comment: "Never clear timeout option")).tag(0)
                     }
                 }
             }
 
-            Section(String(localized: "settings.security.keychain", comment: "Keychain section header")) {
+            Section(String(localized: "settings.keychain", comment: "Keychain section header")) {
                 HStack {
                     VStack(alignment: .leading) {
-                        Text(String(localized: "settings.security.stored_passphrases", comment: "Label for stored passphrases"))
-                        Text(String(localized: "settings.security.clear_keychain_description", comment: "Description for clearing stored passphrases"))
+                        Text(String(localized: "settings.stored_passphrases", comment: "Label for stored passphrases"))
+                        Text(String(localized: "settings.clear_keychain_message", comment: "Description for clearing stored passphrases"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button(String(localized: "settings.security.clear_keychain_button", comment: "Button to clear keychain")) {
+                    Button(String(localized: "settings.clear_keychain", comment: "Button to clear keychain")) {
                         showingClearKeychainConfirmation = true
                     }
                 }
             }
 
+            Section(String(localized: "settings.security.session_lock", comment: "Session lock section header")) {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(String(localized: "settings.security.lock_now_title", comment: "In-memory passphrase lock row title"))
+                        Text(String(localized: "settings.security.lock_now_description", comment: "Explanation distinguishing the temporary cache, Keychain persistence, and system-lock behavior"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(String(localized: "settings.security.lock_now_button", comment: "Button to lock MacPGP now")) {
+                        SessionLockController.shared.lock()
+                    }
+                    .accessibilityIdentifier("Lock MacPGP Now")
+                }
+            }
+
             Section {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label(String(localized: "settings.security.note_title", comment: "Security note title"), systemImage: "info.circle")
+                    Label(String(localized: "settings.security_note", comment: "Security note title"), systemImage: "info.circle")
                         .font(.headline)
 
-                    Text(String(localized: "settings.security.note_message", comment: "Security note explaining keychain protection"))
+                    Text(String(localized: "settings.security_note_message", comment: "Security note explaining keychain protection"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -294,7 +310,7 @@ struct SettingsView: View {
         do {
             try KeychainManager.shared.deleteAllPassphrases()
         } catch {
-            alertMessage = String(localized: "settings.error.clear_keychain_failed", defaultValue: "Failed to clear keychain", comment: "Error message when clearing keychain fails") + ": \(error.localizedDescription)"
+            alertMessage = String(localized: "error.keychain_error.description", comment: "Error message when clearing keychain fails") + ": \(error.localizedDescription)"
             showingAlert = true
         }
     }

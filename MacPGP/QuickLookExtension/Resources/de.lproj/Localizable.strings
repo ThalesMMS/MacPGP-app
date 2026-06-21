@@ -1,0 +1,17 @@
+/* quicklook localized strings (de) - issue #148 */
+"quicklook_algorithm_label" = "Algorithmus";
+"quicklook_compression_label" = "Komprimierung";
+"quicklook_created_label" = "Erstellt";
+"quicklook_encryption_information_section" = "Verschlüsselungsinformationen";
+"quicklook_encryption_pgp_encrypted_file" = "Mit PGP verschlüsselte Datei";
+"quicklook_file_information_section" = "Dateiinformationen";
+"quicklook_file_size_label" = "Dateigröße";
+"quicklook_integrity_protection_label" = "Integritätsschutz";
+"quicklook_integrity_protection_yes_mdc" = "Ja (MDC)";
+"quicklook_no" = "Nein";
+"quicklook_no_recipient_information" = "Keine Empfängerinformationen verfügbar";
+"quicklook_open_in_app_to_decrypt" = "Um diese Datei zu entschlüsseln, öffnen Sie sie in MacPGP.";
+"quicklook_original_name_label" = "Originalname";
+"quicklook_recipients_section" = "Empfänger";
+"quicklook_unable_to_read_message" = "MacPGP konnte diese Vorschau nicht anzeigen. Öffnen Sie die Datei in MacPGP, um sie zu prüfen.";
+"quicklook_unable_to_read_title" = "Verschlüsselte Datei kann nicht gelesen werden";

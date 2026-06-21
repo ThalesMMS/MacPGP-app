@@ -1,6 +1,6 @@
 import Foundation
 import AppKit
-import UserNotifications
+@preconcurrency import UserNotifications
 
 /// Handles communication between app extensions (FinderSync, QuickLook, Thumbnail) and the main application
 /// This service processes file operations triggered from Finder context menus and other extension interfaces
@@ -53,14 +53,11 @@ final class ExtensionCommunicationService: NSObject {
 
         NSLog("[ExtensionCommunicationService] Handling \(urls.count) file(s)")
 
-        // Separate encrypted files from regular files
-        let encryptedFiles = urls.filter { url in
-            PGPFileAnalyzer.isPGPFile(url: url) && fileAnalyzer.isEncrypted(fileAt: url)
-        }
-
-        let regularFiles = urls.filter { url in
-            !PGPFileAnalyzer.isPGPFile(url: url) || !fileAnalyzer.isEncrypted(fileAt: url)
-        }
+        // Separate encrypted files from regular files. Classification uses
+        // bounded header sniffing (issue #142) via isEncryptedFile, so opening a
+        // large file never reads it fully just to choose the handoff route.
+        let encryptedFiles = urls.filter { isEncryptedFile($0) }
+        let regularFiles = urls.filter { !isEncryptedFile($0) }
 
         // Handle decryption for encrypted files
         if !encryptedFiles.isEmpty {
@@ -156,11 +153,16 @@ final class ExtensionCommunicationService: NSObject {
 
 extension ExtensionCommunicationService {
 
-    /// Determines if a URL represents an encrypted PGP file
+    /// Determines if a URL represents an encrypted PGP file.
+    ///
+    /// Uses bounded header sniffing (`isEncryptedHeader`) rather than a full-file
+    /// analysis: operation routing and Finder handoff only need the packet header,
+    /// so a large file is never read into memory just to choose encrypt vs decrypt
+    /// (issue #142).
     /// - Parameter url: File URL to check
     /// - Returns: True if the file is encrypted
     func isEncryptedFile(_ url: URL) -> Bool {
-        return PGPFileAnalyzer.isPGPFile(url: url) && fileAnalyzer.isEncrypted(fileAt: url)
+        return PGPFileAnalyzer.isPGPFile(url: url) && fileAnalyzer.isEncryptedHeader(fileAt: url)
     }
 
     /// Returns appropriate operation for a given file

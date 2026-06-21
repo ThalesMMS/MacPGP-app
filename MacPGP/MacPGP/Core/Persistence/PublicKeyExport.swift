@@ -1,7 +1,7 @@
 import Foundation
 import RNPKit
 
-enum PublicKeyExport {
+nonisolated enum PublicKeyExport {
     static func export(_ key: Key) throws -> Data {
         try key.exportPublic()
     }

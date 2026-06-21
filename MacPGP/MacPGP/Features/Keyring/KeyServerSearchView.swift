@@ -43,7 +43,8 @@ struct KeyServerSearchView: View {
         .frame(minWidth: 500, minHeight: 400)
         .onAppear(perform: normalizeSelectedServer)
         .alert("Error", isPresented: $showingAlert) {
-            Button("OK") {}
+            Button("common.ok") {}
+                .accessibilityIdentifier("Keyserver Error OK")
         } message: {
             Text(alertMessage)
         }
@@ -55,10 +56,10 @@ struct KeyServerSearchView: View {
     private var searchToolbar: some View {
         VStack(spacing: 12) {
             HStack {
-                Text("Search Keyserver")
+                Text("keyring.search_keyserver")
                     .font(.headline)
                 Spacer()
-                Button("Close") {
+                Button("revocation.close") {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
@@ -71,22 +72,25 @@ struct KeyServerSearchView: View {
                     .onSubmit {
                         performSearch()
                     }
+                    .accessibilityIdentifier("Keyserver Search Field")
 
                 Button(action: performSearch) {
-                    Label("Search", systemImage: "magnifyingglass")
+                    Label("keyserver.search_button", systemImage: "magnifyingglass")
                 }
                 .disabled(searchQuery.isEmpty || isSearching)
                 .keyboardShortcut(.return, modifiers: [])
+                .accessibilityIdentifier("Keyserver Search Button")
             }
 
-            Picker("Server:", selection: $selectedServer) {
+            Picker("keyserver.server", selection: $selectedServer) {
                 ForEach(enabledServers) { server in
-                    Text(server.name).tag(server)
+                    Text(serverPickerLabel(for: server)).tag(server)
                 }
             }
             .pickerStyle(.menu)
             .labelsHidden()
             .disabled(isSearching)
+            .accessibilityIdentifier("Keyserver Search Server Picker")
         }
         .padding()
     }
@@ -97,7 +101,7 @@ struct KeyServerSearchView: View {
     private var loadingView: some View {
         VStack(spacing: 16) {
             ProgressView()
-            Text("Searching keyserver...")
+            Text("keyserver.searching")
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -106,21 +110,22 @@ struct KeyServerSearchView: View {
     @ViewBuilder
     private var initialStateView: some View {
         ContentUnavailableView {
-            Label("Search for Keys", systemImage: "magnifyingglass")
+            Label("keyserver.search_message", systemImage: "magnifyingglass")
         } description: {
-            Text("Enter an email address or key ID to search for public keys on \(selectedServer.name).")
+            Text(String.localizedStringWithFormat(NSLocalizedString("keyserver_search.prompt_format", comment: ""), selectedServer.name))
         }
     }
 
     @ViewBuilder
     private var emptyStateView: some View {
         ContentUnavailableView {
-            Label("No Keys Found", systemImage: "key.slash")
+            Label("keyserver.no_keys_found", systemImage: "key.slash")
+                .accessibilityIdentifier("Keyserver No Results")
         } description: {
-            Text("No keys matching \"\(searchQuery)\" were found on \(selectedServer.name).")
+            Text(String.localizedStringWithFormat(NSLocalizedString("keyserver_search.no_results_format", comment: ""), searchQuery, selectedServer.name))
         } actions: {
             if enabledServers.count > 1 {
-                Button("Try Different Server") {
+                Button("keyserver.try_different_server") {
                     if let nextIndex = enabledServers.firstIndex(where: { $0.id == selectedServer.id }) {
                         let nextServerIndex = (nextIndex + 1) % enabledServers.count
                         selectedServer = enabledServers[nextServerIndex]
@@ -128,7 +133,7 @@ struct KeyServerSearchView: View {
                     performSearch()
                 }
             } else {
-                Button("Search Again") {
+                Button("keyserver_search.search_again") {
                     performSearch()
                 }
             }
@@ -138,7 +143,7 @@ struct KeyServerSearchView: View {
     @ViewBuilder
     private var resultsList: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("\(searchResults.count) key\(searchResults.count == 1 ? "" : "s") found")
+            Text(String.localizedStringWithFormat(NSLocalizedString("keyserver.keys_found", comment: "Number of public keys found on the keyserver"), searchResults.count))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
@@ -148,9 +153,11 @@ struct KeyServerSearchView: View {
                 ForEach(searchResults) { result in
                     KeySearchResultRow(result: result)
                         .tag(result)
+                        .accessibilityIdentifier("Keyserver Result \(result.shortKeyID)")
                 }
             }
             .listStyle(.inset)
+            .accessibilityIdentifier("Keyserver Results List")
         }
     }
 
@@ -159,16 +166,17 @@ struct KeyServerSearchView: View {
         HStack {
             Spacer()
 
-            Button("Cancel") {
+            Button("keygen.cancel") {
                 dismiss()
             }
             .keyboardShortcut(.cancelAction)
 
-            Button("Import") {
+            Button("keyserver.import") {
                 importSelectedKey()
             }
             .disabled(selectedResult == nil || isImporting)
             .keyboardShortcut(.defaultAction)
+            .accessibilityIdentifier("Keyserver Import Button")
         }
         .padding()
     }
@@ -211,6 +219,13 @@ struct KeyServerSearchView: View {
         }
     }
 
+    /// Labels insecure (HKP/HTTP) servers in the picker so a plaintext endpoint is
+    /// visually distinguishable wherever it can be selected.
+    private func serverPickerLabel(for server: KeyServerConfig) -> String {
+        guard server.requiresInsecureOptIn else { return server.name }
+        return "\(server.name) (\(String(localized: "keyserver_settings.insecure_badge")))"
+    }
+
     private func importSelectedKey() {
         guard let result = selectedResult, !isImporting else { return }
 
@@ -218,8 +233,10 @@ struct KeyServerSearchView: View {
         isImporting = true
         Task {
             do {
-                // Fetch the full key data from the keyserver
-                let keyData = try await keyServerService.fetchKey(fingerprint: result.fingerprint, from: server)
+                // Fetch the key and verify it matches the selected result's
+                // fingerprint before importing, so a mismatched or substituted
+                // server response cannot mutate the keyring.
+                let keyData = try await keyServerService.fetchValidatedKey(matching: result.fingerprint, from: server)
 
                 // Import the key into the keyring
                 let importedKeys = try await MainActor.run {
@@ -266,7 +283,7 @@ struct KeySearchResultRow: View {
                     .font(.headline)
 
                 if result.isRevoked {
-                    Label("Revoked", systemImage: "xmark.circle.fill")
+                    Label("key.revoked", systemImage: "xmark.circle.fill")
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
@@ -297,11 +314,11 @@ struct KeySearchResultRow: View {
 
                 if let expirationDate = result.expirationDate {
                     if expirationDate < Date() {
-                        Label("Expired", systemImage: "clock.badge.exclamationmark")
+                        Label("key.expired", systemImage: "clock.badge.exclamationmark")
                             .font(.caption)
                             .foregroundStyle(.red)
                     } else {
-                        Label("Expires \(expirationDate.formatted(date: .abbreviated, time: .omitted))", systemImage: "clock")
+                        Label(String.localizedStringWithFormat(NSLocalizedString("keyserver_search.expires_format", comment: ""), expirationDate.formatted(date: .abbreviated, time: .omitted)), systemImage: "clock")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

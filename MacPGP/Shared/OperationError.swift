@@ -1,6 +1,6 @@
 import Foundation
 
-enum OperationError: LocalizedError {
+nonisolated enum OperationError: LocalizedError {
     case keyNotFound(keyID: String)
     case invalidPassphrase
     case passphraseRequired
@@ -12,6 +12,7 @@ enum OperationError: LocalizedError {
     case keyImportFailed(underlying: Error?)
     case keyExportFailed(underlying: Error?)
     case keychainError(underlying: Error?)
+    case keychainEntitlementMissing
     case persistenceError(underlying: Error?)
     case invalidKeyData
     case keyExpired
@@ -86,6 +87,8 @@ enum OperationError: LocalizedError {
             } else {
                 return NSLocalizedString("error.keychain_error.description", comment: "Error description when Keychain access fails without specific details")
             }
+        case .keychainEntitlementMissing:
+            return NSLocalizedString("error.keychain_entitlement_missing.description", comment: "Error description when the Data Protection Keychain entitlement is missing and the passphrase was not saved")
         case .persistenceError(let error):
             if let error = error {
                 return String(format: NSLocalizedString("error.persistence_error.description_with_details", comment: "Error description when data persistence fails with underlying error details"), error.localizedDescription)
@@ -151,6 +154,8 @@ enum OperationError: LocalizedError {
             return NSLocalizedString("error.key_export_failed.recovery", comment: "Recovery suggestion when key export fails")
         case .keychainError:
             return NSLocalizedString("error.keychain_error.recovery", comment: "Recovery suggestion when Keychain access fails")
+        case .keychainEntitlementMissing:
+            return NSLocalizedString("error.keychain_entitlement_missing.recovery", comment: "Recovery suggestion when the Data Protection Keychain entitlement is missing")
         case .persistenceError:
             return NSLocalizedString("error.persistence_error.recovery", comment: "Recovery suggestion when data persistence fails")
         case .invalidKeyData:
@@ -244,6 +249,8 @@ enum OperationError: LocalizedError {
             } else {
                 return NSLocalizedString("error.keychain_error.reason", comment: "Failure reason when Keychain access fails without specific details")
             }
+        case .keychainEntitlementMissing:
+            return NSLocalizedString("error.keychain_entitlement_missing.reason", comment: "Failure reason when the Data Protection Keychain entitlement is missing")
         case .persistenceError(let error):
             if let error = error {
                 return String(format: NSLocalizedString("error.persistence_error.reason_with_details", comment: "Failure reason when data persistence fails with underlying error details"), error.localizedDescription)

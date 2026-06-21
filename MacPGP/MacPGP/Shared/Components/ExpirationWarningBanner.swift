@@ -77,7 +77,7 @@ struct ExpirationWarningBanner: View {
     VStack(spacing: 16) {
         ExpirationWarningBanner(
             key: {
-                var preview = PGPKeyModel.preview
+                let preview = PGPKeyModel.preview
                 // Simulate a key expiring in 25 days
                 return preview
             }()
@@ -91,7 +91,7 @@ struct ExpirationWarningBanner: View {
     VStack(spacing: 16) {
         ExpirationWarningBanner(
             key: {
-                var preview = PGPKeyModel.preview
+                let preview = PGPKeyModel.preview
                 // Simulate a key expiring in 5 days
                 return preview
             }()
@@ -105,7 +105,7 @@ struct ExpirationWarningBanner: View {
     VStack(spacing: 16) {
         ExpirationWarningBanner(
             key: {
-                var preview = PGPKeyModel.preview
+                let preview = PGPKeyModel.preview
                 // Simulate an expired key
                 return preview
             }()

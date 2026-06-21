@@ -1,0 +1,78 @@
+{
+  "_comment": "Canonical expected entitlement surface per shipped target (issue #150). Consumed by scripts/check-archive-entitlements.sh and rendered into MacPGP/ENTITLEMENTS.md and docs/SIGNING_REFERENCE.md. 'required' is the EXACT set of security entitlements that must be present (no more, no less); 'forbidden' must be absent. Update this file when an entitlement is deliberately added/removed (with rationale), and the docs/source/profile alongside it.",
+  "appGroup": "group.com.macpgp.shared",
+  "keychainAccessGroup": "thalesmms.MacPGP",
+  "targets": [
+    {
+      "name": "MacPGP",
+      "bundlePath": "Products/Applications/MacPGP.app",
+      "kind": "app",
+      "required": [
+        "com.apple.security.app-sandbox",
+        "com.apple.security.application-groups",
+        "com.apple.security.files.user-selected.read-write",
+        "com.apple.security.network.client",
+        "keychain-access-groups"
+      ],
+      "forbidden": [
+        "com.apple.security.get-task-allow"
+      ]
+    },
+    {
+      "name": "ShareExtension",
+      "bundlePath": "Products/Applications/MacPGP.app/Contents/PlugIns/ShareExtension.appex",
+      "kind": "extension",
+      "required": [
+        "com.apple.security.app-sandbox",
+        "com.apple.security.application-groups",
+        "com.apple.security.files.user-selected.read-write"
+      ],
+      "forbidden": [
+        "com.apple.security.get-task-allow",
+        "keychain-access-groups"
+      ]
+    },
+    {
+      "name": "QuickLookExtension",
+      "bundlePath": "Products/Applications/MacPGP.app/Contents/PlugIns/QuickLookExtension.appex",
+      "kind": "extension",
+      "required": [
+        "com.apple.security.app-sandbox",
+        "com.apple.security.application-groups"
+      ],
+      "forbidden": [
+        "com.apple.security.get-task-allow",
+        "com.apple.security.files.user-selected.read-write",
+        "keychain-access-groups"
+      ]
+    },
+    {
+      "name": "FinderSyncExtension",
+      "bundlePath": "Products/Applications/MacPGP.app/Contents/PlugIns/FinderSyncExtension.appex",
+      "kind": "extension",
+      "required": [
+        "com.apple.security.app-sandbox",
+        "com.apple.security.application-groups"
+      ],
+      "forbidden": [
+        "com.apple.security.get-task-allow",
+        "com.apple.security.files.user-selected.read-write",
+        "keychain-access-groups"
+      ]
+    },
+    {
+      "name": "ThumbnailExtension",
+      "bundlePath": "Products/Applications/MacPGP.app/Contents/PlugIns/ThumbnailExtension.appex",
+      "kind": "extension",
+      "required": [
+        "com.apple.security.app-sandbox"
+      ],
+      "forbidden": [
+        "com.apple.security.get-task-allow",
+        "com.apple.security.application-groups",
+        "com.apple.security.files.user-selected.read-write",
+        "keychain-access-groups"
+      ]
+    }
+  ]
+}

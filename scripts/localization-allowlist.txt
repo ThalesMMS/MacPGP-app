@@ -1,0 +1,30 @@
+# Localization allowlist (issues #131, #148)
+#
+# Each entry is THREE tab-separated columns:
+#   relative/path.swift<TAB>literal<TAB>category
+#
+# category (machine-readable, enforced by scripts/check-hardcoded-strings.sh):
+#   verbatim  - protocol / file-format / technical token; must NOT be localized.
+#   userdata  - interpolated user/key data, not standalone translatable copy.
+#   debug     - debug / #Preview / log-only; never shown to end users.
+#   backlog   - release-visible English pending human translation (issue #148).
+#
+# Goal (issue #148): drive every `backlog` entry to zero by localizing the string
+# and removing its line, leaving only verbatim/userdata/debug exceptions. The
+# translations themselves must be produced/reviewed by fluent humans before
+# release (this issue intentionally excludes machine translation), so the backlog
+# entries are the human-translation work list, grouped by file below.
+#
+# scripts/check-hardcoded-strings.sh fails when a NEW user-facing literal appears
+# that is neither localized nor listed here, and when an entry is missing a valid
+# category. It scans the Main App (Core/Features/Navigation/Shared) and every
+# shipped extension source tree.
+#
+
+MacPGP/MacPGP/Core/Services/ServicesProvider.swift	\(key.displayName) (\(String(key.shortKeyID.suffix(8))))	userdata
+MacPGP/MacPGP/Features/Backup/BackupWizardView.swift	\(number)	userdata
+MacPGP/MacPGP/Features/Backup/RestoreWizardView.swift	\(number)	userdata
+MacPGP/MacPGP/Features/Keyring/KeyServerSearchView.swift	\(result.algorithm) \(result.keySize)	userdata
+MacPGP/MacPGP/Shared/Components/CryptoProgressOverlay.swift	\(Int(progress * 100))%	userdata
+MacPGP/MacPGP/Shared/Components/QRCodeView.swift	QR Code Preview	debug
+MacPGP/MacPGP/Shared/Components/QRCodeView.swift	Test Fingerprint	debug

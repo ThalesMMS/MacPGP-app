@@ -1,7 +1,7 @@
 import Foundation
 import RNPKit
 
-enum SharedContainerSync {
+nonisolated enum SharedContainerSync {
     static func syncKeysToContainer(keys: [Key]) throws {
         guard let keysURL = sharedKeysURL() else {
             return

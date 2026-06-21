@@ -18,6 +18,9 @@ struct KeyGenerationView: View {
                 viewModel = KeyGenerationViewModel(keyringService: keyringService)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .macPGPDidLock)) { _ in
+            viewModel?.handleLock()
+        }
     }
 
     @ViewBuilder
@@ -42,7 +45,7 @@ struct KeyGenerationView: View {
         @Bindable var vm = viewModel
 
         Form {
-            Section("Identity") {
+            Section("keygen.identity") {
                 TextField("Full Name", text: $vm.name)
                     .textContentType(.name)
                     .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.fullNameField)
@@ -55,8 +58,8 @@ struct KeyGenerationView: View {
                     .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.commentField)
             }
 
-            Section("Key Settings") {
-                Picker("Algorithm", selection: Binding(
+            Section("keygen.key_settings") {
+                Picker("keygen.algorithm", selection: Binding(
                     get: { vm.algorithm },
                     set: { vm.updateAlgorithm($0) }
                 )) {
@@ -66,41 +69,41 @@ struct KeyGenerationView: View {
                 }
                 .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.algorithmValue)
 
-                Picker("Key Size", selection: $vm.keySize) {
+                Picker("keygen.key_size", selection: $vm.keySize) {
                     ForEach(viewModel.availableKeySizes, id: \.self) { size in
-                        Text("\(size) bits").tag(size)
+                        Text(String.localizedStringWithFormat(NSLocalizedString("keygen.bits_format", comment: ""), size)).tag(size)
                     }
                 }
                 .disabled(viewModel.availableKeySizes.count == 1)
                 .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.keySizePicker)
 
                 if vm.algorithm == .ecdsa {
-                    Text("Creates an ECDSA primary key with an ECDH subkey for encryption.")
+                    Text("keygen.creates_an_ecdsa_primary_key_with_an_ecd")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else if vm.algorithm == .eddsa {
-                    Text("Creates an Ed25519 primary key with an X25519 subkey for encryption.")
+                    Text("keygen.creates_an_ed25519_primary_key_with_an_x")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                Toggle("Never expires", isOn: $vm.neverExpires)
+                Toggle("keygen.never_expires", isOn: $vm.neverExpires)
                     .toggleStyle(.checkbox)
                     .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.neverExpiresToggle)
 
                 if !viewModel.neverExpires {
-                    Picker("Expires in", selection: $vm.expirationMonths) {
-                        Text("6 months").tag(6)
-                        Text("1 year").tag(12)
-                        Text("2 years").tag(24)
-                        Text("5 years").tag(60)
+                    Picker("keygen.expires_in", selection: $vm.expirationMonths) {
+                        Text("keygen.expiry_6_months").tag(6)
+                        Text("keygen.expiry_1_year").tag(12)
+                        Text("keygen.expiry_2_years").tag(24)
+                        Text("keygen.expiry_5_years").tag(60)
                     }
                     .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.expirationPicker)
                 }
             }
 
-            Section("Passphrase") {
-                SecureField("Passphrase", text: $vm.passphrase)
+            Section("keygen.passphrase") {
+                SecureField("keygen.passphrase", text: $vm.passphrase)
                     .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.passphraseField)
 
                 SecureField("Confirm Passphrase", text: $vm.confirmPassphrase)
@@ -110,13 +113,13 @@ struct KeyGenerationView: View {
                     PassphraseStrengthView(strength: viewModel.passphraseStrength)
 
                     if !viewModel.passphraseMatch && !viewModel.confirmPassphrase.isEmpty {
-                        Text("Passphrases do not match")
+                        Text("keygen.passphrases_no_match")
                             .foregroundStyle(.red)
                             .font(.caption)
                     }
                 }
 
-                Toggle("Store passphrase in Keychain", isOn: $vm.storeInKeychain)
+                Toggle("keygen.store_in_keychain", isOn: $vm.storeInKeychain)
                     .toggleStyle(.checkbox)
                     .accessibilityIdentifier(AccessibilityIdentifiers.KeyGeneration.storePassphraseToggle)
             }
@@ -129,16 +132,16 @@ struct KeyGenerationView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Generate New Key")
+        .navigationTitle("keyring.generate_new_key")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
+                Button("keygen.cancel") {
                     dismiss()
                 }
             }
 
             ToolbarItem(placement: .confirmationAction) {
-                Button("Generate") {
+                Button("keygen.generate") {
                     Task {
                         await viewModel.generate()
                     }
@@ -163,10 +166,10 @@ struct KeyGenerationView: View {
                 ProgressView()
                     .scaleEffect(1.5)
 
-                Text("Generating key...")
+                Text("keygen.generating")
                     .font(.headline)
 
-                Text("This may take a moment")
+                Text("keygen.please_wait")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -185,7 +188,7 @@ struct KeyGenerationView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.green)
 
-            Text("Key Generated Successfully")
+            Text("keygen.key_generated_successfully")
                 .font(.title)
                 .fontWeight(.semibold)
 
@@ -204,9 +207,9 @@ struct KeyGenerationView: View {
 
             GroupBox {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Your key has been added to the keyring", systemImage: "key.fill")
+                    Label("keygen.your_key_has_been_added_to_the_keyring", systemImage: "key.fill")
                     if viewModel.storeInKeychain {
-                        Label("Passphrase stored in Keychain", systemImage: "lock.shield.fill")
+                        Label("keygen.passphrase_stored_in_keychain", systemImage: "lock.shield.fill")
                     }
                 }
                 .font(.callout)
@@ -215,14 +218,14 @@ struct KeyGenerationView: View {
 
             Spacer()
 
-            Button("Done") {
+            Button("keygen.done") {
                 dismiss()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
         .padding()
-        .navigationTitle("Success")
+        .navigationTitle("common.success")
     }
 }
 
@@ -232,7 +235,7 @@ struct PassphraseStrengthView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text("Strength: \(strength.description)")
+                Text(String.localizedStringWithFormat(NSLocalizedString("keygen.strength_format", comment: ""), strength.description))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()

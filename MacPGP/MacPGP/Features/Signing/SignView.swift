@@ -3,15 +3,9 @@ import SwiftUI
 struct SignView: View {
     @Environment(KeyringService.self) private var keyringService
     @Environment(SessionStateManager.self) private var sessionState
-    @State private var passphrase = ""
-    @State private var showingPassphrasePrompt = false
-    @State private var isProcessing = false
-    @State private var errorMessage: String?
-    @State private var showingError = false
+    @State private var viewModel: SignViewModel?
 
-    private var signingService: SigningService {
-        SigningService(keyringService: keyringService)
-    }
+    private var isProcessing: Bool { viewModel?.isProcessing ?? false }
 
     var body: some View {
         @Bindable var state = sessionState
@@ -20,47 +14,68 @@ struct SignView: View {
             inputPane
             outputPane
         }
-        .navigationTitle("Sign")
-        .onAppear(perform: validateSelectedSigner)
+        .navigationTitle(String(localized: "sign.title", comment: "Sign feature navigation title"))
+        .onAppear {
+            if viewModel == nil {
+                viewModel = SignViewModel(keyringService: keyringService, sessionState: sessionState)
+            }
+            viewModel?.validateSelectedSigner()
+        }
+        .onDisappear {
+            viewModel?.cancel()
+            viewModel = nil
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .macPGPDidLock)) { _ in
+            viewModel?.handleLock()
+        }
         .onChange(of: signingKeyFingerprints) { _, _ in
-            validateSelectedSigner()
+            viewModel?.validateSelectedSigner()
         }
         .toolbar {
             ToolbarItemGroup {
-                Picker("Mode", selection: $state.signInputMode) {
-                    Text("Text").tag(InputMode.text)
-                    Text("File").tag(InputMode.file)
+                Picker(String(localized: "sign.mode", comment: "Sign input mode picker"), selection: $state.signInputMode) {
+                    Text(String(localized: "sign.text", comment: "Text input mode")).tag(InputMode.text)
+                    Text(String(localized: "sign.file", comment: "File input mode")).tag(InputMode.file)
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 120)
 
                 if sessionState.signInputMode == .text {
-                    Toggle("Cleartext", isOn: $state.signCleartextSignature)
+                    Toggle(String(localized: "sign.cleartext", comment: "Cleartext signature toggle"), isOn: $state.signCleartextSignature)
                         .disabled(sessionState.signDetachedSignature)
                 }
-                Toggle("Detached", isOn: $state.signDetachedSignature)
-                Toggle("Armor", isOn: $state.signArmorOutput)
+                Toggle(String(localized: "sign.detached", comment: "Detached signature toggle"), isOn: $state.signDetachedSignature)
+                Toggle(String(localized: "sign.armor", comment: "Armor output toggle"), isOn: $state.signArmorOutput)
 
                 Button {
-                    promptForPassphrase()
+                    viewModel?.promptForPassphrase()
                 } label: {
-                    Label("Sign", systemImage: "signature")
+                    Label(String(localized: "sign.button", comment: "Sign button"), systemImage: "signature")
                 }
-                .disabled(!canSign || isProcessing)
+                .disabled(!(viewModel?.canSign ?? false) || isProcessing)
             }
         }
         .passphrasePromptAlert(
-            isPresented: $showingPassphrasePrompt,
-            passphrase: $passphrase,
-            message: passphrasePromptMessage,
-            submitTitle: "Sign",
-            onCancel: {
-                passphrase = ""
-                showingPassphrasePrompt = false
-            },
-            onSubmit: { sign() }
+            isPresented: Binding(
+                get: { viewModel?.showingPassphrasePrompt ?? false },
+                set: { viewModel?.showingPassphrasePrompt = $0 }
+            ),
+            passphrase: Binding(
+                get: { viewModel?.passphrase ?? "" },
+                set: { viewModel?.passphrase = $0 }
+            ),
+            message: viewModel?.passphrasePromptMessage ?? "",
+            submitTitle: String(localized: "sign.button", comment: "Sign button"),
+            onCancel: { viewModel?.cancelPassphrasePrompt() },
+            onSubmit: { viewModel?.sign() }
         )
-        .cryptoErrorAlert(message: errorMessage, isPresented: $showingError)
+        .cryptoErrorAlert(
+            message: viewModel?.errorMessage,
+            isPresented: Binding(
+                get: { viewModel?.showingError ?? false },
+                set: { viewModel?.showingError = $0 }
+            )
+        )
     }
 
     private var inputPane: some View {
@@ -89,27 +104,27 @@ struct SignView: View {
         @Bindable var state = sessionState
 
         return VStack(alignment: .leading, spacing: 8) {
-            Text("Signing Key")
+            Text(String(localized: "sign.signing_key", comment: "Signing key section header"))
                 .font(.headline)
 
             if signingKeys.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                    Text("No usable signing key available for signing")
+                    Text(String(localized: "sign.no_secret_keys", comment: "No usable signing key message"))
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
                 .background(Color.orange.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
-                Picker("Select Key", selection: $state.signSignerKey) {
-                    Text("Select a key...").tag(nil as PGPKeyModel?)
+                Picker(String(localized: "sign.signing_key", comment: "Signing key picker"), selection: $state.signSignerKey) {
+                    Text(String(localized: "sign.select_key_placeholder", comment: "Key selection placeholder")).tag(nil as PGPKeyModel?)
                     ForEach(signingKeys) { key in
                         HStack {
-                            Text(key.displayName)
+                            Text(verbatim: key.displayName)
                             if let email = key.email {
-                                Text("(\(email))")
+                                Text(verbatim: "(\(email))")
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -126,7 +141,7 @@ struct SignView: View {
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Message to Sign")
+                Text(String(localized: "sign.message_to_sign", comment: "Message to sign section header"))
                     .font(.headline)
 
                 Spacer()
@@ -134,7 +149,7 @@ struct SignView: View {
                 Button {
                     pasteFromClipboard()
                 } label: {
-                    Label("Paste", systemImage: "doc.on.clipboard")
+                    Label(String(localized: "sign.paste", comment: "Paste button"), systemImage: "doc.on.clipboard")
                 }
                 .buttonStyle(.borderless)
             }
@@ -166,7 +181,7 @@ struct SignView: View {
                     Button {
                         revealOutputFiles()
                     } label: {
-                        Label("Reveal", systemImage: "folder")
+                        Label("common.reveal", systemImage: "folder")
                     }
                     .buttonStyle(.borderless)
                 }
@@ -187,7 +202,7 @@ struct SignView: View {
                 ContentUnavailableView(
                     "No Output",
                     systemImage: "signature",
-                    description: Text(outputPlaceholderDescription)
+                    description: Text(outputEmptyStateDescription)
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if !sessionState.signOutputFiles.isEmpty {
@@ -209,23 +224,11 @@ struct SignView: View {
     }
 
     private var signingKeys: [PGPKeyModel] {
-        keyringService.signingKeys()
+        viewModel?.signingKeys ?? keyringService.signingKeys()
     }
 
     private var signingKeyFingerprints: [String] {
         signingKeys.map(\.fingerprint)
-    }
-
-    private var canSign: Bool {
-        guard let signer = sessionState.signSignerKey,
-              signingKeyFingerprints.contains(signer.fingerprint) else {
-            return false
-        }
-
-        return (
-            (sessionState.signInputMode == .text && !sessionState.signInputText.isEmpty) ||
-            (sessionState.signInputMode == .file && sessionState.signSelectedFile != nil)
-        )
     }
 
     private var outputTitle: String {
@@ -236,7 +239,7 @@ struct SignView: View {
         return sessionState.signDetachedSignature ? "Signature" : "Signed Message"
     }
 
-    private var outputPlaceholderDescription: String {
+    private var outputEmptyStateDescription: String {
         if sessionState.signInputMode == .file {
             return sessionState.signDetachedSignature
                 ? "Signature file will appear here"
@@ -248,127 +251,8 @@ struct SignView: View {
             : "Signed message will appear here"
     }
 
-    private var passphrasePromptMessage: String {
-        if let key = sessionState.signSignerKey {
-            return "Enter passphrase for \(key.displayName)"
-        }
-        return "Enter passphrase to sign"
-    }
-
     private var fileResultTitle: String {
         sessionState.signDetachedSignature ? "Signature Files" : "Signed Files"
-    }
-
-    private func promptForPassphrase() {
-        guard !isProcessing else { return }
-
-        guard sessionState.signSignerKey != nil else {
-            errorMessage = "Please select a signing key"
-            showingError = true
-            return
-        }
-
-        if let signer = sessionState.signSignerKey,
-           let cached = PassphraseCache.shared.passphrase(for: signer) {
-            passphrase = cached
-            sign()
-            return
-        }
-
-        showingPassphrasePrompt = true
-    }
-
-    private func sign() {
-        guard !isProcessing else { return }
-
-        guard !passphrase.isEmpty else {
-            errorMessage = "Passphrase is required"
-            showingError = true
-            return
-        }
-
-        guard let key = sessionState.signSignerKey else { return }
-
-        let inputMode = sessionState.signInputMode
-        let inputText = sessionState.signInputText
-        let selectedFile = sessionState.signSelectedFile
-        let cleartextSignature = sessionState.signCleartextSignature
-        let detachedSignature = sessionState.signDetachedSignature
-        let armorOutput = sessionState.signArmorOutput
-        let enteredPassphrase = passphrase
-
-        if inputMode == .file && selectedFile == nil {
-            errorMessage = "Please select a file to sign"
-            showingError = true
-            return
-        }
-
-        isProcessing = true
-        errorMessage = nil
-        sessionState.signOutputText = ""
-        sessionState.signOutputFiles = []
-
-        Task {
-            do {
-                switch inputMode {
-                case .text:
-                    let signed = try await signingService.signAsync(
-                        message: inputText,
-                        using: key,
-                        passphrase: enteredPassphrase,
-                        cleartext: cleartextSignature,
-                        detached: detachedSignature,
-                        armored: armorOutput
-                    )
-
-                    await MainActor.run {
-                        sessionState.signOutputFiles = []
-                        sessionState.signOutputText = signed
-                        PassphraseCache.shared.store(enteredPassphrase, for: key)
-                        passphrase = ""
-                    }
-
-                case .file:
-                    guard let fileURL = selectedFile else {
-                        throw OperationError.signingFailed(underlying: nil)
-                    }
-
-                    let outputURL = try await signingService.signAsync(
-                        file: fileURL,
-                        using: key,
-                        passphrase: enteredPassphrase,
-                        detached: detachedSignature,
-                        armored: armorOutput
-                    )
-
-                    await MainActor.run {
-                        sessionState.signOutputText = ""
-                        sessionState.signOutputFiles = [outputURL]
-                        PassphraseCache.shared.store(enteredPassphrase, for: key)
-                        passphrase = ""
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    errorMessage = error.localizedDescription
-                    showingError = true
-                }
-            }
-
-            await MainActor.run {
-                isProcessing = false
-            }
-        }
-    }
-
-    private func validateSelectedSigner() {
-        guard let signer = sessionState.signSignerKey else {
-            return
-        }
-
-        if !signingKeyFingerprints.contains(signer.fingerprint) {
-            sessionState.signSignerKey = nil
-        }
     }
 
     private func pasteFromClipboard() {

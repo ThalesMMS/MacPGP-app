@@ -30,9 +30,9 @@ struct BackupServiceTests {
         #expect(!encryptedData.isEmpty)
         #expect(encryptedData != testData)
 
-        // Verify encryption header
+        // Verify encryption header (new backups use the self-describing V2 envelope)
         if let header = String(data: encryptedData.prefix(14), encoding: .utf8) {
-            #expect(header == "MACPGP-ENC-V1\n")
+            #expect(header == "MACPGP-ENC-V2\n")
         }
     }
 
@@ -44,7 +44,7 @@ struct BackupServiceTests {
 
         let testData = "Test backup data".data(using: .utf8)!
 
-        #expect(throws: OperationError.self) {
+        #expect(throws: BackupEnvelopeError.self) {
             try viewModel.encryptBackup(data: testData, passphrase: "")
         }
     }
@@ -416,7 +416,7 @@ struct BackupServiceTests {
         // Create a test key
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let testKey = keyGen.generate(for: "test-backup@example.com", passphrase: "test")
+        let testKey = try! keyGen.generate(for: "test-backup@example.com", passphrase: "test")
         try keyringService.addKey(testKey)
 
         guard let addedKey = keyringService.keys.first(where: { $0.email == "test-backup@example.com" }) else {
@@ -468,7 +468,7 @@ struct BackupServiceTests {
         // Create a test key
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let testKey = keyGen.generate(for: "test-encrypted@example.com", passphrase: "test")
+        let testKey = try! keyGen.generate(for: "test-encrypted@example.com", passphrase: "test")
         try keyringService.addKey(testKey)
 
         guard let addedKey = keyringService.keys.first(where: { $0.email == "test-encrypted@example.com" }) else {
@@ -496,10 +496,10 @@ struct BackupServiceTests {
         #expect(viewModel.successMessage != nil)
         #expect(FileManager.default.fileExists(atPath: backupFile.path))
 
-        // Verify backup is encrypted
+        // Verify backup is encrypted (new backups use the self-describing V2 envelope)
         let backupData = try Data(contentsOf: backupFile)
         if let header = String(data: backupData.prefix(14), encoding: .utf8) {
-            #expect(header == "MACPGP-ENC-V1\n")
+            #expect(header == "MACPGP-ENC-V2\n")
         }
 
         // Cleanup
@@ -637,7 +637,7 @@ struct BackupServiceTests {
 
         let tempDir = FileManager.default.temporaryDirectory
         let backupFile = tempDir.appendingPathComponent(UUID().uuidString + ".macpgp")
-        try "dummy".data(using: .utf8)!.write(to: backupFile)
+        try "invalid backup payload".data(using: .utf8)!.write(to: backupFile)
         defer { try? FileManager.default.removeItem(at: backupFile) }
 
         viewModel.restoreFileURL = backupFile

@@ -20,7 +20,7 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
-        .navigationTitle("MacPGP")
+        .navigationTitle("sidebar.macpgp")
         .frame(minWidth: 180)
     }
 }
@@ -29,6 +29,6 @@ struct SidebarView: View {
     NavigationSplitView {
         SidebarView(selection: .constant(.keyring))
     } detail: {
-        Text("Detail")
+        Text("content.detail")
     }
 }

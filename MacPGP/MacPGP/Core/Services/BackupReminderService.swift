@@ -1,5 +1,5 @@
 import Foundation
-import UserNotifications
+@preconcurrency import UserNotifications
 
 @Observable
 final class BackupReminderService {
@@ -110,7 +110,7 @@ final class BackupReminderService {
     }
 
     /// Displays a backup reminder notification immediately
-    private func showBackupReminder(completion: @escaping (Bool) -> Void) {
+    private func showBackupReminder(completion: @escaping @Sendable (Bool) -> Void) {
         let content = UNMutableNotificationContent()
         content.title = NSLocalizedString("BackupReminder.Title", comment: "Backup reminder notification title")
 

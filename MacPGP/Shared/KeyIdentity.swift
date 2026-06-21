@@ -1,6 +1,6 @@
 import Foundation
 
-struct KeyIdentity: Identifiable, Hashable, Codable {
+nonisolated struct KeyIdentity: Identifiable, Hashable, Codable {
     let id: UUID
     let name: String
     let email: String

@@ -307,13 +307,14 @@
 "keyserver.no_keys_found" = "Keine Schlüssel gefunden";
 "keyserver.no_keys_message" = "Auf %@ wurden keine Schlüssel gefunden, die \"%@\" entsprechen.";
 "keyserver.try_different_server" = "Anderen Server versuchen";
-"keyserver.keys_found" = "%d Schlüssel gefunden";
 "keyserver.error" = "Fehler";
 "keyserver.cancel" = "Abbrechen";
 "keyserver.import" = "Importieren";
 
 /* MARK: - Settings View */
 "settings.general" = "Allgemein";
+"settings.language" = "Sprache";
+"settings.language_picker" = "App-Sprache";
 "settings.display" = "Anzeige";
 "settings.show_key_id" = "Schlüssel-ID in Liste anzeigen";
 "settings.confirm_delete" = "Vor dem Löschen von Schlüsseln bestätigen";
@@ -391,9 +392,6 @@
 "keyserver_settings.timeout_60s" = "60 Sekunden";
 "keyserver_settings.timeout_90s" = "90 Sekunden";
 "keyserver_settings.key_management" = "Schlüsselverwaltung";
-"keyserver_settings.auto_refresh" = "Schlüssel automatisch vom Schlüsselserver aktualisieren";
-"keyserver_settings.auto_refresh_info" = "Auto-Aktualisierung prüft auf Schlüssel-Updates";
-"keyserver_settings.auto_refresh_message" = "Schlüssel werden regelmäßig aktualisiert, um die neuesten Updates von Schlüsselservern abzurufen";
 "keyserver_settings.server_information" = "Serverinformation";
 "keyserver_settings.about_keyservers" = "Über Schlüsselserver";
 "keyserver_settings.about_message" = "Öffentliche Schlüsselserver ermöglichen es Ihnen, Ihren öffentlichen Schlüssel zu teilen und Schlüssel von anderen Benutzern zu entdecken. Der ausgewählte Server wird für Such-, Upload- und Aktualisierungsvorgänge verwendet.";
@@ -589,4 +587,169 @@
 "settings.keys.algorithm_help.ecdsa" = "ECDSA keys are generated with an ECDH subkey for encryption.";
 "settings.keys.algorithm_help.eddsa" = "EdDSA keys are generated with an X25519 subkey for encryption.";
 
+/* MARK: - Insecure Keyserver Transport */
+"error.insecure_transport.description" = "MacPGP hat „%@“ nicht kontaktiert, da eine unsichere (unverschlüsselte) Verbindung verwendet wird.";
+"error.insecure_transport.recovery" = "Aktiviere den unsicheren Transport für diesen Server unter Einstellungen → Schlüsselserver, oder verwende einen Server mit HTTPS/HKPS.";
+"error.insecure_upload.description" = "MacPGP lädt keine Schlüssel über eine unsichere (unverschlüsselte) Verbindung zu „%@“ hoch.";
+"error.insecure_upload.recovery" = "Lade deinen öffentlichen Schlüssel auf einen Server mit HTTPS/HKPS hoch.";
+"keyserver_settings.insecure_badge" = "Unsicher";
+"keyserver_settings.insecure_confirm_title" = "Unsicheren Schlüsselserver aktivieren?";
+"keyserver_settings.insecure_confirm_message" = "%@ verwendet eine unverschlüsselte HKP/HTTP-Verbindung. Suchbegriffe wie E-Mail-Adressen und heruntergeladene Schlüssel können während der Übertragung beobachtet oder verändert werden. MacPGP sendet niemals deine geheimen Schlüssel und lädt keine Schlüssel unverschlüsselt hoch. Nur aktivieren, wenn du das Risiko verstehst.";
+"keyserver_settings.insecure_confirm_enable" = "Unsicheren Server aktivieren";
+"keyserver_settings.insecure_confirm_cancel" = "Abbrechen";
+"keyserver_settings.transport_security_note" = "MacPGP verwendet standardmäßig HTTPS/HKPS. TLS schützt Daten bei der Übertragung, beweist aber nicht, dass ein heruntergeladener Schlüssel der genannten Person gehört – überprüfe immer die Fingerabdrücke.";
+
+/* MARK: - Encrypted Backup Envelope */
+"error.backup_envelope.passphrase_required" = "Zum Ver- oder Entschlüsseln dieser Sicherung ist eine Passphrase erforderlich.";
+"error.backup_envelope.malformed" = "Der Kopf der verschlüsselten Sicherung ist fehlerhaft.";
+"error.backup_envelope.truncated" = "Die verschlüsselte Sicherungsdatei ist unvollständig oder beschädigt.";
+"error.backup_envelope.unsupported_version" = "Diese Sicherung verwendet eine nicht unterstützte Envelope-Version (%d).";
+"error.backup_envelope.unsupported_kdf" = "Diese Sicherung verwendet eine nicht unterstützte Schlüsselableitungsfunktion (%@).";
+"error.backup_envelope.unsupported_cipher" = "Diese Sicherung verwendet eine nicht unterstützte Verschlüsselung (%@).";
+"error.backup_envelope.kdf_parameters_out_of_bounds" = "Diese Sicherung deklariert Schlüsselableitungsparameter außerhalb des zulässigen Bereichs.";
+"error.backup_envelope.authentication_failed" = "Die Sicherung konnte nicht authentifiziert werden. Die Passphrase ist falsch oder die Datei wurde verändert.";
+
+/* MARK: - Lock MacPGP */
+"menu.lock_macpgp" = "MacPGP sperren";
+"settings.security.session_lock" = "MacPGP sperren";
+"settings.security.lock_now_title" = "Passphrasen im Speicher";
+"settings.security.lock_now_description" = "Das Sperren von MacPGP löscht im temporären Speicher gehaltene Passphrasen und erfordert eine erneute Eingabe für den nächsten geschützten Vorgang. Im Schlüsselbund gespeicherte Passphrasen werden nicht entfernt; das Sperren geschieht automatisch, wenn Ihr Mac in den Ruhezustand geht oder die Sitzung gesperrt wird.";
+"settings.security.lock_now_button" = "Jetzt sperren";
+
+/* MARK: - Sign / Verify Validation Errors */
+"sign.error.passphrase_required" = "Eine Passphrase ist erforderlich";
+"sign.error.no_file_selected" = "Bitte wählen Sie eine Datei zum Signieren aus";
+"sign.error.no_key_selected" = "Bitte wählen Sie einen Signaturschlüssel aus";
+"verify.error.no_file_selected" = "Bitte wählen Sie eine Datei zum Überprüfen aus";
+"verify.error.no_signature_file" = "Bitte wählen Sie eine Signaturdatei aus";
+
 /* End of Localizable.strings */
+
+/* Missing Data Protection Keychain entitlement (issue #145) */
+"error.keychain_entitlement_missing.description" = "Die Schlüsselbund-Speicherung ist nicht verfügbar, da diesem Build die Data-Protection-Schlüsselbund-Berechtigung fehlt. Das Passwort wurde nicht gespeichert.";
+"error.keychain_entitlement_missing.recovery" = "Dies ist ein Signierungs- oder Berechtigungsproblem dieses Builds, das Sie nicht beheben können. Installieren Sie eine offizielle Version von MacPGP neu. Sie können fortfahren, indem Sie das Passwort bei Aufforderung eingeben.";
+"error.keychain_entitlement_missing.reason" = "Die Data-Protection-Schlüsselbund-Berechtigung ist in diesem Build nicht vorhanden.";
+
+/* Keyserver fetched-key identity mismatch (issue #139) */
+"error.fingerprint_mismatch.description" = "Der vom Server zurückgegebene Schlüssel stimmt nicht mit dem Fingerabdruck des ausgewählten Ergebnisses überein und wurde daher nicht importiert.";
+"error.fingerprint_mismatch.recovery" = "Suchen Sie erneut und wählen Sie den Schlüssel, dessen vollständigen Fingerabdruck Sie überprüfen können, oder importieren Sie den Schlüssel aus einer vertrauenswürdigen Quelle.";
+
+/* --- issue #148: localized backlog (main-app conversion) --- */
+"backup.backup_is_encrypted" = "Sicherung ist verschlüsselt";
+"backup.encrypt_backup_with_passphrase" = "Sicherung mit Passphrase verschlüsseln";
+"backup.expiring_soon" = "Läuft bald ab";
+"backup.keep_your_passphrase_safe_and_accessible" = "Bewahren Sie Ihre Passphrase sicher und zugänglich auf";
+"backup.passphrases_match" = "Passphrases stimmen überein";
+"backup.store_your_backup_in_a_secure_location" = "Bewahren Sie Ihre Sicherung an einem sicheren Ort auf";
+"backup.test_your_backup_by_restoring_to_a_test" = "Testen Sie Ihre Sicherung durch Wiederherstellung in einen Test-Schlüsselbund";
+"common.copy" = "Kopieren";
+"common.fingerprint" = "Fingerabdruck";
+"common.qr_code" = "QR-Code";
+"common.reveal" = "Anzeigen";
+"component.change" = "Ändern";
+"component.choose_output_location" = "Speicherort wählen";
+"component.copy_to_clipboard" = "In die Zwischenablage kopieren";
+"component.or" = "oder";
+"component.output_location" = "Speicherort";
+"decrypt.decrypted_output" = "Entschlüsselte Ausgabe";
+"decrypt.encrypted_message" = "Verschlüsselte Nachricht";
+"decrypt.will_try_all_available_secret_keys" = "Es werden alle verfügbaren privaten Schlüssel ausprobiert";
+"encrypt.choose" = "Auswählen…";
+"encrypt.choose_output_folder" = "Ausgabeordner wählen";
+"encrypt.encrypted_output" = "Verschlüsselte Ausgabe";
+"keydetails.already_verified" = "Bereits verifiziert";
+"keydetails.compare_fingerprints" = "Fingerabdrücke vergleichen";
+"keydetails.compare_the_fingerprint_below_with_the_o" = "Vergleichen Sie den unten stehenden Fingerabdruck mit dem, den Sie über einen vertrauenswürdigen Kanal erhalten haben (persönlich, per Telefon oder über eine sichere Nachricht). Fügen Sie den erhaltenen Fingerabdruck ein oder geben Sie ihn ein, um zu prüfen, ob sie übereinstimmen.";
+"keydetails.compare_with_received_fingerprint" = "Mit erhaltenem Fingerabdruck vergleichen";
+"keydetails.edit_expiration" = "Ablaufdatum bearbeiten";
+"keydetails.edit_expiration_2" = "Ablaufdatum bearbeiten...";
+"keydetails.fingerprint_to_compare" = "Zu vergleichender Fingerabdruck";
+"keydetails.fingerprints_don_t_match" = "Fingerabdrücke stimmen nicht überein";
+"keydetails.fingerprints_match" = "Fingerabdrücke stimmen überein";
+"keydetails.fingerprints_match_2" = "Fingerabdrücke stimmen überein";
+"keydetails.how_to_verify" = "So verifizieren Sie";
+"keydetails.key" = "Schlüssel";
+"keydetails.key_verified_successfully" = "Schlüssel erfolgreich verifiziert";
+"keydetails.manage_key" = "Schlüssel verwalten";
+"keydetails.manage_revocation" = "Widerruf verwalten...";
+"keydetails.mark_as_verified" = "Als verifiziert markieren";
+"keydetails.no_changes_to_save" = "Keine Änderungen zu speichern";
+"keydetails.paste_a_matching_fingerprint_to_continue" = "Fügen Sie einen übereinstimmenden Fingerabdruck ein, um fortzufahren.";
+"keydetails.paste_fingerprint_here" = "Fingerabdruck hier einfügen ...";
+"keydetails.paste_or_type_fingerprint_here" = "Fingerabdruck hier einfügen oder eingeben ...";
+"keydetails.paste_or_type_the_fingerprint_you_receiv" = "Fügen Sie den Fingerabdruck ein oder geben Sie ihn ein, den Sie über einen vertrauenswürdigen Kanal erhalten haben, um zu prüfen, ob er mit diesem Schlüssel übereinstimmt.";
+"keydetails.paste_the_fingerprint_you_received_throu" = "Fügen Sie den Fingerabdruck ein, den Sie über einen vertrauenswürdigen Kanal erhalten haben. Eine Übereinstimmung wird als Bestätigung gespeichert, dass Sie den Fingerabdruck verifiziert haben; der Schlüssel wird dadurch nicht als vertrauenswürdig markiert.";
+"keydetails.save_trust_level" = "Vertrauensstufe sichern";
+"keydetails.scan_this_qr_code_with_another_device_to" = "Scannen Sie diesen QR-Code mit einem anderen Gerät, um den Fingerabdruck persönlich zu verifizieren.";
+"keydetails.scan_to_verify_fingerprint" = "Zum Verifizieren des Fingerabdrucks scannen";
+"keydetails.set_trust_level_for_this_key" = "Vertrauensstufe für diesen Schlüssel festlegen";
+"keydetails.the_fingerprints_are_different_do_not_tr" = "Die Fingerabdrücke sind unterschiedlich. Vertrauen Sie diesem Schlüssel NICHT. Er könnte kompromittiert oder falsch sein.";
+"keydetails.the_fingerprints_are_identical_tap_verif" = "Die Fingerabdrücke sind identisch. Tippen Sie auf „Verifizieren“, um diesen Schlüssel als verifiziert zu markieren.";
+"keydetails.the_fingerprints_are_identical_you_have" = "Die Fingerabdrücke sind identisch. Sie haben den Fingerabdruck dieses Schlüssels verifiziert.";
+"keydetails.this_key_s_fingerprint" = "Fingerabdruck dieses Schlüssels";
+"keydetails.trust_level_updated" = "Vertrauensstufe aktualisiert";
+"keydetails.update" = "Aktualisieren";
+"keydetails.verification_complete" = "Verifizierung abgeschlossen";
+"keydetails.verification_method" = "Verifizierungsmethode";
+"keydetails.verify_key_fingerprint" = "Schlüssel-Fingerabdruck verifizieren";
+"keydetails.verify_this_key_s_fingerprint" = "Fingerabdruck dieses Schlüssels verifizieren";
+"keygen.creates_an_ecdsa_primary_key_with_an_ecd" = "Erstellt einen ECDSA-Hauptschlüssel mit einem ECDH-Unterschlüssel zur Verschlüsselung.";
+"keygen.creates_an_ed25519_primary_key_with_an_x" = "Erstellt einen Ed25519-Hauptschlüssel mit einem X25519-Unterschlüssel zur Verschlüsselung.";
+"keygen.key_generated_successfully" = "Schlüssel erfolgreich generiert";
+"keygen.passphrase_stored_in_keychain" = "Passphrase im Schlüsselbund gespeichert";
+"keygen.your_key_has_been_added_to_the_keyring" = "Ihr Schlüssel wurde dem Schlüsselbund hinzugefügt";
+"keyring.clear_filters" = "Filter zurücksetzen";
+"keyring.no_keys_match_your_search_or_filter" = "Keine Schlüssel entsprechen Ihrer Suche oder Ihrem Filter.";
+"keyring.no_results" = "Keine Ergebnisse";
+"keyserver_search.search_again" = "Erneut suchen";
+"paperkey.failed_to_load_key" = "Schlüssel konnte nicht geladen werden";
+"paperkey.important_security_notice" = "Wichtiger Sicherheitshinweis";
+"paperkey.paper_key_backup" = "Papier-Schlüsselsicherung";
+"paperkey.pgp_key_paper_backup" = "PGP-Schlüssel – Papiersicherung";
+"paperkey.print" = "Drucken";
+"paperkey.private_key_ascii_armored" = "Privater Schlüssel (ASCII-Armor)";
+"paperkey.scan_to_import_this_key" = "Scannen, um diesen Schlüssel zu importieren";
+"paperkey.this_paper_backup_contains_your_private" = "Diese Papiersicherung enthält Ihren privaten Schlüssel. Bewahren Sie sie an einem sicheren Ort auf. Jeder mit Zugriff auf dieses Papier kann Ihre Nachrichten entschlüsseln und Dokumente in Ihrem Namen signieren.";
+"quicklook.macpgp_could_not_display_this_preview_op" = "MacPGP konnte diese Vorschau nicht anzeigen. Öffnen Sie die Datei in MacPGP, um sie zu prüfen.";
+"quicklook.unable_to_read_encrypted_file" = "Verschlüsselte Datei kann nicht gelesen werden";
+"restore.adds_keys_to_your_keyring" = "Fügt Schlüssel zu Ihrem Schlüsselbund hinzu";
+"restore.backup_will_be_decrypted_using_your_pass" = "Die Sicherung wird mit Ihrer Passphrase entschlüsselt";
+"restore.confirm_import" = "Import bestätigen";
+"restore.decrypt_backup" = "Sicherung entschlüsseln";
+"restore.encrypted_backup" = "Verschlüsselte Sicherung";
+"restore.enter_the_passphrase_to_decrypt_this_bac" = "Geben Sie die Passphrase ein, um diese Sicherung zu entschlüsseln";
+"restore.keys_are_now_available_in_your_keyring" = "Die Schlüssel sind jetzt in Ihrem Schlüsselbund verfügbar";
+"restore.keys_to_import" = "Zu importierende Schlüssel";
+"restore.please_wait" = "Bitte warten …";
+"restore.ready_to_import" = "Bereit zum Importieren";
+"restore.restore_complete" = "Wiederherstellung abgeschlossen";
+"restore.validate_backup" = "Sicherung validieren";
+"services.key" = "Schlüssel:";
+"services.passphrase" = "Passphrase:";
+"services.select_one_or_more_recipients_to_encrypt" = "Wählen Sie einen oder mehrere Empfänger zum Verschlüsseln aus:";
+"settings.at_least_one_keyserver_must_remain_enabl" = "Mindestens ein Schlüsselserver muss aktiviert bleiben.";
+"settings.enabled_keyservers" = "Aktivierte Schlüsselserver";
+"shareext.encrypt_files" = "Dateien verschlüsseln";
+"shareext.files_to_encrypt" = "Zu verschlüsselnde Dateien";
+"shareext.select_recipients_to_encrypt_the_shared" = "Wählen Sie Empfänger aus, um die freigegebenen Dateien zu verschlüsseln";
+"verification.signed_by" = "Signiert von";
+"verification.verification_result" = "Verifizierungsergebnis";
+"verification.verification_result_will_appear_here" = "Das Verifizierungsergebnis wird hier angezeigt";
+
+/* --- issue #148: interpolated/format strings --- */
+"common.selected_count_format" = "Ausgewählt (%lld)";
+"keydetails.confirm_delete_format" = "Möchten Sie \"%@\" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.";
+"keydetails.trust_inline_format" = "Vertrauen: %@";
+"keygen.bits_format" = "%lld Bit";
+"keygen.strength_format" = "Stärke: %@";
+"keyserver_search.expires_format" = "Läuft ab %@";
+"keyserver_search.no_results_format" = "Auf %2$@ wurden keine Schlüssel gefunden, die \"%1$@\" entsprechen.";
+"keyserver_search.prompt_format" = "Geben Sie eine E-Mail-Adresse oder Schlüssel-ID ein, um nach öffentlichen Schlüsseln auf %@ zu suchen.";
+"paperkey.generated_on_format" = "Erstellt am %@";
+"revocation.confirm_revoke_format" = "Dadurch wird \"%@\" dauerhaft widerrufen. Diese Aktion kann nicht rückgängig gemacht werden und der Schlüssel kann nicht mehr zum Verschlüsseln oder Signieren verwendet werden.";
+"services.select_key_for_format" = "Schlüssel für %@ auswählen:";
+"trust.current_format" = "Aktuelles Vertrauen: %@";
+"trust.set_to_format" = "Die Vertrauensstufe für \"%1$@\" wurde auf %2$@ festgelegt.";
+"verification.marked_verified_format" = "Der Schlüssel \"%1$@\" wurde mit %2$@ als verifiziert markiert.";
+"verification.signed_on_relative_format" = "am %@";
+"verify.signed_on_format" = "Signiert am %@";

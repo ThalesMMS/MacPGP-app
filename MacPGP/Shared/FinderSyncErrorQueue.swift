@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-enum FinderSyncErrorQueue {
+nonisolated enum FinderSyncErrorQueue {
     struct Entry: Equatable {
         let id: String
         let title: String

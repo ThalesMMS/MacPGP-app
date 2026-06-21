@@ -1,0 +1,8 @@
+/* shareext localized strings (fr) - issue #148 */
+"shareext.cancel" = "Annuler";
+"shareext.encrypt" = "Chiffrer";
+"shareext.encrypt_files" = "Chiffrer des fichiers";
+"shareext.files_to_encrypt" = "Fichiers à chiffrer";
+"shareext.recipients" = "Destinataires";
+"shareext.select_recipients" = "Sélectionnez les destinataires pour chiffrer les fichiers partagés";
+"shareext.selected_count" = "Sélectionnés (%lld)";

@@ -9,7 +9,7 @@ struct KeyFingerprintView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Fingerprint")
+                Text("common.fingerprint")
                     .font(.headline)
 
                 Spacer()
@@ -60,7 +60,7 @@ struct KeyFingerprintView: View {
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                    Text("Scan to verify fingerprint")
+                    Text("keydetails.scan_to_verify_fingerprint")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

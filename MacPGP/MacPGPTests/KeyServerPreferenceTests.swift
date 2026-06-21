@@ -2,7 +2,8 @@ import Foundation
 import Testing
 @testable import MacPGP
 
-@Suite("Keyserver Preference Tests", .serialized)
+@MainActor
+@Suite("Keyserver Preference Tests", .serialized, .serializedGlobalDefaults)
 struct KeyServerPreferenceTests {
     private static let preferencesLock = NSLock()
 
@@ -10,14 +11,12 @@ struct KeyServerPreferenceTests {
         static let defaultKeyServer = "defaultKeyServer"
         static let enabledKeyServers = "enabledKeyServers"
         static let keyServerTimeout = "keyServerTimeout"
-        static let autoRefreshKeys = "autoRefreshKeys"
     }
 
     private let preferenceKeys = [
         DefaultsKeys.defaultKeyServer,
         DefaultsKeys.enabledKeyServers,
-        DefaultsKeys.keyServerTimeout,
-        DefaultsKeys.autoRefreshKeys
+        DefaultsKeys.keyServerTimeout
     ]
 
     private func withCleanKeyServerPreferences(_ body: () throws -> Void) rethrows {
@@ -46,7 +45,6 @@ struct KeyServerPreferenceTests {
             _ = preferences.enabledKeyServers
             _ = preferences.defaultKeyServer
             _ = preferences.keyServerTimeout
-            _ = preferences.autoRefreshKeys
         }
 
         try body()
@@ -54,7 +52,7 @@ struct KeyServerPreferenceTests {
 
     @Test("enabledKeyServers persists selected hostnames")
     func testEnabledKeyServersPersistence() throws {
-        try withCleanKeyServerPreferences {
+        withCleanKeyServerPreferences {
             let expected = [
                 KeyServerConfig.keysOpenpgp.hostname,
                 KeyServerConfig.mitKeyserver.hostname
@@ -69,7 +67,7 @@ struct KeyServerPreferenceTests {
 
     @Test("Disabling current default keyserver resets defaultKeyServer")
     func testEnabledKeyServersSetterResetsDisabledDefaultServer() throws {
-        try withCleanKeyServerPreferences {
+        withCleanKeyServerPreferences {
             PreferencesManager.shared.enabledKeyServers = [
                 KeyServerConfig.keysOpenpgp.hostname,
                 KeyServerConfig.ubuntuKeyserver.hostname
@@ -84,7 +82,7 @@ struct KeyServerPreferenceTests {
 
     @Test("defaultKeyServer falls back when stored hostname is disabled")
     func testDefaultKeyServerFallsBackWhenStoredHostnameDisabled() throws {
-        try withCleanKeyServerPreferences {
+        withCleanKeyServerPreferences {
             PreferencesManager.shared.enabledKeyServers = [KeyServerConfig.keysOpenpgp.hostname]
             UserDefaults.standard.set(KeyServerConfig.mitKeyserver.hostname, forKey: DefaultsKeys.defaultKeyServer)
 
@@ -94,7 +92,7 @@ struct KeyServerPreferenceTests {
 
     @Test("enabled keyserver normalization filters unknowns and restores defaults for empty list")
     func testNormalizeEnabledKeyServersBehavior() throws {
-        try withCleanKeyServerPreferences {
+        withCleanKeyServerPreferences {
             PreferencesManager.shared.enabledKeyServers = [
                 "unknown.example.test",
                 KeyServerConfig.mitKeyserver.hostname,
@@ -118,7 +116,7 @@ struct KeyServerPreferenceTests {
 
     @Test("keyServerTimeout persists supported release values")
     func testKeyServerTimeoutPersistence() throws {
-        try withCleanKeyServerPreferences {
+        withCleanKeyServerPreferences {
             for timeout in [15, 30, 60, 90] {
                 PreferencesManager.shared.keyServerTimeout = timeout
                 #expect(PreferencesManager.shared.keyServerTimeout == timeout)
@@ -127,22 +125,9 @@ struct KeyServerPreferenceTests {
         }
     }
 
-    @Test("autoRefreshKeys toggle persists")
-    func testAutoRefreshKeysTogglePersistence() throws {
-        try withCleanKeyServerPreferences {
-            PreferencesManager.shared.autoRefreshKeys = true
-            #expect(PreferencesManager.shared.autoRefreshKeys)
-            #expect(UserDefaults.standard.bool(forKey: DefaultsKeys.autoRefreshKeys))
-
-            PreferencesManager.shared.autoRefreshKeys = false
-            #expect(!PreferencesManager.shared.autoRefreshKeys)
-            #expect(!UserDefaults.standard.bool(forKey: DefaultsKeys.autoRefreshKeys))
-        }
-    }
-
     @Test("KeyServerConfig.enabledServers returns only preference-enabled servers")
     func testKeyServerConfigEnabledServersUsesPreferences() throws {
-        try withCleanKeyServerPreferences {
+        withCleanKeyServerPreferences {
             PreferencesManager.shared.enabledKeyServers = [KeyServerConfig.mitKeyserver.hostname]
 
             let enabledServers = KeyServerConfig.enabledServers(using: PreferencesManager.shared)
@@ -153,7 +138,7 @@ struct KeyServerPreferenceTests {
 
     @Test("KeyServerConfig.defaultServer returns preference-selected server")
     func testKeyServerConfigDefaultServerUsesPreferences() throws {
-        try withCleanKeyServerPreferences {
+        withCleanKeyServerPreferences {
             PreferencesManager.shared.enabledKeyServers = [
                 KeyServerConfig.ubuntuKeyserver.hostname,
                 KeyServerConfig.mitKeyserver.hostname

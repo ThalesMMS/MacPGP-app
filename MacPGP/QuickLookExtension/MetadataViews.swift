@@ -22,29 +22,3 @@ struct MetadataSection<Content: View>: View {
         }
     }
 }
-
-struct DecryptionUnavailableView: View {
-    let message: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "key.slash.fill")
-                .foregroundColor(.orange)
-                .font(.title3)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("quicklook_decryption_unavailable_title")
-                    .font(.headline)
-                Text(message)
-                    .font(.callout)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer()
-        }
-        .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-}

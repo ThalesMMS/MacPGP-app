@@ -3,10 +3,10 @@ import QuickLookThumbnailing
 
 /// Renders custom thumbnails for PGP encrypted files with visual indicators
 /// for different encryption types (binary vs ASCII armored)
-final class ThumbnailRenderer {
+nonisolated final class ThumbnailRenderer {
 
     /// Visual theme for different file encoding formats
-    private struct ThumbnailTheme {
+    nonisolated private struct ThumbnailTheme {
         let gradientColors: [CGColor]
         let lockIconName: String
         let accentColor: NSColor

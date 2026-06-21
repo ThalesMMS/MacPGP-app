@@ -21,6 +21,10 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         case .chinese: return "中文"
         }
     }
+
+    var locale: Locale {
+        Locale(identifier: rawValue)
+    }
 }
 
 @Observable
@@ -28,6 +32,7 @@ final class PreferencesManager {
     static let shared = PreferencesManager()
 
     private let defaults = UserDefaults.standard
+    private var selectedAppLanguage: AppLanguage
 
     private enum Keys {
         static let defaultKeyAlgorithm = "defaultKeyAlgorithm"
@@ -46,7 +51,7 @@ final class PreferencesManager {
         static let defaultKeyServer = "defaultKeyServer"
         static let enabledKeyServers = "enabledKeyServers"
         static let keyServerTimeout = "keyServerTimeout"
-        static let autoRefreshKeys = "autoRefreshKeys"
+        static let insecureKeyServersAllowed = "insecureKeyServersAllowed"
         static let appLanguage = "appLanguage"
     }
 
@@ -189,7 +194,7 @@ final class PreferencesManager {
             defaults.set(enabledServers, forKey: Keys.enabledKeyServers)
 
             if !enabledServers.contains(defaults.string(forKey: Keys.defaultKeyServer) ?? "") {
-                defaults.set(enabledServers.first ?? KeyServerConfig.keysOpenpgp.hostname, forKey: Keys.defaultKeyServer)
+                defaults.set(preferredDefaultKeyServer(among: enabledServers), forKey: Keys.defaultKeyServer)
             }
         }
     }
@@ -199,14 +204,23 @@ final class PreferencesManager {
             let storedValue = defaults.string(forKey: Keys.defaultKeyServer) ?? KeyServerConfig.keysOpenpgp.hostname
             return enabledKeyServers.contains(storedValue)
                 ? storedValue
-                : (enabledKeyServers.first ?? KeyServerConfig.keysOpenpgp.hostname)
+                : preferredDefaultKeyServer(among: enabledKeyServers)
         }
         set {
             let normalizedValue = enabledKeyServers.contains(newValue)
                 ? newValue
-                : (enabledKeyServers.first ?? KeyServerConfig.keysOpenpgp.hostname)
+                : preferredDefaultKeyServer(among: enabledKeyServers)
             defaults.set(normalizedValue, forKey: Keys.defaultKeyServer)
         }
+    }
+
+    /// Chooses a fallback default keyserver, always preferring a secure (TLS)
+    /// endpoint so an insecure server is never selected by accident.
+    private func preferredDefaultKeyServer(among hostnames: [String]) -> String {
+        let secureHostnames = Set(KeyServerConfig.defaults.filter(\.isSecure).map(\.hostname))
+        return hostnames.first(where: { secureHostnames.contains($0) })
+            ?? hostnames.first
+            ?? KeyServerConfig.keysOpenpgp.hostname
     }
 
     var keyServerTimeout: Int {
@@ -214,19 +228,57 @@ final class PreferencesManager {
         set { defaults.set(newValue, forKey: Keys.keyServerTimeout) }
     }
 
-    var autoRefreshKeys: Bool {
-        get { defaults.bool(forKey: Keys.autoRefreshKeys) }
-        set { defaults.set(newValue, forKey: Keys.autoRefreshKeys) }
+    /// Hostnames of insecure (HKP/HTTP) keyservers the user has explicitly opted
+    /// into contacting over plaintext transport. Only known insecure hostnames are
+    /// persisted; secure servers never require an opt-in.
+    var insecureKeyServersAllowed: [String] {
+        get {
+            let stored = defaults.stringArray(forKey: Keys.insecureKeyServersAllowed) ?? []
+            return normalizeInsecureKeyServers(stored)
+        }
+        set {
+            defaults.set(normalizeInsecureKeyServers(newValue), forKey: Keys.insecureKeyServersAllowed)
+        }
+    }
+
+    /// Returns whether the user has explicitly opted into insecure transport for
+    /// the given keyserver hostname.
+    func isInsecureKeyServerAllowed(_ hostname: String) -> Bool {
+        insecureKeyServersAllowed.contains(hostname)
+    }
+
+    /// Records (or clears) the user's explicit opt-in to insecure transport for the
+    /// given keyserver hostname. No-op for secure or unknown hostnames.
+    func setInsecureKeyServer(_ hostname: String, allowed: Bool) {
+        guard insecureKeyServerHostnames.contains(hostname) else { return }
+        var allowedServers = insecureKeyServersAllowed
+        if allowed {
+            if !allowedServers.contains(hostname) {
+                allowedServers.append(hostname)
+            }
+        } else {
+            allowedServers.removeAll { $0 == hostname }
+        }
+        insecureKeyServersAllowed = allowedServers
+    }
+
+    /// Known insecure keyserver hostnames from the bundled defaults.
+    private var insecureKeyServerHostnames: Set<String> {
+        Set(KeyServerConfig.defaults.filter { !$0.isSecure }.map(\.hostname))
+    }
+
+    private func normalizeInsecureKeyServers(_ servers: [String]) -> [String] {
+        let knownInsecure = insecureKeyServerHostnames
+        var seen = Set<String>()
+        return servers.filter { hostname in
+            knownInsecure.contains(hostname) && seen.insert(hostname).inserted
+        }
     }
 
     var appLanguage: AppLanguage {
-        get {
-            guard let value = defaults.string(forKey: Keys.appLanguage) else {
-                return detectSystemLanguage()
-            }
-            return AppLanguage(rawValue: value) ?? .english
-        }
+        get { selectedAppLanguage }
         set {
+            selectedAppLanguage = newValue
             defaults.set(newValue.rawValue, forKey: Keys.appLanguage)
             applyLanguage(newValue)
         }
@@ -239,13 +291,11 @@ final class PreferencesManager {
         // This is the standard way to override app language without changing system settings
         defaults.set([language.rawValue], forKey: "AppleLanguages")
         defaults.synchronize()
-
-        // Note: For the language change to take full effect, some UI elements may require
-        // the app to restart or views to be recreated. SwiftUI views will generally
-        // pick up the change on next render.
     }
 
     private init() {
+        selectedAppLanguage = Self.storedOrDetectedLanguage(defaults: defaults)
+
         // Apply the saved language preference on initialization
         // This ensures the app starts with the correct language
         applyLanguage(appLanguage)
@@ -266,7 +316,14 @@ final class PreferencesManager {
         }
     }
 
-    private func detectSystemLanguage() -> AppLanguage {
+    private static func storedOrDetectedLanguage(defaults: UserDefaults) -> AppLanguage {
+        guard let value = defaults.string(forKey: Keys.appLanguage) else {
+            return detectSystemLanguage()
+        }
+        return AppLanguage(rawValue: value) ?? .english
+    }
+
+    private static func detectSystemLanguage() -> AppLanguage {
         // Get the system's preferred languages
         let preferredLanguages = Locale.preferredLanguages
 
@@ -312,6 +369,8 @@ final class PreferencesManager {
     func resetToDefaults() {
         let domain = Bundle.main.bundleIdentifier ?? "com.macpgp"
         defaults.removePersistentDomain(forName: domain)
+        selectedAppLanguage = Self.detectSystemLanguage()
+        applyLanguage(appLanguage)
     }
 
     private static func normalizedDefaultKeyAlgorithm(_ algorithm: KeyAlgorithm) -> KeyAlgorithm {

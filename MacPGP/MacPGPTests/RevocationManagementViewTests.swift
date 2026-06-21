@@ -56,6 +56,6 @@ struct RevocationManagementViewTests {
     private func makeSecretKey(passphrase: String) -> PGPKeyModel {
         let generator = KeyGenerator()
         generator.keyBitsLength = 2048
-        return PGPKeyModel(from: generator.generate(for: "revocation-management@example.com", passphrase: passphrase))
+        return PGPKeyModel(from: try! generator.generate(for: "revocation-management@example.com", passphrase: passphrase))
     }
 }

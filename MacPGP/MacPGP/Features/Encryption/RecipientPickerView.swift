@@ -8,14 +8,14 @@ struct RecipientPickerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Recipients")
+            Text("recipients.title")
                 .font(.headline)
 
             if keyringService.publicKeys().isEmpty {
                 ContentUnavailableView(
                     "No Keys Available",
                     systemImage: "key",
-                    description: Text("Import recipient public keys first")
+                    description: Text("recipients.import_first")
                 )
                 .frame(height: 150)
             } else {
@@ -44,7 +44,7 @@ struct RecipientPickerView: View {
             if !selectedRecipients.isEmpty {
                 Divider()
 
-                Text("Selected (\(selectedRecipients.count))")
+                Text(String.localizedStringWithFormat(NSLocalizedString("common.selected_count_format", comment: ""), selectedRecipients.count))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -64,7 +64,7 @@ struct RecipientPickerView: View {
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.orange)
-                            Text("Trust Warnings")
+                            Text("recipients.trust_warnings")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                         }

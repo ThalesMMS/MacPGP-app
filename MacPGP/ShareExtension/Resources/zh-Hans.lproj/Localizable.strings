@@ -1,0 +1,8 @@
+/* shareext localized strings (zh-Hans) - issue #148 */
+"shareext.cancel" = "取消";
+"shareext.encrypt" = "加密";
+"shareext.encrypt_files" = "加密文件";
+"shareext.files_to_encrypt" = "要加密的文件";
+"shareext.recipients" = "收件人";
+"shareext.select_recipients" = "选择收件人以加密共享的文件";
+"shareext.selected_count" = "已选择 (%lld)";

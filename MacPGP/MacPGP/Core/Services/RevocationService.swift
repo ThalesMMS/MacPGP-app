@@ -1,7 +1,7 @@
 import Foundation
 import RNPKit
 
-enum RevocationReason: Int, CaseIterable, Sendable {
+nonisolated enum RevocationReason: Int, CaseIterable, Sendable {
     case noReason = 0
     case compromised = 1
     case superseded = 2

@@ -15,29 +15,29 @@ struct EncryptView: View {
             inputPane
             outputPane
         }
-        .navigationTitle("Encrypt")
+        .navigationTitle("sidebar.encrypt")
         .toolbar {
             ToolbarItemGroup {
-                Picker("Mode", selection: $state.encryptInputMode) {
-                    Text("Text").tag(InputMode.text)
-                    Text("File").tag(InputMode.file)
+                Picker("encrypt.mode", selection: $state.encryptInputMode) {
+                    Text("encrypt.text").tag(InputMode.text)
+                    Text("encrypt.file").tag(InputMode.file)
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 120)
 
-                Toggle("Armor", isOn: $state.encryptArmorOutput)
+                Toggle("encrypt.armor", isOn: $state.encryptArmorOutput)
 
                 Button {
                     viewModel?.encryptFromClipboard()
                 } label: {
-                    Label("Encrypt from Clipboard", systemImage: "doc.on.clipboard.fill")
+                    Label("encrypt.from_clipboard", systemImage: "doc.on.clipboard.fill")
                 }
                 .disabled(viewModel?.isProcessing == true || !(viewModel?.canEncryptFromClipboard ?? false))
 
                 Button {
                     viewModel?.encrypt()
                 } label: {
-                    Label("Encrypt", systemImage: "lock.fill")
+                    Label("sidebar.encrypt", systemImage: "lock.fill")
                 }
                 .disabled(!canEncrypt)
             }
@@ -72,6 +72,9 @@ struct EncryptView: View {
                     notificationService: notificationService
                 )
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .macPGPDidLock)) { _ in
+            viewModel?.handleLock()
         }
         .sheet(isPresented: Binding(
             get: { viewModel?.requestOutputFolderPicker ?? false },
@@ -113,11 +116,11 @@ struct EncryptView: View {
         @Bindable var state = sessionState
 
         return VStack(alignment: .leading, spacing: 8) {
-            Text("Sign with (optional)")
+            Text("encrypt.sign_with_optional")
                 .font(.headline)
 
-            Picker("Signing Key", selection: $state.encryptSignerKey) {
-                Text("Don't sign").tag(nil as PGPKeyModel?)
+            Picker("sign.signing_key", selection: $state.encryptSignerKey) {
+                Text("encrypt.dont_sign").tag(nil as PGPKeyModel?)
                 ForEach(keyringService.signingKeys()) { key in
                     Text(key.displayName).tag(key as PGPKeyModel?)
                 }
@@ -130,7 +133,7 @@ struct EncryptView: View {
         @Bindable var state = sessionState
 
         return VStack(alignment: .leading, spacing: 8) {
-            Text("Message")
+            Text("encrypt.message")
                 .font(.headline)
 
             TextEditor(text: $state.encryptInputText)
@@ -154,7 +157,7 @@ struct EncryptView: View {
     private var outputPane: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Encrypted Output")
+                Text("encrypt.encrypted_output")
                     .font(.headline)
                 Spacer()
 
@@ -220,10 +223,10 @@ struct EncryptView: View {
 
     private var outputFolderPickerSheet: some View {
         VStack(spacing: 16) {
-            Text("Choose Output Folder")
+            Text("encrypt.choose_output_folder")
                 .font(.headline)
 
-            Button("Choose…") {
+            Button("encrypt.choose") {
                 let panel = NSOpenPanel()
                 panel.canCreateDirectories = true
                 panel.canChooseFiles = false
@@ -238,7 +241,7 @@ struct EncryptView: View {
                 }
             }
 
-            Button("Cancel", role: .cancel) {
+            Button("keygen.cancel", role: .cancel) {
                 viewModel?.didChooseOutputLocation(nil)
             }
         }

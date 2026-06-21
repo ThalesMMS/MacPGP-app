@@ -10,6 +10,7 @@ import Foundation
 import RNPKit
 @testable import MacPGP
 
+@MainActor
 @Suite("TrustService Tests")
 struct TrustServiceTests {
 
@@ -25,7 +26,7 @@ struct TrustServiceTests {
     ) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: email, passphrase: "test")
+        let rawKey = try! keyGen.generate(for: email, passphrase: "test")
 
         let key = PGPKeyModel(
             from: rawKey,
@@ -36,7 +37,13 @@ struct TrustServiceTests {
         )
 
         if isExpired || isRevoked {
-            return PGPKeyModel(copying: key, isExpired: isExpired, isRevoked: isRevoked)
+            // Expiration is now derived from `expirationDate`; force expiry by
+            // copying with a date in the past.
+            return PGPKeyModel(
+                copying: key,
+                expirationDate: isExpired ? Date().addingTimeInterval(-3600) : nil,
+                isRevoked: isRevoked
+            )
         }
 
         return key

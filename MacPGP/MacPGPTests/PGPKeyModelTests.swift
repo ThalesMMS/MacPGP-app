@@ -32,7 +32,7 @@ struct PGPKeyModelTests {
         keyGenerator.keyBitsLength = Int32(keySize)
 
         let startedAt = Date()
-        let key = keyGenerator.generate(
+        let key = try! keyGenerator.generate(
             for: "pgp-key-model-\(keySize)-\(UUID().uuidString)@example.com",
             passphrase: "TestPassword123!"
         )
@@ -52,7 +52,7 @@ struct PGPKeyModelTests {
         let passphrase = "TestPassword123!"
         let keyGenerator = KeyGenerator()
         keyGenerator.keyBitsLength = 2048
-        let key = keyGenerator.generate(
+        let key = try! keyGenerator.generate(
             for: "pgp-key-expiration-\(UUID().uuidString)@example.com",
             passphrase: passphrase
         )
@@ -173,8 +173,9 @@ struct PGPKeyModelTests {
     @Test("PGPKeyModel keeps expired keys expired")
     func testExpirationWarningLevelForExpiredKey() throws {
         let model = try generateKeyFixture(expirationDate: Date().addingTimeInterval(3600))
-        let expiredModel = PGPKeyModel(copying: model, isExpired: true)
+        let expiredModel = PGPKeyModel(copying: model, expirationDate: Date().addingTimeInterval(-3600))
 
+        #expect(expiredModel.isExpired)
         expectWarningLevel(expiredModel.expirationWarningLevel, is: .expired)
     }
 
@@ -203,7 +204,7 @@ struct PGPKeyModelTests {
     func testCopyingInitOverridesTrustLevel() {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: "trust-override@test.local", passphrase: "pass")
+        let rawKey = try! keyGen.generate(for: "trust-override@test.local", passphrase: "pass")
         let original = PGPKeyModel(
             from: rawKey,
             isVerified: false,
@@ -222,7 +223,7 @@ struct PGPKeyModelTests {
     func testCopyingInitUsesSourceTrustLevelWhenNilOverride() {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: "trust-nil-override@test.local", passphrase: "pass")
+        let rawKey = try! keyGen.generate(for: "trust-nil-override@test.local", passphrase: "pass")
         let original = PGPKeyModel(
             from: rawKey,
             isVerified: false,
@@ -240,7 +241,7 @@ struct PGPKeyModelTests {
     func testCopyingInitAllTrustLevels() {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: "trust-all-levels@test.local", passphrase: "pass")
+        let rawKey = try! keyGen.generate(for: "trust-all-levels@test.local", passphrase: "pass")
         let original = PGPKeyModel(from: rawKey)
 
         let trustLevels: [TrustLevel] = [.unknown, .never, .marginal, .full, .ultimate]
@@ -255,7 +256,7 @@ struct PGPKeyModelTests {
     func testCopyingInitTrustLevelOverridePreservesOtherProperties() {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: "trust-identity-preserved@test.local", passphrase: "pass")
+        let rawKey = try! keyGen.generate(for: "trust-identity-preserved@test.local", passphrase: "pass")
         let original = PGPKeyModel(
             from: rawKey,
             isVerified: true,

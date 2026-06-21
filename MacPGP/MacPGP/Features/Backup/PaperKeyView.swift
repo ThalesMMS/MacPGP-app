@@ -13,7 +13,7 @@ struct PaperKeyView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header with title and actions
             HStack {
-                Text("Paper Key Backup")
+                Text("paperkey.paper_key_backup")
                     .font(.title2)
                     .fontWeight(.semibold)
 
@@ -23,7 +23,7 @@ struct PaperKeyView: View {
                     Button {
                         printPaperBackup()
                     } label: {
-                        Label("Print", systemImage: "printer")
+                        Label("paperkey.print", systemImage: "printer")
                     }
                     .buttonStyle(.borderedProminent)
                 }
@@ -44,7 +44,7 @@ struct PaperKeyView: View {
                         .font(.largeTitle)
                         .foregroundStyle(.red)
 
-                    Text("Failed to load key")
+                    Text("paperkey.failed_to_load_key")
                         .font(.headline)
 
                     Text(error)
@@ -90,7 +90,7 @@ struct PaperKeyView: View {
     @ViewBuilder
     private var keyInformationSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Key Information")
+            Text("trust.key_information")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -139,7 +139,7 @@ struct PaperKeyView: View {
             // Fingerprint
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Fingerprint")
+                    Text("common.fingerprint")
                         .font(.subheadline)
                         .fontWeight(.medium)
 
@@ -148,7 +148,7 @@ struct PaperKeyView: View {
                     Button {
                         copyFingerprint()
                     } label: {
-                        Label(showCopied ? "Copied!" : "Copy", systemImage: showCopied ? "checkmark" : "doc.on.doc")
+                        Label(showCopied ? "Copied!" : "common.copy", systemImage: showCopied ? "checkmark" : "doc.on.doc")
                             .font(.caption)
                     }
                     .buttonStyle(.borderless)
@@ -171,7 +171,7 @@ struct PaperKeyView: View {
     private var armoredKeySection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Private Key (ASCII Armored)")
+                Text("paperkey.private_key_ascii_armored")
                     .font(.headline)
 
                 Spacer()
@@ -179,7 +179,7 @@ struct PaperKeyView: View {
                 Button {
                     copyArmoredKey()
                 } label: {
-                    Label("Copy", systemImage: "doc.on.doc")
+                    Label("common.copy", systemImage: "doc.on.doc")
                         .font(.caption)
                 }
                 .buttonStyle(.borderless)
@@ -208,7 +208,7 @@ struct PaperKeyView: View {
     private var qrCodeSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("QR Code")
+                Text("common.qr_code")
                     .font(.headline)
 
                 Spacer()
@@ -232,7 +232,7 @@ struct PaperKeyView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .shadow(radius: 2)
 
-                    Text("Scan to import this key")
+                    Text("paperkey.scan_to_import_this_key")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -252,11 +252,11 @@ struct PaperKeyView: View {
                 .font(.title3)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Important Security Notice")
+                Text("paperkey.important_security_notice")
                     .font(.subheadline)
                     .fontWeight(.semibold)
 
-                Text("This paper backup contains your private key. Store it securely in a safe place. Anyone with access to this paper can decrypt your messages and sign documents as you.")
+                Text("paperkey.this_paper_backup_contains_your_private")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -351,7 +351,7 @@ struct PaperKeyView: View {
     @ViewBuilder
     private var printableContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("PGP Key Paper Backup")
+            Text("paperkey.pgp_key_paper_backup")
                 .font(.title)
                 .fontWeight(.bold)
 
@@ -367,7 +367,7 @@ struct PaperKeyView: View {
                 Divider()
 
                 VStack(spacing: 12) {
-                    Text("QR Code")
+                    Text("common.qr_code")
                         .font(.headline)
 
                     QRCodeView(armoredKey, size: 250)
@@ -382,7 +382,7 @@ struct PaperKeyView: View {
 
             Spacer()
 
-            Text("Generated on \(formatDate(Date()))")
+            Text(String.localizedStringWithFormat(NSLocalizedString("paperkey.generated_on_format", comment: ""), formatDate(Date())))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

@@ -1,7 +1,7 @@
 import Foundation
 import RNPKit
 
-private enum UploadFailureReason {
+nonisolated private enum UploadFailureReason {
     case sanitizeArmoredKey
     case armorKey
     case multipleKeysBundled
@@ -24,7 +24,7 @@ private enum UploadFailureReason {
     }
 }
 
-enum KeyServerError: LocalizedError {
+nonisolated enum KeyServerError: LocalizedError {
     case invalidURL
     case networkError(underlying: Error)
     case serverError(statusCode: Int)
@@ -33,6 +33,11 @@ enum KeyServerError: LocalizedError {
     case uploadFailed(reason: String)
     case timeout
     case noEnabledServers
+    case insecureTransportNotAllowed(host: String)
+    case insecureUploadProhibited(host: String)
+    /// The key material returned by the server did not contain the full
+    /// fingerprint of the search result the user selected.
+    case fingerprintMismatch
 
     var errorDescription: String? {
         switch self {
@@ -52,6 +57,12 @@ enum KeyServerError: LocalizedError {
             return NSLocalizedString("error.timeout.description", comment: "Error description when keyserver request times out")
         case .noEnabledServers:
             return NSLocalizedString("error.no_enabled_servers.description", comment: "Error description when no keyservers are enabled in configuration")
+        case .insecureTransportNotAllowed(let host):
+            return String(format: NSLocalizedString("error.insecure_transport.description", comment: "Error description when a keyserver request is blocked because it uses insecure transport"), host)
+        case .insecureUploadProhibited(let host):
+            return String(format: NSLocalizedString("error.insecure_upload.description", comment: "Error description when a key upload is blocked because the keyserver uses insecure transport"), host)
+        case .fingerprintMismatch:
+            return NSLocalizedString("error.fingerprint_mismatch.description", comment: "Error description when a fetched key does not match the selected search result's fingerprint")
         }
     }
 
@@ -73,11 +84,17 @@ enum KeyServerError: LocalizedError {
             return NSLocalizedString("error.timeout.recovery", comment: "Recovery suggestion when keyserver request times out")
         case .noEnabledServers:
             return NSLocalizedString("error.no_enabled_servers.recovery", comment: "Recovery suggestion when no keyservers are enabled")
+        case .insecureTransportNotAllowed:
+            return NSLocalizedString("error.insecure_transport.recovery", comment: "Recovery suggestion when a keyserver request is blocked because it uses insecure transport")
+        case .insecureUploadProhibited:
+            return NSLocalizedString("error.insecure_upload.recovery", comment: "Recovery suggestion when a key upload is blocked because the keyserver uses insecure transport")
+        case .fingerprintMismatch:
+            return NSLocalizedString("error.fingerprint_mismatch.recovery", comment: "Recovery suggestion when a fetched key does not match the selected search result")
         }
     }
 }
 
-struct KeySearchResult: Identifiable, Hashable, Sendable {
+nonisolated struct KeySearchResult: Identifiable, Hashable, Sendable {
     let id: String
     let fingerprint: String
     let shortKeyID: String
@@ -123,10 +140,47 @@ final class KeyServerService {
         self.urlSession = URLSession(configuration: configuration)
     }
 
+    // MARK: - Transport Security
+
+    /// Enforces MacPGP's insecure-transport policy at the service boundary so that an
+    /// enabled server toggle alone can never trigger a plaintext request:
+    /// - Secure (HKPS/HTTPS) servers are always allowed.
+    /// - Insecure (HKP/HTTP) search/fetch/refresh requires an explicit opt-in
+    ///   (`server.allowInsecure`).
+    /// - Uploading key material over insecure transport is always prohibited,
+    ///   regardless of the opt-in.
+    private func ensureTransportAllowed(for server: KeyServerConfig, isUpload: Bool) throws {
+        guard !server.isSecure else { return }
+
+        let error: KeyServerError
+        if isUpload {
+            error = .insecureUploadProhibited(host: server.hostname)
+        } else if server.allowInsecure {
+            return
+        } else {
+            error = .insecureTransportNotAllowed(host: server.hostname)
+        }
+
+        lastError = error
+        throw error
+    }
+
+    /// Maps a transport-layer error to a typed `KeyServerError`, so an actual
+    /// request timeout surfaces the `.timeout` case (and its recovery copy)
+    /// rather than a generic `.networkError`.
+    private nonisolated static func mapTransportError(_ error: Error) -> KeyServerError {
+        if let urlError = error as? URLError, urlError.code == .timedOut {
+            return .timeout
+        }
+        return .networkError(underlying: error)
+    }
+
     // MARK: - Search Operations
 
     func search(query: String, on server: KeyServerConfig) async throws -> [KeySearchResult] {
         guard !query.isEmpty else { return [] }
+
+        try ensureTransportAllowed(for: server, isUpload: false)
 
         let searchID = UUID()
         activeSearchID = searchID
@@ -139,8 +193,11 @@ final class KeyServerService {
             throw KeyServerError.invalidURL
         }
 
+        var request = URLRequest(url: searchURL)
+        request.timeoutInterval = server.timeout
+
         do {
-            let (data, response) = try await urlSession.data(from: searchURL)
+            let (data, response) = try await urlSession.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw KeyServerError.invalidResponse
@@ -165,7 +222,7 @@ final class KeyServerService {
             }
             throw error
         } catch {
-            let wrappedError = KeyServerError.networkError(underlying: error)
+            let wrappedError = Self.mapTransportError(error)
             if isCurrentSearch(searchID) {
                 lastError = wrappedError
             }
@@ -186,6 +243,8 @@ final class KeyServerService {
     // MARK: - Fetch Operations
 
     func fetchKey(fingerprint: String, from server: KeyServerConfig) async throws -> Data {
+        try ensureTransportAllowed(for: server, isUpload: false)
+
         isFetching = true
         lastError = nil
         defer { isFetching = false }
@@ -194,8 +253,11 @@ final class KeyServerService {
             throw KeyServerError.invalidURL
         }
 
+        var request = URLRequest(url: fetchURL)
+        request.timeoutInterval = server.timeout
+
         do {
-            let (data, response) = try await urlSession.data(from: fetchURL)
+            let (data, response) = try await urlSession.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw KeyServerError.invalidResponse
@@ -214,7 +276,7 @@ final class KeyServerService {
             lastError = error
             throw error
         } catch {
-            let wrappedError = KeyServerError.networkError(underlying: error)
+            let wrappedError = Self.mapTransportError(error)
             lastError = wrappedError
             throw wrappedError
         }
@@ -228,9 +290,61 @@ final class KeyServerService {
         return try await fetchKey(fingerprint: fingerprint, from: server)
     }
 
+    /// Fetches a key and binds it to the search result the user selected: the
+    /// returned material must contain a key whose fingerprint matches
+    /// `expectedFingerprint`. Returns the armored public key of only the matching
+    /// key, so a server response that bundles or substitutes keys cannot import
+    /// anything the user did not select. Throws `.fingerprintMismatch` otherwise.
+    func fetchValidatedKey(matching expectedFingerprint: String, from server: KeyServerConfig) async throws -> Data {
+        let data = try await fetchKey(fingerprint: expectedFingerprint, from: server)
+        do {
+            return try await Self.validatedKeyData(data, matching: expectedFingerprint)
+        } catch let error as KeyServerError {
+            lastError = error
+            throw error
+        }
+    }
+
+    private nonisolated static func validatedKeyData(_ data: Data, matching expectedFingerprint: String) async throws -> Data {
+        try await Task.detached(priority: .userInitiated) {
+            let keys: [Key]
+            do {
+                keys = try RNP.readKeys(from: data)
+            } catch {
+                throw KeyServerError.invalidResponse
+            }
+
+            let expected = normalizeFingerprint(expectedFingerprint)
+            guard !expected.isEmpty else { throw KeyServerError.fingerprintMismatch }
+
+            guard let match = keys.first(where: { key in
+                let actual = normalizeFingerprint(key.fingerprint)
+                // Exact full-fingerprint match, or suffix match when the selected
+                // result only carried a key ID.
+                return actual == expected || actual.hasSuffix(expected)
+            }) else {
+                throw KeyServerError.fingerprintMismatch
+            }
+
+            // Re-export only the matching key (armored) so bundled extras are dropped.
+            let publicKeyData = try PublicKeyExport.export(match)
+            let armored = try Armor.armored(publicKeyData, as: .publicKey)
+            guard let armoredData = armored.data(using: .utf8) else {
+                throw KeyServerError.invalidResponse
+            }
+            return armoredData
+        }.value
+    }
+
+    private nonisolated static func normalizeFingerprint(_ fingerprint: String) -> String {
+        fingerprint.uppercased().filter(\.isHexDigit)
+    }
+
     // MARK: - Upload Operations
 
     func uploadKey(_ keyData: Data, to server: KeyServerConfig) async throws {
+        try ensureTransportAllowed(for: server, isUpload: true)
+
         isUploading = true
         lastError = nil
         defer { isUploading = false }
@@ -286,7 +400,7 @@ final class KeyServerService {
             lastError = error
             throw error
         } catch {
-            let wrappedError = KeyServerError.networkError(underlying: error)
+            let wrappedError = Self.mapTransportError(error)
             lastError = wrappedError
             throw wrappedError
         }
@@ -319,7 +433,7 @@ final class KeyServerService {
     // MARK: - URL Building
 
     private func buildSearchURL(query: String, server: KeyServerConfig) -> URL? {
-        guard let baseURL = server.url else { return nil }
+        guard let baseURL = server.transportURL else { return nil }
 
         // HKP search endpoint: /pks/lookup?op=index&search=<query>
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
@@ -334,7 +448,7 @@ final class KeyServerService {
     }
 
     private func buildFetchURL(fingerprint: String, server: KeyServerConfig) -> URL? {
-        guard let baseURL = server.url else { return nil }
+        guard let baseURL = server.transportURL else { return nil }
 
         // HKP fetch endpoint: /pks/lookup?op=get&search=0x<fingerprint>
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
@@ -349,7 +463,7 @@ final class KeyServerService {
     }
 
     private func buildUploadURL(server: KeyServerConfig) -> URL? {
-        guard let baseURL = server.url else { return nil }
+        guard let baseURL = server.transportURL else { return nil }
 
         // HKP upload endpoint: /pks/add
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
@@ -366,113 +480,134 @@ final class KeyServerService {
         }.value
     }
 
+    /// Accumulates the records of one key from an HKP machine-readable response.
+    nonisolated private struct HKPKeyRecord {
+        /// The identifier from the `pub` record's first field (a key ID on
+        /// standard servers, or a full fingerprint on some).
+        var pubField: String
+        /// The full fingerprint from a following `fpr` record, when present.
+        var fpr: String?
+        var algo: String
+        var keylen: Int
+        var creation: Date?
+        var expiration: Date?
+        var revoked: Bool
+        var uids: [String] = []
+
+        /// The authoritative fingerprint: the `fpr` record if the server provided
+        /// one, otherwise the `pub` field.
+        var fingerprint: String { fpr ?? pubField }
+    }
+
     private nonisolated static func parseSearchResultsSynchronously(_ data: Data) throws -> [KeySearchResult] {
-        // Parse machine-readable format from HKP server
-        // Format: info:1:1
-        //         pub:fingerprint:algo:keylen:creationdate:expirationdate:flags
-        //         uid:escaped uid string:creationdate:expirationdate:flags
+        // Parse the HKP machine-readable format:
+        //   info:<version>:<count>
+        //   pub:<keyid|fingerprint>:<algo>:<keylen>:<creation>:<expiration>:<flags>
+        //   fpr:<fingerprint>                      (optional, follows its pub)
+        //   uid:<escaped uid>:<creation>:<expiration>:<flags>
 
         guard let responseString = String(data: data, encoding: .utf8) else {
             throw KeyServerError.invalidResponse
         }
 
         var results: [KeySearchResult] = []
-        var currentKey: (fingerprint: String, algo: String, keylen: Int, creation: Date?, expiration: Date?, revoked: Bool)?
-        var currentUIDs: [String] = []
+        var currentKey: HKPKeyRecord?
+
+        func flush() {
+            if let key = currentKey {
+                results.append(createSearchResult(from: key))
+            }
+        }
 
         let lines = responseString.components(separatedBy: .newlines)
 
         for line in lines {
             let components = line.components(separatedBy: ":")
-            guard !components.isEmpty else { continue }
-
-            let recordType = components[0]
+            guard let recordType = components.first else { continue }
 
             switch recordType {
             case "pub":
-                // Save previous key if exists
-                if let key = currentKey {
-                    let result = createSearchResult(
-                        fingerprint: key.fingerprint,
-                        algo: key.algo,
-                        keylen: key.keylen,
-                        creation: key.creation,
-                        expiration: key.expiration,
-                        revoked: key.revoked,
-                        uids: currentUIDs
-                    )
-                    results.append(result)
-                }
+                flush()
 
-                // Parse new key
-                guard components.count >= 6 else { continue }
-                let fingerprint = components[1]
+                guard components.count >= 6 else {
+                    currentKey = nil
+                    continue
+                }
+                let pubField = components[1]
                 let algo = components[2]
                 let keylen = Int(components[3]) ?? 0
                 let creationTimestamp = TimeInterval(components[4]) ?? 0
                 let creation = creationTimestamp > 0 ? Date(timeIntervalSince1970: creationTimestamp) : nil
 
                 var expiration: Date?
-                if components.count >= 6, !components[5].isEmpty,
-                   let expirationTimestamp = TimeInterval(components[5]) {
+                if !components[5].isEmpty, let expirationTimestamp = TimeInterval(components[5]) {
                     expiration = Date(timeIntervalSince1970: expirationTimestamp)
                 }
 
                 let revoked = components.count >= 7 && components[6].contains("r")
 
-                currentKey = (fingerprint, algo, keylen, creation, expiration, revoked)
-                currentUIDs = []
+                currentKey = HKPKeyRecord(
+                    pubField: pubField,
+                    fpr: nil,
+                    algo: algo,
+                    keylen: keylen,
+                    creation: creation,
+                    expiration: expiration,
+                    revoked: revoked
+                )
+
+            case "fpr":
+                // The fpr record carries the full fingerprint and is authoritative
+                // over the pub field's identifier.
+                guard components.count >= 2, !components[1].isEmpty else { continue }
+                currentKey?.fpr = components[1]
 
             case "uid":
                 guard components.count >= 2 else { continue }
                 let uid = components[1].removingPercentEncoding ?? components[1]
-                currentUIDs.append(uid)
+                // A revoked uid flag does not revoke the key; key revocation comes
+                // from the pub record's flags.
+                currentKey?.uids.append(uid)
 
             default:
                 continue
             }
         }
 
-        // Add last key
-        if let key = currentKey {
-            let result = createSearchResult(
-                fingerprint: key.fingerprint,
-                algo: key.algo,
-                keylen: key.keylen,
-                creation: key.creation,
-                expiration: key.expiration,
-                revoked: key.revoked,
-                uids: currentUIDs
-            )
-            results.append(result)
-        }
-
+        flush()
         return results
     }
 
-    private nonisolated static func createSearchResult(
-        fingerprint: String,
-        algo: String,
-        keylen: Int,
-        creation: Date?,
-        expiration: Date?,
-        revoked: Bool,
-        uids: [String]
-    ) -> KeySearchResult {
-        let shortKeyID = String(fingerprint.suffix(16))
+    private nonisolated static func createSearchResult(from key: HKPKeyRecord) -> KeySearchResult {
+        let fingerprint = key.fingerprint
 
         return KeySearchResult(
             id: fingerprint,
             fingerprint: fingerprint,
-            shortKeyID: shortKeyID,
-            userIDs: uids,
-            algorithm: algo,
-            keySize: keylen,
-            creationDate: creation,
-            expirationDate: expiration,
-            isRevoked: revoked,
+            shortKeyID: String(fingerprint.suffix(16)),
+            userIDs: key.uids,
+            algorithm: normalizedAlgorithm(key.algo),
+            keySize: key.keylen,
+            creationDate: key.creation,
+            expirationDate: key.expiration,
+            isRevoked: key.revoked,
             keyData: nil
         )
+    }
+
+    /// Maps an OpenPGP public-key algorithm identifier (RFC 4880 §9.1) from an
+    /// HKP record to a user-facing name, so search results never display a raw
+    /// numeric code.
+    private nonisolated static func normalizedAlgorithm(_ raw: String) -> String {
+        switch raw {
+        case "1", "2", "3": return "RSA"
+        case "16", "20": return "ElGamal"
+        case "17": return "DSA"
+        case "18": return "ECDH"
+        case "19": return "ECDSA"
+        case "22": return "EdDSA"
+        default: return raw.isEmpty ? "Unknown" : "Algorithm \(raw)"
+        }
     }
 
     // MARK: - Utility

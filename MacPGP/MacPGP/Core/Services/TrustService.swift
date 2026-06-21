@@ -4,9 +4,11 @@ import Foundation
 @Observable
 final class TrustService {
     private let keyringService: KeyringService
+    @ObservationIgnored private let clock: DateProviding
 
-    init(keyringService: KeyringService) {
+    init(keyringService: KeyringService, clock: DateProviding = SystemDateProvider()) {
         self.keyringService = keyringService
+        self.clock = clock
     }
 
     // MARK: - Helper Methods
@@ -22,7 +24,7 @@ final class TrustService {
         // 1. It's not expired or revoked
         // 2. It's not marked as "never trust"
 
-        if key.isExpired || key.isRevoked {
+        if key.isExpired(asOf: clock.now) || key.isRevoked {
             return false
         }
 
@@ -41,7 +43,7 @@ final class TrustService {
             return "This key is marked as 'Never Trust'. Encryption is not recommended."
         }
 
-        if key.isExpired {
+        if key.isExpired(asOf: clock.now) {
             return "This key has expired."
         }
 

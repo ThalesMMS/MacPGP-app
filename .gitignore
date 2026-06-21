@@ -29,3 +29,5 @@ AGENTS.md
 THIRD_PARTY_NOTICES.md
 RELEASING.md
 /scripts/manual-testing-guide
+/DerivedData
+/TestResults

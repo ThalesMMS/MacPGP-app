@@ -1,8 +1,9 @@
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 
+@MainActor
 @Observable
-final class FingerprintAudioService: NSObject, AVSpeechSynthesizerDelegate {
+final class FingerprintAudioService: NSObject, @preconcurrency AVSpeechSynthesizerDelegate {
     private(set) var isPlaying = false
     private(set) var lastError: Error?
 

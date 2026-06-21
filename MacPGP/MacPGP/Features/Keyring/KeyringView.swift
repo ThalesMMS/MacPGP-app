@@ -29,8 +29,14 @@ struct KeyringView: View {
                 viewModel = KeyringViewModel(keyringService: keyringService)
             }
         }
-        .navigationTitle("Keyring")
-        .frame(minWidth: 280, idealWidth: 320, maxWidth: 400)
+        .navigationTitle("sidebar.keyring")
+        // Constrain the split-view content column itself (a plain .frame on the
+        // column content is not enforced as the column's resizable minimum). The
+        // minimum fits the toolbar's packed controls — Filter (130) + the
+        // "Search Keyserver" button (~150) + Sort (90) plus inter-control spacing
+        // and the row's horizontal padding — so none of them collapse or truncate
+        // on narrow windows.
+        .navigationSplitViewColumnWidth(min: 440, ideal: 480, max: 620)
     }
 
     @ViewBuilder
@@ -38,31 +44,40 @@ struct KeyringView: View {
         @Bindable var vm = viewModel
 
         VStack(spacing: 0) {
-            toolbar(viewModel: viewModel)
-
-            if viewModel.filteredKeys.isEmpty {
-                emptyStateView(viewModel: viewModel)
+            if keyringService.keys.isEmpty {
+                // No keys at all: show one empty state centered in the whole
+                // column. The Filter/Search/Sort toolbar is intentionally hidden
+                // here — it has nothing to act on, and keeping it left the
+                // centered content stranded below a large empty gap.
+                emptyKeyringView
             } else {
-                keyList(viewModel: viewModel)
+                toolbar(viewModel: viewModel)
+
+                if viewModel.filteredKeys.isEmpty {
+                    noMatchesView(viewModel: viewModel)
+                } else {
+                    keyList(viewModel: viewModel)
+                }
             }
         }
+        .searchable(text: $vm.searchText, prompt: "Search keys...")
         .confirmationDialog(
-            "Delete Key",
+            "keyring.delete_key",
             isPresented: $vm.showingDeleteConfirmation,
             presenting: viewModel.keyToDelete
         ) { key in
-            Button("Delete", role: .destructive) {
+            Button("keydetails.delete", role: .destructive) {
                 viewModel.deleteKey()
                 if selectedKey?.id == key.id {
                     selectedKey = nil
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button("keygen.cancel", role: .cancel) {}
         } message: { key in
-            Text("Are you sure you want to delete \"\(key.displayName)\"? This action cannot be undone.")
+            Text(String.localizedStringWithFormat(NSLocalizedString("keydetails.confirm_delete_format", comment: ""), key.displayName))
         }
         .alert("Error", isPresented: $vm.showingAlert) {
-            Button("OK") {}
+            Button("common.ok") {}
         } message: {
             Text(viewModel.alertMessage ?? "An error occurred")
         }
@@ -103,92 +118,89 @@ struct KeyringView: View {
     private func toolbar(viewModel: KeyringViewModel) -> some View {
         @Bindable var vm = viewModel
 
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                searchField(text: $vm.searchText)
-
-                Button(action: { showingKeyserverSearch = true }) {
-                    Image(systemName: "globe")
+        HStack {
+            Picker(String(localized: "keyring.toolbar.filter", defaultValue: "Filter", comment: "Filter picker label"), selection: $vm.filterType) {
+                ForEach(KeyFilterType.allCases) { filter in
+                    Text(filter.displayName).tag(filter)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .frame(width: 28)
-                .help(String(localized: "keyring.search_keyserver", defaultValue: "Search Keyserver", comment: "Tooltip for keyserver search button"))
-                .accessibilityLabel(String(localized: "keyring.search_keyserver", defaultValue: "Search Keyserver", comment: "Accessibility label for keyserver search button"))
             }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(width: 130)
 
-            HStack(spacing: 8) {
-                Picker(String(localized: "keyring.toolbar.filter", defaultValue: "Filter", comment: "Filter picker label"), selection: $vm.filterType) {
-                    ForEach(KeyFilterType.allCases) { filter in
-                        Text(filter.displayName).tag(filter)
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .controlSize(.small)
-                .frame(width: 130)
-
-                Spacer(minLength: 0)
-
-                Picker(String(localized: "keyring.toolbar.sort", defaultValue: "Sort", comment: "Sort picker label"), selection: $vm.sortOrder) {
-                    ForEach(KeySortOrder.allCases) { order in
-                        Text(order.displayName).tag(order)
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .controlSize(.small)
-                .frame(width: 90)
+            Button(action: { showingKeyserverSearch = true }) {
+                Label(String(localized: "keyring.toolbar.search_keyserver", defaultValue: "Search Keyserver", comment: "Button to search key server"), systemImage: "magnifyingglass")
             }
+            .buttonStyle(.borderless)
+
+            Spacer()
+
+            Picker(String(localized: "keyring.toolbar.sort", defaultValue: "Sort", comment: "Sort picker label"), selection: $vm.sortOrder) {
+                ForEach(KeySortOrder.allCases) { order in
+                    Text(order.displayName).tag(order)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(width: 90)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
     }
 
+    /// Shown when the keyring holds no keys at all. Fills the column so the
+    /// content sits centered the way the detail pane's placeholder does, rather
+    /// than floating below the toolbar with a large empty gap above it.
     @ViewBuilder
-    private func searchField(text: Binding<String>) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-
-            TextField(String(localized: "keyring.search_placeholder", defaultValue: "Search keys...", comment: "Search field placeholder in keyring"), text: text)
-                .textFieldStyle(.plain)
-        }
-        .padding(.horizontal, 8)
-        .frame(height: 28)
-        .background {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
-        }
-    }
-
-    @ViewBuilder
-    private func emptyStateView(viewModel: KeyringViewModel) -> some View {
+    private var emptyKeyringView: some View {
         ContentUnavailableView {
-            Label("No Keys", systemImage: "key")
+            Label("keyring.no_keys", systemImage: "key")
         } description: {
-            if viewModel.searchText.isEmpty {
-                Text("Generate a new key or import existing keys to get started.")
-            } else {
-                Text("No keys match your search.")
-            }
+            Text("keyring.no_keys_message")
         } actions: {
-            if viewModel.searchText.isEmpty {
-                Button("Generate New Key") {
+            VStack(spacing: 10) {
+                Button {
                     NotificationCenter.default.post(name: .showKeyGeneration, object: nil)
+                } label: {
+                    Text("keyring.generate_new_key")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
 
-                Button("Import Key") {
+                Button {
                     NotificationCenter.default.post(name: .importKey, object: nil)
+                } label: {
+                    Text("keyring.import_key")
+                        .frame(maxWidth: .infinity)
+                }
+
+                Button {
+                    showingKeyserverSearch = true
+                } label: {
+                    Text("keyring.search_keyserver")
+                        .frame(maxWidth: .infinity)
                 }
             }
+            .frame(width: 240)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Shown when the keyring has keys but the active search or filter matches
+    /// none. The toolbar stays visible so the filter can be cleared.
+    @ViewBuilder
+    private func noMatchesView(viewModel: KeyringViewModel) -> some View {
+        ContentUnavailableView {
+            Label("keyring.no_results", systemImage: "magnifyingglass")
+        } description: {
+            Text("keyring.no_keys_match_your_search_or_filter")
+        } actions: {
+            Button("keyring.clear_filters") {
+                viewModel.searchText = ""
+                viewModel.filterType = .all
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
@@ -207,60 +219,60 @@ struct KeyringView: View {
 
     @ViewBuilder
     private func keyContextMenu(for key: PGPKeyModel, viewModel: KeyringViewModel) -> some View {
-        Button("Copy Key ID") {
+        Button("keyring.copy_key_id") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(key.shortKeyID, forType: .string)
         }
 
-        Button("Copy Fingerprint") {
+        Button("keyring.copy_fingerprint") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(key.fingerprint, forType: .string)
         }
 
         Divider()
 
-        Button("Export Public Key...") {
+        Button("keyring.export_public_key") {
             exportKey(key, includeSecret: false, viewModel: viewModel)
         }
 
         if key.isSecretKey {
-            Button("Export Secret Key...") {
+            Button("keyring.export_secret_key") {
                 exportKey(key, includeSecret: true, viewModel: viewModel)
             }
         }
 
         Divider()
 
-        Button("Upload to Keyserver...") {
+        Button("keyring.upload_to_keyserver") {
             uploadKey(key, viewModel: viewModel)
         }
         .disabled(isUploading)
 
-        Button("Refresh from Keyserver") {
+        Button("keyring.refresh_from_keyserver") {
             refreshKey(key, viewModel: viewModel)
         }
         .disabled(isRefreshing)
 
         Divider()
 
-        Button("Backup Keys...") {
+        Button("menu.backup_keys") {
             showingBackupWizard = true
         }
 
         if key.isSecretKey {
-            Button("Paper Backup...") {
+            Button("keyring.paper_backup") {
                 paperKeyContext = key
                 showingPaperKey = true
             }
         }
 
-        Button("Restore Keys...") {
+        Button("menu.restore_keys") {
             showingRestoreWizard = true
         }
 
         Divider()
 
-        Button("Delete Key", role: .destructive) {
+        Button("keyring.delete_key", role: .destructive) {
             viewModel.confirmDelete(key)
         }
     }
@@ -286,8 +298,7 @@ struct KeyringView: View {
                 // Always upload public key only (never upload secret keys)
                 let publicKeyData = try viewModel.exportKey(key, includeSecret: false)
 
-                // Use default keyserver (keys.openpgp.org)
-                let defaultServer = KeyServerConfig.keysOpenpgp
+                let defaultServer = KeyServerConfig.defaultServer()
 
                 try await keyServerService.uploadKey(publicKeyData, to: defaultServer)
 
@@ -312,8 +323,7 @@ struct KeyringView: View {
             defer { isRefreshing = false }
 
             do {
-                // Use default keyserver (keys.openpgp.org)
-                let defaultServer = KeyServerConfig.keysOpenpgp
+                let defaultServer = KeyServerConfig.defaultServer()
 
                 let keyData = try await keyServerService.refreshKey(fingerprint: key.fingerprint, from: defaultServer)
 

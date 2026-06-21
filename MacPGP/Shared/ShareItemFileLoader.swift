@@ -1,7 +1,7 @@
 import Foundation
 import UniformTypeIdentifiers
 
-enum ShareItemFileLoader {
+nonisolated enum ShareItemFileLoader {
     private static let fileURLTypeIdentifier = UTType.fileURL.identifier
     private static let fallbackTypeIdentifiers = [
         UTType.item.identifier,
@@ -75,7 +75,8 @@ enum ShareItemFileLoader {
     }
 
     private static func loadFileRepresentation(from provider: NSItemProvider, typeIdentifier: String) async -> URL? {
-        await withCheckedContinuation { continuation in
+        let suggestedName = provider.suggestedName
+        return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
             provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, error in
                 if let error {
                     NSLog("ShareItemFileLoader: Failed to load file representation for \(typeIdentifier): \(error.localizedDescription)")
@@ -91,7 +92,7 @@ enum ShareItemFileLoader {
                 continuation.resume(
                     returning: copyTemporaryFile(
                         at: url,
-                        suggestedName: provider.suggestedName,
+                        suggestedName: suggestedName,
                         typeIdentifier: typeIdentifier
                     )
                 )
@@ -110,7 +111,8 @@ enum ShareItemFileLoader {
     }
 
     private static func loadDataRepresentation(from provider: NSItemProvider, typeIdentifier: String) async -> URL? {
-        await withCheckedContinuation { continuation in
+        let suggestedName = provider.suggestedName
+        return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
             provider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { data, error in
                 if let error {
                     NSLog("ShareItemFileLoader: Failed to load data representation for \(typeIdentifier): \(error.localizedDescription)")
@@ -126,7 +128,7 @@ enum ShareItemFileLoader {
                 continuation.resume(
                     returning: writeTemporaryFile(
                         data,
-                        suggestedName: provider.suggestedName,
+                        suggestedName: suggestedName,
                         typeIdentifier: typeIdentifier
                     )
                 )

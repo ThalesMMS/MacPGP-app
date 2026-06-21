@@ -105,8 +105,6 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["keys.openpgp.org"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["Ubuntu Keyserver"].exists)
         XCTAssertTrue(app.staticTexts["MIT PGP Keyserver"].exists)
-        XCTAssertFalse(settingsWindow.switches["Automatically refresh keys from keyserver"].exists)
-        XCTAssertFalse(app.staticTexts["Auto-refresh checks for key updates"].exists)
 
         let keysOpenPGP = settingsWindow.switches["Keyserver Toggle keys.openpgp.org"]
         let ubuntu = settingsWindow.switches["Keyserver Toggle keyserver.ubuntu.com"]

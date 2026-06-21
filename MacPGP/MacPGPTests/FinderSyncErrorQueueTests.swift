@@ -96,7 +96,7 @@ struct FinderSyncErrorQueueTests {
         )
     }
 
-    private struct QueueContext {
+    private struct QueueContext: @unchecked Sendable {
         let suiteName: String
         let defaults: UserDefaults
         let lockFileURL: URL

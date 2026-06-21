@@ -19,11 +19,11 @@ struct ShareExtensionView: View {
                     .font(.system(size: 48))
                     .foregroundStyle(.blue)
 
-                Text("Encrypt Files")
+                Text("shareext.encrypt_files")
                     .font(.title2)
                     .fontWeight(.semibold)
 
-                Text("Select recipients to encrypt the shared files")
+                Text("shareext.select_recipients")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -33,7 +33,7 @@ struct ShareExtensionView: View {
 
             // Files section
             VStack(alignment: .leading, spacing: 8) {
-                Text("Files to Encrypt")
+                Text("shareext.files_to_encrypt")
                     .font(.headline)
 
                 ScrollView {
@@ -57,7 +57,7 @@ struct ShareExtensionView: View {
 
             // Action buttons
             HStack(spacing: 12) {
-                Button("Cancel") {
+                Button("shareext.cancel") {
                     onCancel()
                 }
                 .keyboardShortcut(.cancelAction)
@@ -65,7 +65,7 @@ struct ShareExtensionView: View {
 
                 Spacer()
 
-                Button("Encrypt") {
+                Button("shareext.encrypt") {
                     isEncrypting = true
                     onEncrypt(selectedRecipients)
                 }
@@ -139,7 +139,7 @@ struct RecipientPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Recipients")
+            Text("shareext.recipients")
                 .font(.headline)
 
             if availableRecipients.isEmpty {
@@ -176,7 +176,7 @@ struct RecipientPicker: View {
             if !selectedRecipients.isEmpty {
                 Divider()
 
-                Text("Selected (\(selectedRecipients.count))")
+                Text(String.localizedStringWithFormat(NSLocalizedString("shareext.selected_count", comment: ""), selectedRecipients.count))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 

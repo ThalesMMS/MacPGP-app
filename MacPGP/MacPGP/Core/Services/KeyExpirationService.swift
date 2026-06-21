@@ -1,7 +1,7 @@
 import Foundation
 import RNPKit
 
-struct ValidationIssue: Hashable {
+nonisolated struct ValidationIssue: Hashable {
     enum Severity: Hashable {
         case warning
         case error
@@ -19,14 +19,6 @@ final class KeyExpirationService {
     private(set) var lastError: OperationError?
 
     private init() {}
-
-    private func updateObservableState(_ updates: () -> Void) {
-        if Thread.isMainThread {
-            updates()
-        } else {
-            DispatchQueue.main.sync(execute: updates)
-        }
-    }
 
     /// Returns keys that are expiring within the specified number of days
     /// - Parameters:
@@ -55,69 +47,21 @@ final class KeyExpirationService {
         newExpirationDate: Date,
         passphrase: String
     ) throws -> PGPKeyModel {
-        updateObservableState {
-            isProcessing = true
-            lastError = nil
-        }
-
-        defer {
-            updateObservableState {
-                isProcessing = false
-            }
-        }
-
-        // Validate inputs
-        guard key.isSecretKey else {
-            updateObservableState {
-                lastError = .noSecretKey
-            }
-            throw OperationError.noSecretKey
-        }
-
-        guard newExpirationDate > Date() else {
-            let error = OperationError.unknownError(message: "New expiration date must be in the future")
-            updateObservableState {
-                lastError = error
-            }
-            throw error
-        }
-
-        guard !passphrase.isEmpty else {
-            updateObservableState {
-                lastError = .passphraseRequired
-            }
-            throw OperationError.passphraseRequired
-        }
+        isProcessing = true
+        lastError = nil
 
         do {
-            let updatedKey = try key.rawKey.setExpiration(
-                newExpirationDate,
-                passphraseForKey: { _ in passphrase }
+            let updatedKey = try Self.extendedKey(
+                key,
+                newExpirationDate: newExpirationDate,
+                passphrase: passphrase
             )
-
-            return PGPKeyModel(
-                from: updatedKey,
-                isVerified: key.isVerified,
-                verificationDate: key.verificationDate,
-                verificationMethod: key.verificationMethod,
-                trustLevel: key.trustLevel
-            )
-        } catch let error as OperationError {
-            updateObservableState {
-                lastError = error
-            }
-            throw error
-        } catch RNPError.invalidPassphrase {
-            let wrapped: OperationError = .invalidPassphrase
-            updateObservableState {
-                lastError = wrapped
-            }
-            throw wrapped
+            isProcessing = false
+            return updatedKey
         } catch {
-            let wrapped = OperationError.unknownError(message: error.localizedDescription)
-            updateObservableState {
-                lastError = wrapped
-            }
+            let wrapped = Self.operationError(from: error)
+            lastError = wrapped
+            isProcessing = false
             throw wrapped
         }
     }
@@ -134,19 +78,66 @@ final class KeyExpirationService {
         newExpirationDate: Date,
         passphrase: String
     ) async throws -> PGPKeyModel {
+        isProcessing = true
+        lastError = nil
+
         do {
-            return try await Task.detached(priority: .userInitiated) {
-                try self.extendExpiration(
-                    for: key,
+            let updatedKey = try await Task.detached(priority: .userInitiated) {
+                try Self.extendedKey(
+                    key,
                     newExpirationDate: newExpirationDate,
                     passphrase: passphrase
                 )
             }.value
-        } catch let error as OperationError {
-            throw error
+            isProcessing = false
+            return updatedKey
         } catch {
-            throw OperationError.unknownError(message: error.localizedDescription)
+            let wrapped = Self.operationError(from: error)
+            lastError = wrapped
+            isProcessing = false
+            throw wrapped
         }
+    }
+
+    private nonisolated static func extendedKey(
+        _ key: PGPKeyModel,
+        newExpirationDate: Date,
+        passphrase: String
+    ) throws -> PGPKeyModel {
+        guard key.isSecretKey else {
+            throw OperationError.noSecretKey
+        }
+
+        guard newExpirationDate > Date() else {
+            throw OperationError.unknownError(message: "New expiration date must be in the future")
+        }
+
+        guard !passphrase.isEmpty else {
+            throw OperationError.passphraseRequired
+        }
+
+        let updatedKey = try key.rawKey.setExpiration(
+            newExpirationDate,
+            passphraseForKey: { _ in passphrase }
+        )
+
+        return PGPKeyModel(
+            from: updatedKey,
+            isVerified: key.isVerified,
+            verificationDate: key.verificationDate,
+            verificationMethod: key.verificationMethod,
+            trustLevel: key.trustLevel
+        )
+    }
+
+    private nonisolated static func operationError(from error: Error) -> OperationError {
+        if let operationError = error as? OperationError {
+            return operationError
+        }
+        if case RNPError.invalidPassphrase = error {
+            return .invalidPassphrase
+        }
+        return OperationError.unknownError(message: error.localizedDescription)
     }
 
     /// Returns all expired keys

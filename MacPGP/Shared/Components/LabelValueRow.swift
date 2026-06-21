@@ -93,10 +93,18 @@ struct LabelValueRow: View {
 
     @ViewBuilder
     private func labelView(showsColon: Bool) -> some View {
-        let text = showsColon ? label + Text(":") : label
-        text
+        if showsColon {
+            HStack(spacing: 0) {
+                label
+                Text(":")
+            }
             .font(style.labelFont)
             .foregroundStyle(.secondary)
+        } else {
+            label
+                .font(style.labelFont)
+                .foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder

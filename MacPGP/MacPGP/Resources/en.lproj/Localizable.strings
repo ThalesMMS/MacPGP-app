@@ -307,13 +307,14 @@
 "keyserver.no_keys_found" = "No Keys Found";
 "keyserver.no_keys_message" = "No keys matching \"%@\" were found on %@.";
 "keyserver.try_different_server" = "Try Different Server";
-"keyserver.keys_found" = "%d key(s) found";
 "keyserver.error" = "Error";
 "keyserver.cancel" = "Cancel";
 "keyserver.import" = "Import";
 
 /* MARK: - Settings View */
 "settings.general" = "General";
+"settings.language" = "Language";
+"settings.language_picker" = "App Language";
 "settings.display" = "Display";
 "settings.show_key_id" = "Show Key ID in list";
 "settings.confirm_delete" = "Confirm before deleting keys";
@@ -391,9 +392,6 @@
 "keyserver_settings.timeout_60s" = "60 seconds";
 "keyserver_settings.timeout_90s" = "90 seconds";
 "keyserver_settings.key_management" = "Key Management";
-"keyserver_settings.auto_refresh" = "Automatically refresh keys from keyserver";
-"keyserver_settings.auto_refresh_info" = "Auto-refresh checks for key updates";
-"keyserver_settings.auto_refresh_message" = "Keys will be refreshed periodically to get the latest updates from keyservers";
 "keyserver_settings.server_information" = "Server Information";
 "keyserver_settings.about_keyservers" = "About Keyservers";
 "keyserver_settings.about_message" = "Public keyservers allow you to share your public key and discover keys from other users. The selected server will be used for search, upload, and refresh operations.";
@@ -588,4 +586,169 @@
 "settings.keys.algorithm_help.ecdsa" = "ECDSA keys are generated with an ECDH subkey for encryption.";
 "settings.keys.algorithm_help.eddsa" = "EdDSA keys are generated with an X25519 subkey for encryption.";
 
+/* MARK: - Insecure Keyserver Transport */
+"error.insecure_transport.description" = "MacPGP did not contact \"%@\" because it uses an insecure (plaintext) connection.";
+"error.insecure_transport.recovery" = "Enable insecure transport for this server in Settings → Keyserver, or use a server that supports HTTPS/HKPS.";
+"error.insecure_upload.description" = "MacPGP will not upload keys to \"%@\" over an insecure (plaintext) connection.";
+"error.insecure_upload.recovery" = "Upload your public key to a server that supports HTTPS/HKPS.";
+"keyserver_settings.insecure_badge" = "Insecure";
+"keyserver_settings.insecure_confirm_title" = "Enable insecure keyserver?";
+"keyserver_settings.insecure_confirm_message" = "%@ uses an unencrypted HKP/HTTP connection. Search terms such as email addresses, and the keys you download, can be observed or modified in transit. MacPGP never sends your secret keys and will not upload keys over plaintext. Enable only if you understand the risk.";
+"keyserver_settings.insecure_confirm_enable" = "Enable Insecure Server";
+"keyserver_settings.insecure_confirm_cancel" = "Cancel";
+"keyserver_settings.transport_security_note" = "MacPGP uses HTTPS/HKPS by default. TLS protects data in transit, but it does not prove that a downloaded key belongs to the named person — always verify fingerprints.";
+
+/* MARK: - Encrypted Backup Envelope */
+"error.backup_envelope.passphrase_required" = "A passphrase is required to encrypt or decrypt this backup.";
+"error.backup_envelope.malformed" = "The encrypted backup header is malformed.";
+"error.backup_envelope.truncated" = "The encrypted backup file is incomplete or corrupted.";
+"error.backup_envelope.unsupported_version" = "This backup uses an unsupported envelope version (%d).";
+"error.backup_envelope.unsupported_kdf" = "This backup uses an unsupported key-derivation function (%@).";
+"error.backup_envelope.unsupported_cipher" = "This backup uses an unsupported cipher (%@).";
+"error.backup_envelope.kdf_parameters_out_of_bounds" = "This backup declares key-derivation parameters outside the allowed range.";
+"error.backup_envelope.authentication_failed" = "The backup could not be authenticated. The passphrase is incorrect or the file was modified.";
+
+/* MARK: - Lock MacPGP */
+"menu.lock_macpgp" = "Lock MacPGP";
+"settings.security.session_lock" = "Lock MacPGP";
+"settings.security.lock_now_title" = "In-memory passphrases";
+"settings.security.lock_now_description" = "Lock MacPGP clears passphrases held in temporary memory and requires re-entry for the next protected operation. It does not remove passphrases saved in your Keychain, and it happens automatically when your Mac sleeps or the session locks.";
+"settings.security.lock_now_button" = "Lock Now";
+
+/* MARK: - Sign / Verify Validation Errors */
+"sign.error.passphrase_required" = "Passphrase is required";
+"sign.error.no_file_selected" = "Please select a file to sign";
+"sign.error.no_key_selected" = "Please select a signing key";
+"verify.error.no_file_selected" = "Please select a file to verify";
+"verify.error.no_signature_file" = "Please select a signature file";
+
 /* End of Localizable.strings */
+
+/* Missing Data Protection Keychain entitlement (issue #145) */
+"error.keychain_entitlement_missing.description" = "Keychain storage is unavailable because this build is missing the Data Protection Keychain entitlement. The passphrase was not saved.";
+"error.keychain_entitlement_missing.recovery" = "This is a signing or entitlement problem with this build that you cannot fix. Reinstall an official release of MacPGP. You can still continue by entering the passphrase when prompted.";
+"error.keychain_entitlement_missing.reason" = "The Data Protection Keychain entitlement is not present in this build.";
+
+/* Keyserver fetched-key identity mismatch (issue #139) */
+"error.fingerprint_mismatch.description" = "The key returned by the server does not match the fingerprint of the result you selected, so it was not imported.";
+"error.fingerprint_mismatch.recovery" = "Search again and select the key whose full fingerprint you can verify, or import the key from a trusted source.";
+
+/* --- issue #148: localized backlog (main-app conversion) --- */
+"backup.backup_is_encrypted" = "Backup is encrypted";
+"backup.encrypt_backup_with_passphrase" = "Encrypt backup with passphrase";
+"backup.expiring_soon" = "Expiring soon";
+"backup.keep_your_passphrase_safe_and_accessible" = "Keep your passphrase safe and accessible";
+"backup.passphrases_match" = "Passphrases match";
+"backup.store_your_backup_in_a_secure_location" = "Store your backup in a secure location";
+"backup.test_your_backup_by_restoring_to_a_test" = "Test your backup by restoring to a test keyring";
+"common.copy" = "Copy";
+"common.fingerprint" = "Fingerprint";
+"common.qr_code" = "QR Code";
+"common.reveal" = "Reveal";
+"component.change" = "Change";
+"component.choose_output_location" = "Choose Output Location";
+"component.copy_to_clipboard" = "Copy to clipboard";
+"component.or" = "or";
+"component.output_location" = "Output Location";
+"decrypt.decrypted_output" = "Decrypted Output";
+"decrypt.encrypted_message" = "Encrypted Message";
+"decrypt.will_try_all_available_secret_keys" = "Will try all available secret keys";
+"encrypt.choose" = "Choose…";
+"encrypt.choose_output_folder" = "Choose Output Folder";
+"encrypt.encrypted_output" = "Encrypted Output";
+"keydetails.already_verified" = "Already verified";
+"keydetails.compare_fingerprints" = "Compare Fingerprints";
+"keydetails.compare_the_fingerprint_below_with_the_o" = "Compare the fingerprint below with the one received through a trusted channel (in person, phone call, or secure message). Paste or type the received fingerprint to check if they match.";
+"keydetails.compare_with_received_fingerprint" = "Compare with Received Fingerprint";
+"keydetails.edit_expiration" = "Edit Expiration";
+"keydetails.edit_expiration_2" = "Edit Expiration...";
+"keydetails.fingerprint_to_compare" = "Fingerprint to Compare";
+"keydetails.fingerprints_don_t_match" = "Fingerprints Don't Match";
+"keydetails.fingerprints_match" = "Fingerprints Match";
+"keydetails.fingerprints_match_2" = "Fingerprints match";
+"keydetails.how_to_verify" = "How to Verify";
+"keydetails.key" = "Key";
+"keydetails.key_verified_successfully" = "Key Verified Successfully";
+"keydetails.manage_key" = "Manage Key";
+"keydetails.manage_revocation" = "Manage Revocation...";
+"keydetails.mark_as_verified" = "Mark as Verified";
+"keydetails.no_changes_to_save" = "No changes to save";
+"keydetails.paste_a_matching_fingerprint_to_continue" = "Paste a matching fingerprint to continue.";
+"keydetails.paste_fingerprint_here" = "Paste fingerprint here...";
+"keydetails.paste_or_type_fingerprint_here" = "Paste or type fingerprint here...";
+"keydetails.paste_or_type_the_fingerprint_you_receiv" = "Paste or type the fingerprint you received through a trusted channel to verify it matches this key.";
+"keydetails.paste_the_fingerprint_you_received_throu" = "Paste the fingerprint you received through a trusted channel. Matching it records that you've verified the fingerprint; it does not mark the key as trusted.";
+"keydetails.save_trust_level" = "Save Trust Level";
+"keydetails.scan_this_qr_code_with_another_device_to" = "Scan this QR code with another device to verify the fingerprint in person.";
+"keydetails.scan_to_verify_fingerprint" = "Scan to verify fingerprint";
+"keydetails.set_trust_level_for_this_key" = "Set trust level for this key";
+"keydetails.the_fingerprints_are_different_do_not_tr" = "The fingerprints are different. Do NOT trust this key. It may be compromised or incorrect.";
+"keydetails.the_fingerprints_are_identical_tap_verif" = "The fingerprints are identical. Tap Verify to mark this key as verified.";
+"keydetails.the_fingerprints_are_identical_you_have" = "The fingerprints are identical. You have verified this key's fingerprint.";
+"keydetails.this_key_s_fingerprint" = "This Key's Fingerprint";
+"keydetails.trust_level_updated" = "Trust Level Updated";
+"keydetails.update" = "Update";
+"keydetails.verification_complete" = "Verification Complete";
+"keydetails.verification_method" = "Verification Method";
+"keydetails.verify_key_fingerprint" = "Verify Key Fingerprint";
+"keydetails.verify_this_key_s_fingerprint" = "Verify this key's fingerprint";
+"keygen.creates_an_ecdsa_primary_key_with_an_ecd" = "Creates an ECDSA primary key with an ECDH subkey for encryption.";
+"keygen.creates_an_ed25519_primary_key_with_an_x" = "Creates an Ed25519 primary key with an X25519 subkey for encryption.";
+"keygen.key_generated_successfully" = "Key Generated Successfully";
+"keygen.passphrase_stored_in_keychain" = "Passphrase stored in Keychain";
+"keygen.your_key_has_been_added_to_the_keyring" = "Your key has been added to the keyring";
+"keyring.clear_filters" = "Clear Filters";
+"keyring.no_keys_match_your_search_or_filter" = "No keys match your search or filter.";
+"keyring.no_results" = "No Results";
+"keyserver_search.search_again" = "Search Again";
+"paperkey.failed_to_load_key" = "Failed to load key";
+"paperkey.important_security_notice" = "Important Security Notice";
+"paperkey.paper_key_backup" = "Paper Key Backup";
+"paperkey.pgp_key_paper_backup" = "PGP Key Paper Backup";
+"paperkey.print" = "Print";
+"paperkey.private_key_ascii_armored" = "Private Key (ASCII Armored)";
+"paperkey.scan_to_import_this_key" = "Scan to import this key";
+"paperkey.this_paper_backup_contains_your_private" = "This paper backup contains your private key. Store it securely in a safe place. Anyone with access to this paper can decrypt your messages and sign documents as you.";
+"quicklook.macpgp_could_not_display_this_preview_op" = "MacPGP could not display this preview. Open the file in MacPGP to inspect it.";
+"quicklook.unable_to_read_encrypted_file" = "Unable to Read Encrypted File";
+"restore.adds_keys_to_your_keyring" = "Adds keys to your keyring";
+"restore.backup_will_be_decrypted_using_your_pass" = "Backup will be decrypted using your passphrase";
+"restore.confirm_import" = "Confirm Import";
+"restore.decrypt_backup" = "Decrypt Backup";
+"restore.encrypted_backup" = "Encrypted Backup";
+"restore.enter_the_passphrase_to_decrypt_this_bac" = "Enter the passphrase to decrypt this backup";
+"restore.keys_are_now_available_in_your_keyring" = "Keys are now available in your keyring";
+"restore.keys_to_import" = "Keys to Import";
+"restore.please_wait" = "Please wait...";
+"restore.ready_to_import" = "Ready to Import";
+"restore.restore_complete" = "Restore Complete";
+"restore.validate_backup" = "Validate Backup";
+"services.key" = "Key:";
+"services.passphrase" = "Passphrase:";
+"services.select_one_or_more_recipients_to_encrypt" = "Select one or more recipients to encrypt for:";
+"settings.at_least_one_keyserver_must_remain_enabl" = "At least one keyserver must remain enabled.";
+"settings.enabled_keyservers" = "Enabled Keyservers";
+"shareext.encrypt_files" = "Encrypt Files";
+"shareext.files_to_encrypt" = "Files to Encrypt";
+"shareext.select_recipients_to_encrypt_the_shared" = "Select recipients to encrypt the shared files";
+"verification.signed_by" = "Signed by";
+"verification.verification_result" = "Verification Result";
+"verification.verification_result_will_appear_here" = "Verification result will appear here";
+
+/* --- issue #148: interpolated/format strings --- */
+"common.selected_count_format" = "Selected (%lld)";
+"keydetails.confirm_delete_format" = "Are you sure you want to delete \"%@\"? This action cannot be undone.";
+"keydetails.trust_inline_format" = "Trust: %@";
+"keygen.bits_format" = "%lld bits";
+"keygen.strength_format" = "Strength: %@";
+"keyserver_search.expires_format" = "Expires %@";
+"keyserver_search.no_results_format" = "No keys matching \"%1$@\" were found on %2$@.";
+"keyserver_search.prompt_format" = "Enter an email address or key ID to search for public keys on %@.";
+"paperkey.generated_on_format" = "Generated on %@";
+"revocation.confirm_revoke_format" = "This will permanently revoke \"%@\". This action cannot be undone and the key will no longer be usable for encryption or signing.";
+"services.select_key_for_format" = "Select key for %@:";
+"trust.current_format" = "Current Trust: %@";
+"trust.set_to_format" = "The trust level for \"%1$@\" has been set to %2$@.";
+"verification.marked_verified_format" = "The key \"%1$@\" has been marked as verified using %2$@.";
+"verification.signed_on_relative_format" = "on %@";
+"verify.signed_on_format" = "Signed on %@";

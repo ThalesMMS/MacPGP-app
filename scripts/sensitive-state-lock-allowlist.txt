@@ -1,0 +1,11 @@
+# Files that declare a passphrase-bearing String property but do not need a
+# handleLock()/.macPGPDidLock policy, with the reason. See
+# scripts/check-sensitive-state-lock.sh (issue #143).
+#
+# Format: path # reason
+
+MacPGP/MacPGP/Core/Services/KeyGenerationService.swift # KeyGenerationParameters.passphrase is a transient value passed into generation, not retained credential UI state
+MacPGP/MacPGP/Core/Services/ServicesProvider.swift # Services-menu modal picker; passphrase is a local var / binding discarded when the modal closes
+MacPGP/MacPGP/Shared/Components/PassphraseField.swift # Reusable @Binding field component; the owning view models carry the lock policy
+MacPGP/Shared/Components/PassphrasePrompt.swift # Reusable @Binding prompt/card components; the owning views/view models carry the lock policy
+MacPGP/MacPGP/Navigation/ContentView.swift # Local function variable in the key-picker handoff, not retained state

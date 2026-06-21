@@ -118,7 +118,7 @@ struct KeyringPersistenceTests {
         generator.keyAlgorithm = .RSA
         generator.keyBitsLength = 2048
 
-        return generator.generate(
+        return try! generator.generate(
             for: "keyring-persistence-\(UUID().uuidString)@example.com",
             passphrase: "TestPassword123!"
         )

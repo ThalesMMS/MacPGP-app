@@ -22,7 +22,7 @@ struct QRCodeView: View {
                 .fill(Color.secondary.opacity(0.2))
                 .frame(width: size, height: size)
                 .overlay(
-                    Text("Unable to generate QR code")
+                    Text("qr.unable_to_generate")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 )

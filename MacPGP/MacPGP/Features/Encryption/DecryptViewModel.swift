@@ -5,7 +5,7 @@ import AppKit
 
 @MainActor
 @Observable
-final class DecryptViewModel {
+final class DecryptViewModel: SensitiveSessionState {
     var passphrase: String = ""
     var showingPassphrasePrompt: Bool = false
     var isProcessing: Bool = false
@@ -20,6 +20,9 @@ final class DecryptViewModel {
 
     private var decryptionTask: Task<Void, Never>?
     private var decryptionRunID: UUID?
+    /// Authorizes the in-flight file decryption's plaintext write; invalidated on
+    /// cancel or lock so a decrypted file is never left on disk afterwards.
+    @ObservationIgnored private var fileCommitGate: FileCommitGate?
     private var passphraseRequestID: UUID?
     private var pendingDecryptFromClipboard: Bool = false
     private var pendingClipboardInput: String?
@@ -189,6 +192,25 @@ final class DecryptViewModel {
         shouldPerformDecryptionAfterPassphrasePrompt = false
     }
 
+    /// Clears all in-memory passphrase state in response to a MacPGP lock event.
+    /// Invalidating the run and passphrase-request IDs means any in-flight
+    /// completion (crypto or Keychain) can neither repopulate the field nor cache
+    /// a passphrase after the lock.
+    func handleLock() {
+        fileCommitGate?.invalidate()
+        decryptionTask?.cancel()
+        decryptionTask = nil
+        decryptionRunID = nil
+        passphraseRequestID = nil
+        passphrasePromptKey = nil
+        pendingDecryptFromClipboard = false
+        pendingClipboardInput = nil
+        shouldPerformDecryptionAfterPassphrasePrompt = false
+        passphrase = ""
+        showingPassphrasePrompt = false
+        isProcessing = false
+    }
+
     func decrypt(fromClipboard: Bool = false) {
         guard !isProcessing else { return }
 
@@ -218,6 +240,7 @@ final class DecryptViewModel {
     }
 
     func cancelDecryption() {
+        fileCommitGate?.invalidate()
         let activeTask = decryptionTask
         activeTask?.cancel()
         pendingClipboardInput = nil
@@ -365,6 +388,8 @@ final class DecryptViewModel {
         cancelDecryption()
         let runID = UUID()
         decryptionRunID = runID
+        let gate = FileCommitGate()
+        fileCommitGate = gate
         isProcessing = true
         alert = nil
         sessionState.decryptionProgress = 0.0
@@ -402,6 +427,7 @@ final class DecryptViewModel {
                             file: file,
                             passphrase: passphrase,
                             outputURL: outputLocation,
+                            commitGate: gate,
                             progressCallback: { [weak self] fileProgress in
                                 Task { @MainActor [weak self] in
                                     guard let self else { return }
@@ -425,6 +451,7 @@ final class DecryptViewModel {
                             using: key,
                             passphrase: passphrase,
                             outputURL: outputLocation,
+                            commitGate: gate,
                             progressCallback: { [weak self] fileProgress in
                                 Task { @MainActor [weak self] in
                                     guard let self else { return }
@@ -455,6 +482,16 @@ final class DecryptViewModel {
                     self.passphrase = ""
                 }
             } catch is CancellationError {
+                let shouldCleanUp = await MainActor.run(body: { decryptionRunID == runID })
+                if shouldCleanUp {
+                    CryptoPartialOutputCleanup.removeFiles(produced)
+                }
+                await MainActor.run {
+                    guard decryptionRunID == runID else { return }
+                    sessionState.decryptOutputFiles = []
+                }
+            } catch is SecureScopedFileAccess.CommitCancelledError {
+                // Cancelled/locked before commit: no plaintext was promoted.
                 let shouldCleanUp = await MainActor.run(body: { decryptionRunID == runID })
                 if shouldCleanUp {
                     CryptoPartialOutputCleanup.removeFiles(produced)

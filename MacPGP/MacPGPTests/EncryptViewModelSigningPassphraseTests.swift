@@ -48,7 +48,7 @@ struct EncryptViewModelSigningPassphraseTests {
     private func makeSecretKey(email: String, passphrase: String) -> PGPKeyModel {
         let generator = KeyGenerator()
         generator.keyBitsLength = 2048
-        return PGPKeyModel(from: generator.generate(for: email, passphrase: passphrase))
+        return PGPKeyModel(from: try! generator.generate(for: email, passphrase: passphrase))
     }
 
     private func waitForEncryptionToFinish(_ viewModel: EncryptViewModel) async {

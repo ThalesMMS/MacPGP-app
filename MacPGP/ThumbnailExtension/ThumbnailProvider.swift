@@ -1,7 +1,7 @@
 import QuickLookThumbnailing
 import Cocoa
 
-class ThumbnailProvider: QLThumbnailProvider {
+nonisolated class ThumbnailProvider: QLThumbnailProvider {
 
     private let fileAnalyzer = PGPFileAnalyzer()
     private let renderer = ThumbnailRenderer()

@@ -32,6 +32,9 @@ struct BackupWizardView: View {
                 viewModel = BackupViewModel(keyringService: keyringService)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .macPGPDidLock)) { _ in
+            viewModel?.handleLock()
+        }
     }
 
     @ViewBuilder
@@ -75,10 +78,10 @@ struct BackupWizardView: View {
                 successView(viewModel: viewModel)
             }
         }
-        .navigationTitle("Backup Keys")
+        .navigationTitle("backup.title")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
+                Button("keygen.cancel") {
                     dismiss()
                 }
             }
@@ -86,7 +89,7 @@ struct BackupWizardView: View {
             ToolbarItem(placement: .confirmationAction) {
                 HStack(spacing: 8) {
                     if canGoBack {
-                        Button("Back") {
+                        Button("backup.back") {
                             goBack()
                         }
                     }
@@ -135,23 +138,23 @@ struct BackupWizardView: View {
         @Bindable var vm = viewModel
 
         VStack(alignment: .leading, spacing: 16) {
-            Text("Select the keys you want to backup")
+            Text("backup.select_keys_message")
                 .font(.headline)
 
             HStack {
-                Button("Select All") {
+                Button("backup.select_all") {
                     viewModel.selectAllKeys()
                 }
                 .buttonStyle(.borderless)
 
-                Button("Deselect All") {
+                Button("backup.deselect_all") {
                     viewModel.deselectAllKeys()
                 }
                 .buttonStyle(.borderless)
 
                 Spacer()
 
-                Text("\(viewModel.selectedKeyCount) key(s) selected")
+                Text(String.localizedStringWithFormat(NSLocalizedString("backup.keys_selected_count", comment: ""), viewModel.selectedKeyCount))
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
@@ -163,7 +166,7 @@ struct BackupWizardView: View {
                         ContentUnavailableView(
                             "No Secret Keys",
                             systemImage: "key.slash",
-                            description: Text("You need at least one secret key to create a backup")
+                            description: Text("backup.no_secret_keys_message")
                         )
                     } else {
                         ForEach(availableKeys) { key in
@@ -174,7 +177,7 @@ struct BackupWizardView: View {
                                 viewModel.toggleKeySelection(key.fingerprint)
                             }
                             .contextMenu {
-                                Button("Paper Backup...") {
+                                Button("keyring.paper_backup") {
                                     paperKeyContext = key
                                     showingPaperKey = true
                                 }
@@ -192,7 +195,7 @@ struct BackupWizardView: View {
                 Image(systemName: "doc.text")
                     .foregroundStyle(.secondary)
 
-                Text("For a printable backup of a single key, right-click and choose \"Paper Backup...\"")
+                Text("backup.paper_backup_message")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -208,18 +211,18 @@ struct BackupWizardView: View {
 
         Form {
             Section {
-                Toggle("Encrypt backup with passphrase", isOn: $vm.useEncryption)
+                Toggle("backup.encrypt_backup_with_passphrase", isOn: $vm.useEncryption)
                     .toggleStyle(.switch)
 
                 if viewModel.useEncryption {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("A strong passphrase will protect your backup if it falls into the wrong hands.")
+                        Text("backup.encryption_message")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
             } header: {
-                Text("Encryption")
+                Text("backup.encryption")
             }
 
             if viewModel.useEncryption {
@@ -232,19 +235,19 @@ struct BackupWizardView: View {
 
                     if !viewModel.backupPassphrase.isEmpty && !viewModel.confirmBackupPassphrase.isEmpty {
                         if viewModel.passphraseMatch {
-                            Label("Passphrases match", systemImage: "checkmark.circle.fill")
+                            Label("backup.passphrases_match", systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
                                 .font(.caption)
                         } else {
-                            Label("Passphrases do not match", systemImage: "xmark.circle.fill")
+                            Label("keygen.passphrases_no_match", systemImage: "xmark.circle.fill")
                                 .foregroundStyle(.red)
                                 .font(.caption)
                         }
                     }
                 } header: {
-                    Text("Passphrase")
+                    Text("keygen.passphrase")
                 } footer: {
-                    Text("Make sure to remember this passphrase. You'll need it to restore this backup.")
+                    Text("backup.passphrase_reminder")
                         .font(.caption)
                 }
             }
@@ -253,7 +256,7 @@ struct BackupWizardView: View {
                 TextField("Backup Name (optional)", text: $vm.backupName)
                 TextField("Description (optional)", text: $vm.backupDescription)
             } header: {
-                Text("Backup Information")
+                Text("backup.backup_information")
             }
 
             if let error = viewModel.errorMessage {
@@ -282,15 +285,15 @@ struct BackupWizardView: View {
                 .foregroundStyle(.blue)
 
             VStack(spacing: 8) {
-                Text("Ready to Export")
+                Text("backup.ready_to_export")
                     .font(.title2)
                     .fontWeight(.semibold)
 
-                Text("Click 'Choose Location' to save your backup file")
+                Text("backup.ready_to_export_message")
                     .foregroundStyle(.secondary)
             }
 
-            Button("Choose Location...") {
+            Button("backup.choose_location") {
                 showExportDialog(viewModel: viewModel)
             }
             .buttonStyle(.borderedProminent)
@@ -322,16 +325,16 @@ struct BackupWizardView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.green)
 
-            Text("Backup Complete")
+            Text("backup.complete")
                 .font(.title)
                 .fontWeight(.semibold)
 
             VStack(spacing: 8) {
-                Text("Successfully backed up \(viewModel.selectedKeyCount) key(s)")
+                Text(String.localizedStringWithFormat(NSLocalizedString("backup.successfully_backed_up_count", comment: ""), viewModel.selectedKeyCount))
                     .font(.headline)
 
                 if viewModel.useEncryption {
-                    Label("Backup is encrypted", systemImage: "lock.shield.fill")
+                    Label("backup.backup_is_encrypted", systemImage: "lock.shield.fill")
                         .foregroundStyle(.secondary)
                         .font(.callout)
                 }
@@ -339,9 +342,9 @@ struct BackupWizardView: View {
 
             GroupBox {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Store your backup in a secure location", systemImage: "checkmark")
-                    Label("Keep your passphrase safe and accessible", systemImage: "checkmark")
-                    Label("Test your backup by restoring to a test keyring", systemImage: "checkmark")
+                    Label("backup.store_your_backup_in_a_secure_location", systemImage: "checkmark")
+                    Label("backup.keep_your_passphrase_safe_and_accessible", systemImage: "checkmark")
+                    Label("backup.test_your_backup_by_restoring_to_a_test", systemImage: "checkmark")
                 }
                 .font(.callout)
             }
@@ -349,14 +352,14 @@ struct BackupWizardView: View {
 
             Spacer()
 
-            Button("Done") {
+            Button("keygen.done") {
                 dismiss()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
         .padding()
-        .navigationTitle("Success")
+        .navigationTitle("common.success")
     }
 
     // MARK: - Helper Methods
@@ -562,11 +565,11 @@ struct KeySelectionRow: View {
                         .foregroundStyle(.secondary)
 
                     if key.isExpired {
-                        Label("Expired", systemImage: "exclamationmark.triangle.fill")
+                        Label("key.expired", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
                             .foregroundStyle(.red)
                     } else if key.isExpiringSoon {
-                        Label("Expiring soon", systemImage: "exclamationmark.triangle")
+                        Label("backup.expiring_soon", systemImage: "exclamationmark.triangle")
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }

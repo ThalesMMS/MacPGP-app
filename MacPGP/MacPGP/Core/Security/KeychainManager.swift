@@ -1,15 +1,52 @@
 import Foundation
 import Security
 
-final class KeychainManager {
+nonisolated final class KeychainManager: Sendable {
     static let shared = KeychainManager()
 
     private static let defaultServiceName = "com.macpgp.keychain"
     private static let migratedDataProtectionMarker = Data("MacPGP.DataProtectionKeychain".utf8)
     private let serviceName: String
+    private let secItem: SecItemClient
 
-    init(serviceName: String = KeychainManager.defaultServiceName) {
+    /// Whether a *new* write may fall back to the legacy login keychain when the
+    /// Data Protection Keychain is unavailable (`errSecMissingEntitlement`).
+    ///
+    /// In a production release this is `false`: a missing entitlement is a
+    /// signing/configuration defect, so new writes fail closed with a typed
+    /// `OperationError.keychainEntitlementMissing` rather than masking it by
+    /// creating a legacy item that violates the documented storage contract.
+    /// It is enabled only in DEBUG or under XCTest, where distribution
+    /// entitlements are not available. Legacy *read* and verified migration are
+    /// always supported regardless of this flag.
+    private let allowsLegacyFallbackForNewWrites: Bool
+
+    init(
+        serviceName: String = KeychainManager.defaultServiceName,
+        secItem: SecItemClient = SystemSecItemClient(),
+        allowsLegacyFallbackForNewWrites: Bool = KeychainManager.defaultAllowsLegacyFallbackForNewWrites
+    ) {
         self.serviceName = serviceName
+        self.secItem = secItem
+        self.allowsLegacyFallbackForNewWrites = allowsLegacyFallbackForNewWrites
+    }
+
+    /// Test/development environments (DEBUG builds, or any build running under
+    /// XCTest) have no distribution entitlements, so the legacy fallback stays
+    /// enabled there. A normal production launch can never activate it.
+    static var defaultAllowsLegacyFallbackForNewWrites: Bool {
+        #if DEBUG
+        return true
+        #else
+        return isRunningUnderXCTest
+        #endif
+    }
+
+    private static var isRunningUnderXCTest: Bool {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCTestSessionIdentifier"] != nil
+            || NSClassFromString("XCTestCase") != nil
     }
 
     func storePassphrase(_ passphrase: String, for key: PGPKeyModel) throws {
@@ -31,7 +68,7 @@ final class KeychainManager {
         query[kSecValueData as String] = passphraseData
         query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
 
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let status = secItem.add(query as CFDictionary, nil)
         if status == errSecSuccess {
             return
         }
@@ -40,11 +77,18 @@ final class KeychainManager {
             throw OperationError.keychainError(underlying: keychainError(from: status))
         }
 
+        // Fail closed for new production writes: a missing Data Protection
+        // Keychain entitlement is a release/signing defect, not a recoverable
+        // condition, and silently creating a legacy item would mask it.
+        guard allowsLegacyFallbackForNewWrites else {
+            throw OperationError.keychainEntitlementMissing
+        }
+
         var legacyQuery = passphraseQuery(forKeyID: keyID, useDataProtectionKeychain: false)
         legacyQuery[kSecValueData as String] = passphraseData
         legacyQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
 
-        let legacyStatus = SecItemAdd(legacyQuery as CFDictionary, nil)
+        let legacyStatus = secItem.add(legacyQuery as CFDictionary, nil)
         guard legacyStatus == errSecSuccess else {
             throw OperationError.keychainError(underlying: keychainError(from: legacyStatus))
         }
@@ -96,7 +140,7 @@ final class KeychainManager {
         query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
         query[kSecAttrGeneric as String] = Self.migratedDataProtectionMarker
 
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let status = secItem.add(query as CFDictionary, nil)
         if status == errSecSuccess {
             return true
         }
@@ -117,7 +161,7 @@ final class KeychainManager {
         query[kSecValueData as String] = passphraseData
         query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
 
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let status = secItem.add(query as CFDictionary, nil)
         if status == errSecSuccess {
             return
         }
@@ -128,7 +172,7 @@ final class KeychainManager {
 
         let updateQuery = passphraseQuery(forKeyID: keyID, useDataProtectionKeychain: false)
         let attributes: [String: Any] = [kSecValueData as String: passphraseData]
-        let updateStatus = SecItemUpdate(updateQuery as CFDictionary, attributes as CFDictionary)
+        let updateStatus = secItem.update(updateQuery as CFDictionary, attributes as CFDictionary)
         guard updateStatus == errSecSuccess else {
             throw OperationError.keychainError(underlying: keychainError(from: updateStatus))
         }
@@ -141,7 +185,7 @@ final class KeychainManager {
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
         var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        let status = secItem.copyMatching(query as CFDictionary, &result)
 
         switch status {
         case errSecSuccess:
@@ -164,7 +208,7 @@ final class KeychainManager {
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
         var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        let status = secItem.copyMatching(query as CFDictionary, &result)
 
         switch status {
         case errSecSuccess:
@@ -198,7 +242,7 @@ final class KeychainManager {
     private func deletePassphrase(forKeyID keyID: String, useDataProtectionKeychain: Bool) throws {
         let query = passphraseQuery(forKeyID: keyID, useDataProtectionKeychain: useDataProtectionKeychain)
 
-        let status = SecItemDelete(query as CFDictionary)
+        let status = secItem.delete(query as CFDictionary)
         guard status == errSecSuccess
                 || status == errSecItemNotFound
                 || (useDataProtectionKeychain && isDataProtectionKeychainUnavailable(status)) else {
@@ -214,7 +258,7 @@ final class KeychainManager {
     private func deleteAllPassphrases(useDataProtectionKeychain: Bool) throws {
         let query = passphraseQuery(useDataProtectionKeychain: useDataProtectionKeychain)
 
-        let status = SecItemDelete(query as CFDictionary)
+        let status = secItem.delete(query as CFDictionary)
         guard status == errSecSuccess
                 || status == errSecItemNotFound
                 || (useDataProtectionKeychain && isDataProtectionKeychainUnavailable(status)) else {
@@ -231,7 +275,7 @@ final class KeychainManager {
         var query = passphraseQuery(forKeyID: keyID, useDataProtectionKeychain: useDataProtectionKeychain)
         query[kSecReturnData as String] = false
 
-        let status = SecItemCopyMatching(query as CFDictionary, nil)
+        let status = secItem.copyMatching(query as CFDictionary, nil)
         return status == errSecSuccess
     }
 

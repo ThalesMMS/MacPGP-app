@@ -1,8 +1,8 @@
 import Foundation
 import RNPKit
 
-enum PGPDecryption {
-    struct Result {
+nonisolated enum PGPDecryption {
+    nonisolated struct Result {
         let decryptedData: Data
         let key: Key
     }

@@ -2,7 +2,8 @@ import Foundation
 import Testing
 @testable import MacPGP
 
-@Suite("PreferencesManager Tests", .serialized)
+@MainActor
+@Suite("PreferencesManager Tests", .serialized, .serializedGlobalDefaults)
 struct PreferencesManagerTests {
     private enum TestDefaultsKeys {
         static let defaultKeySize = "defaultKeySize"

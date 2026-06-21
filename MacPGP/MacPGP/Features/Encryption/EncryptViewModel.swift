@@ -4,7 +4,7 @@ import Security
 
 @MainActor
 @Observable
-final class EncryptViewModel {
+final class EncryptViewModel: SensitiveSessionState {
     var passphrase: String = ""
     var showingPassphrasePrompt: Bool = false
     var isProcessing: Bool = false
@@ -22,6 +22,10 @@ final class EncryptViewModel {
     private var encryptionRunID: UUID?
     private var passphraseRequestID: UUID?
     private var pendingAction: PendingAction?
+    /// Authorizes the in-flight file operation's output commit; invalidated on
+    /// cancel or lock so a blocking backend that returns afterwards cannot
+    /// promote its output.
+    @ObservationIgnored private var fileCommitGate: FileCommitGate?
 
     private enum PendingAction {
         case clipboard
@@ -178,6 +182,7 @@ final class EncryptViewModel {
     }
 
     func cancelEncryption() {
+        fileCommitGate?.invalidate()
         let activeTask = encryptionTask
         activeTask?.cancel()
 
@@ -185,6 +190,22 @@ final class EncryptViewModel {
             encryptionRunID = nil
             isProcessing = false
         }
+    }
+
+    /// Clears all in-memory passphrase state in response to a MacPGP lock event.
+    /// Invalidating the run and passphrase-request IDs means any in-flight
+    /// completion (crypto or Keychain) can neither repopulate the field nor cache
+    /// a passphrase after the lock.
+    func handleLock() {
+        fileCommitGate?.invalidate()
+        encryptionTask?.cancel()
+        encryptionTask = nil
+        encryptionRunID = nil
+        passphraseRequestID = nil
+        pendingAction = nil
+        passphrase = ""
+        showingPassphrasePrompt = false
+        isProcessing = false
     }
 
     private func encryptText() {
@@ -294,6 +315,8 @@ final class EncryptViewModel {
         cancelEncryption()
         let runID = UUID()
         encryptionRunID = runID
+        let gate = FileCommitGate()
+        fileCommitGate = gate
         isProcessing = true
         alert = nil
         sessionState.encryptionProgress = 0.0
@@ -333,6 +356,7 @@ final class EncryptViewModel {
                         passphrase: usePassphrase,
                         outputURL: outputLocation,
                         armored: armored,
+                        commitGate: gate,
                         progressCallback: { [weak self] fileProgress in
                             Task { @MainActor [weak self] in
                                 guard let self else { return }
@@ -361,6 +385,17 @@ final class EncryptViewModel {
                     passphrase = ""
                 }
             } catch is CancellationError {
+                let shouldCleanUp = await MainActor.run(body: { encryptionRunID == runID })
+                if shouldCleanUp {
+                    CryptoPartialOutputCleanup.removeFiles(produced)
+                }
+                await MainActor.run {
+                    guard encryptionRunID == runID else { return }
+                    sessionState.encryptOutputFiles = []
+                }
+            } catch is SecureScopedFileAccess.CommitCancelledError {
+                // Cancelled/locked before commit: no output was promoted; treat
+                // like a cancellation and surface no error.
                 let shouldCleanUp = await MainActor.run(body: { encryptionRunID == runID })
                 if shouldCleanUp {
                     CryptoPartialOutputCleanup.removeFiles(produced)
@@ -400,7 +435,7 @@ final class EncryptViewModel {
     private func retrieveSigningPassphraseIfNeeded(
         for signerKey: PGPKeyModel,
         pending action: PendingAction,
-        resume: @escaping () -> Void
+        resume: @escaping @MainActor () -> Void
     ) {
         showingPassphrasePrompt = false
 

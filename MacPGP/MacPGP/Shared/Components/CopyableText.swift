@@ -33,7 +33,7 @@ struct CopyableText: View {
                     .foregroundStyle(showCopied ? .green : .secondary)
             }
             .buttonStyle(.borderless)
-            .help("Copy to clipboard")
+            .help("component.copy_to_clipboard")
         }
     }
 

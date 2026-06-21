@@ -132,7 +132,7 @@ struct KeychainManagerTests {
         generator.keyAlgorithm = .RSA
         generator.keyBitsLength = 2048
 
-        let key = generator.generate(
+        let key = try! generator.generate(
             for: "keychain-manager-\(UUID().uuidString)@example.com",
             passphrase: "TestPassword123!"
         )

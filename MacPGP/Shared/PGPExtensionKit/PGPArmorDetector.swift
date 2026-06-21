@@ -1,6 +1,6 @@
 import Foundation
 
-enum PGPArmorBlock: CaseIterable {
+nonisolated enum PGPArmorBlock: CaseIterable {
     case message
     case signature
     case signedMessage
@@ -23,7 +23,7 @@ enum PGPArmorBlock: CaseIterable {
     }
 }
 
-enum PGPArmorDetector {
+nonisolated enum PGPArmorDetector {
     /// Armor must begin the payload after leading whitespace; embedded prose does not count as PGP armor.
     static func detectedBlock(in text: String) -> PGPArmorBlock? {
         detectedBlock(inNormalizedText: normalizedText(from: text))

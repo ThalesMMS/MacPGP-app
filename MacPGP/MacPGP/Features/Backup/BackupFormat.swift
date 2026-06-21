@@ -1,16 +1,16 @@
 import Foundation
 import CryptoKit
 
-enum BackupVersion: String, Codable {
+nonisolated enum BackupVersion: String, Codable, Sendable {
     case v1 = "1.0"
 }
 
-enum BackupEncryptionType: String, Codable {
+nonisolated enum BackupEncryptionType: String, Codable, Sendable {
     case none = "none"
     case aes256 = "aes256"
 }
 
-struct BackupFormat: Codable, Identifiable {
+nonisolated struct BackupFormat: Codable, Identifiable, Sendable {
     let id: UUID
     let version: BackupVersion
     let createdDate: Date
@@ -59,7 +59,7 @@ struct BackupFormat: Codable, Identifiable {
     }
 
     func withChecksum(_ checksum: String) -> BackupFormat {
-        var copy = self
+        let copy = self
         return BackupFormat(
             id: copy.id,
             version: copy.version,
@@ -93,7 +93,7 @@ struct BackupFormat: Codable, Identifiable {
     }
 }
 
-struct BackupMetadata: Codable {
+nonisolated struct BackupMetadata: Codable, Sendable {
     let name: String?
     let description: String?
     let deviceName: String

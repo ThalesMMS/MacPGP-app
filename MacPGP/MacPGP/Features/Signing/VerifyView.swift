@@ -3,13 +3,9 @@ import SwiftUI
 struct VerifyView: View {
     @Environment(KeyringService.self) private var keyringService
     @Environment(SessionStateManager.self) private var sessionState
-    @State private var isProcessing = false
-    @State private var errorMessage: String?
-    @State private var showingError = false
+    @State private var viewModel: VerifyViewModel?
 
-    private var signingService: SigningService {
-        SigningService(keyringService: keyringService)
-    }
+    private var isProcessing: Bool { viewModel?.isProcessing ?? false }
 
     var body: some View {
         @Bindable var state = sessionState
@@ -18,34 +14,49 @@ struct VerifyView: View {
             inputPane
             resultPane
         }
-        .navigationTitle("Verify")
+        .navigationTitle(String(localized: "verify.title", comment: "Verify feature navigation title"))
+        .onAppear {
+            if viewModel == nil {
+                viewModel = VerifyViewModel(keyringService: keyringService, sessionState: sessionState)
+            }
+        }
+        .onDisappear {
+            viewModel?.cancel()
+            viewModel = nil
+        }
         .toolbar {
             ToolbarItemGroup {
-                Picker("Mode", selection: $state.verifyInputMode) {
-                    Text("Text").tag(InputMode.text)
-                    Text("File").tag(InputMode.file)
+                Picker(String(localized: "verify.mode", comment: "Verify input mode picker"), selection: $state.verifyInputMode) {
+                    Text(String(localized: "verify.text", comment: "Text input mode")).tag(InputMode.text)
+                    Text(String(localized: "verify.file", comment: "File input mode")).tag(InputMode.file)
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 120)
                 .disabled(isProcessing)
 
-                Picker("Signature", selection: $state.verifySignatureMode) {
-                    Text("Inline").tag(SignatureMode.inline)
-                    Text("Detached").tag(SignatureMode.detached)
+                Picker(String(localized: "verify.signature", comment: "Signature mode picker"), selection: $state.verifySignatureMode) {
+                    Text(String(localized: "verify.inline", comment: "Inline signature mode")).tag(SignatureMode.inline)
+                    Text(String(localized: "verify.detached", comment: "Detached signature mode")).tag(SignatureMode.detached)
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 140)
                 .disabled(isProcessing)
 
                 Button {
-                    verify()
+                    viewModel?.verify()
                 } label: {
-                    Label("Verify", systemImage: "checkmark.seal")
+                    Label(String(localized: "verify.button", comment: "Verify button"), systemImage: "checkmark.seal")
                 }
-                .disabled(!canVerify || isProcessing)
+                .disabled(!(viewModel?.canVerify ?? false) || isProcessing)
             }
         }
-        .cryptoErrorAlert(message: errorMessage, isPresented: $showingError)
+        .cryptoErrorAlert(
+            message: viewModel?.errorMessage,
+            isPresented: Binding(
+                get: { viewModel?.showingError ?? false },
+                set: { viewModel?.showingError = $0 }
+            )
+        )
     }
 
     private var inputPane: some View {
@@ -85,7 +96,9 @@ struct VerifyView: View {
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(sessionState.verifySignatureMode == .inline ? "Signed Message" : "Original Message")
+                Text(sessionState.verifySignatureMode == .inline
+                     ? String(localized: "verify.signed_message", comment: "Signed message label")
+                     : String(localized: "verify.original_message", comment: "Original message label"))
                     .font(.headline)
 
                 Spacer()
@@ -93,7 +106,7 @@ struct VerifyView: View {
                 Button {
                     pasteFromClipboard()
                 } label: {
-                    Label("Paste", systemImage: "doc.on.clipboard")
+                    Label(String(localized: "verify.paste", comment: "Paste button"), systemImage: "doc.on.clipboard")
                 }
                 .buttonStyle(.borderless)
             }
@@ -110,7 +123,7 @@ struct VerifyView: View {
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Detached Signature")
+                Text(String(localized: "verify.detached_signature", comment: "Detached signature label"))
                     .font(.headline)
 
                 Spacer()
@@ -118,7 +131,7 @@ struct VerifyView: View {
                 Button {
                     pasteSignatureFromClipboard()
                 } label: {
-                    Label("Paste", systemImage: "doc.on.clipboard")
+                    Label(String(localized: "verify.paste", comment: "Paste button"), systemImage: "doc.on.clipboard")
                 }
                 .buttonStyle(.borderless)
             }
@@ -134,7 +147,9 @@ struct VerifyView: View {
         @Bindable var state = sessionState
 
         return CryptoSingleFileInputSection(
-            title: sessionState.verifySignatureMode == .inline ? "Signed File" : "Original File",
+            title: sessionState.verifySignatureMode == .inline
+                ? String(localized: "verify.signed_file", comment: "Signed file label")
+                : String(localized: "verify.original_file", comment: "Original file label"),
             selectedFile: $state.verifySelectedFile
         )
     }
@@ -151,7 +166,7 @@ struct VerifyView: View {
 
     private var resultPane: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Verification Result")
+            Text("verification.verification_result")
                 .font(.headline)
 
             if isProcessing {
@@ -162,7 +177,7 @@ struct VerifyView: View {
                 ContentUnavailableView(
                     "No Result",
                     systemImage: "checkmark.seal",
-                    description: Text("Verification result will appear here")
+                    description: Text("verification.verification_result_will_appear_here")
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -180,9 +195,9 @@ struct VerifyView: View {
             switch result.outcome {
             case .valid:
                 return .green
-            case .invalidSignature:
+            case .invalidSignature, .noSignatures:
                 return .red
-            case .error:
+            case .expired, .mixed, .missingKey, .unknownStatus, .error:
                 return .orange
             }
         }()
@@ -204,7 +219,7 @@ struct VerifyView: View {
             if let signer = result.signerKey {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Signed by", systemImage: "person.fill")
+                        Label("verification.signed_by", systemImage: "person.fill")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -227,7 +242,7 @@ struct VerifyView: View {
             }
 
             if let date = result.signatureDate {
-                Text("Signed on \(date.formatted())")
+                Text(String.localizedStringWithFormat(NSLocalizedString("verify.signed_on_format", comment: ""), date.formatted()))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -235,7 +250,7 @@ struct VerifyView: View {
             if let originalMessage = result.originalMessage {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Original Message", systemImage: "doc.text")
+                        Label("verify.original_message", systemImage: "doc.text")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -252,93 +267,6 @@ struct VerifyView: View {
             }
 
             Spacer()
-        }
-    }
-
-    private var canVerify: Bool {
-        guard !isProcessing else { return false }
-
-        switch sessionState.verifyInputMode {
-        case .text:
-            if sessionState.verifySignatureMode == .inline {
-                return !sessionState.verifyInputText.isEmpty
-            } else {
-                return !sessionState.verifyInputText.isEmpty && !sessionState.verifySignatureText.isEmpty
-            }
-        case .file:
-            if sessionState.verifySignatureMode == .inline {
-                return sessionState.verifySelectedFile != nil
-            } else {
-                return sessionState.verifySelectedFile != nil && sessionState.verifySelectedSignatureFile != nil
-            }
-        }
-    }
-
-    /// Perform verification for the current input and update the session state with the result.
-    /// 
-    /// Begins an asynchronous verification using the current `sessionState` selections (text vs. file and inline vs. detached). Clears any prior result and sets `isProcessing` while verification runs. On success, sets `sessionState.verifyResult` to the produced `VerificationResult`. On failure, sets `sessionState.verifyResult` to `.verificationError(reason: error.localizedDescription)`. Resets `isProcessing` when finished.
-    private func verify() {
-        guard !isProcessing else { return }
-
-        let inputMode = sessionState.verifyInputMode
-        let signatureMode = sessionState.verifySignatureMode
-        let inputText = sessionState.verifyInputText
-        let signatureText = sessionState.verifySignatureText
-        let selectedFile = sessionState.verifySelectedFile
-        let selectedSignatureFile = sessionState.verifySelectedSignatureFile
-
-        if inputMode == .file && selectedFile == nil {
-            errorMessage = "Please select a file to verify"
-            showingError = true
-            return
-        }
-
-        if inputMode == .file && signatureMode == .detached && selectedSignatureFile == nil {
-            errorMessage = "Please select a signature file"
-            showingError = true
-            return
-        }
-
-        isProcessing = true
-        sessionState.verifyResult = nil
-        errorMessage = nil
-
-        Task {
-            do {
-                let result: VerificationResult
-
-                switch inputMode {
-                case .text:
-                    if signatureMode == .inline {
-                        result = try await signingService.verifyAsync(message: inputText)
-                    } else {
-                        result = try await signingService.verifyAsync(message: inputText, signature: signatureText)
-                    }
-
-                case .file:
-                    guard let fileURL = selectedFile else {
-                        throw OperationError.verificationFailed(underlying: nil)
-                    }
-
-                    if signatureMode == .inline {
-                        result = try await signingService.verifyAsync(file: fileURL)
-                    } else {
-                        result = try await signingService.verifyAsync(file: fileURL, signatureFile: selectedSignatureFile)
-                    }
-                }
-
-                await MainActor.run {
-                    sessionState.verifyResult = result
-                }
-            } catch {
-                await MainActor.run {
-                    sessionState.verifyResult = .verificationError(reason: error.localizedDescription)
-                }
-            }
-
-            await MainActor.run {
-                isProcessing = false
-            }
         }
     }
 

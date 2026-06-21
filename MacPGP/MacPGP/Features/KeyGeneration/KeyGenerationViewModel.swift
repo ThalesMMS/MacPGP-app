@@ -4,7 +4,7 @@ import RNPKit
 
 @MainActor
 @Observable
-final class KeyGenerationViewModel {
+final class KeyGenerationViewModel: SensitiveSessionState {
     var name: String = ""
     var email: String = ""
     var comment: String = ""
@@ -22,11 +22,16 @@ final class KeyGenerationViewModel {
     var generatedKey: PGPKeyModel?
 
     private let keyringService: KeyringService
-    private let generationService = KeyGenerationService.shared
+    private let generationService: KeyGenerationService
     private let keychainManager = KeychainManager.shared
 
-    init(keyringService: KeyringService) {
+    /// Bumped on lock so an in-flight generation cannot persist a key or store a
+    /// passphrase after the session is locked.
+    private var lockGeneration = 0
+
+    init(keyringService: KeyringService, generationService: KeyGenerationService = .shared) {
         self.keyringService = keyringService
+        self.generationService = generationService
 
         let preferences = PreferencesManager.shared
         self.algorithm = preferences.defaultKeyAlgorithm
@@ -78,6 +83,7 @@ final class KeyGenerationViewModel {
     func generate() async {
         guard isValid else { return }
 
+        let generation = lockGeneration
         isGenerating = true
         progress = 0
         errorMessage = nil
@@ -94,31 +100,45 @@ final class KeyGenerationViewModel {
 
         do {
             let key = try await generationService.generateKeyAsync(with: parameters) { progressValue in
+                guard self.lockGeneration == generation else { return }
                 self.progress = progressValue
             }
-            handleGenerationResult(.success(key))
+            handleGenerationResult(.success(key), generation: generation)
         } catch let error as OperationError {
-            handleGenerationResult(.failure(error))
+            handleGenerationResult(.failure(error), generation: generation)
         } catch {
-            handleGenerationResult(.failure(.keyGenerationFailed(underlying: error)))
+            handleGenerationResult(.failure(.keyGenerationFailed(underlying: error)), generation: generation)
         }
     }
 
-    private func handleGenerationResult(_ result: Result<Key, OperationError>) {
+    private func handleGenerationResult(_ result: Result<Key, OperationError>, generation: Int) {
+        // A lock during generation invalidates the run: do not persist the key or
+        // store the (now-cleared) passphrase.
+        guard generation == lockGeneration else { return }
+
         isGenerating = false
 
         switch result {
         case .success(let key):
             do {
                 try keyringService.addKey(key)
-                let model = PGPKeyModel(from: key)
-                generatedKey = model
-
-                if storeInKeychain {
-                    try keychainManager.storePassphrase(passphrase, for: model)
-                }
             } catch {
                 errorMessage = "Failed to save key: \(error.localizedDescription)"
+                return
+            }
+
+            let model = PGPKeyModel(from: key)
+            generatedKey = model
+
+            if storeInKeychain {
+                do {
+                    try keychainManager.storePassphrase(passphrase, for: model)
+                } catch {
+                    // The key was generated and saved; only Keychain passphrase
+                    // storage failed (e.g. a missing entitlement). Surface the
+                    // failure without implying the passphrase was stored.
+                    errorMessage = error.userFacingMessage
+                }
             }
 
         case .failure(let error):
@@ -135,5 +155,17 @@ final class KeyGenerationViewModel {
         generatedKey = nil
         errorMessage = nil
         progress = 0
+    }
+
+    /// Clears passphrase fields and invalidates any in-flight generation on
+    /// **Lock MacPGP**. The generated key (a public projection) and any persisted
+    /// keyring/Keychain data are left intact.
+    func handleLock() {
+        lockGeneration &+= 1
+        passphrase = ""
+        confirmPassphrase = ""
+        isGenerating = false
+        progress = 0
+        errorMessage = nil
     }
 }

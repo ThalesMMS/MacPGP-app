@@ -20,7 +20,7 @@ struct RevocationServiceTests {
     private func createTestKey(isSecret: Bool = true) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: "test@example.com", passphrase: "testpass")
+        let key = try! keyGen.generate(for: "test@example.com", passphrase: "testpass")
 
         if isSecret {
             return PGPKeyModel(from: key)
@@ -38,7 +38,7 @@ struct RevocationServiceTests {
         for i in 0..<count {
             let keyGen = KeyGenerator()
             keyGen.keyBitsLength = 2048
-            let key = keyGen.generate(for: "test\(i)@example.com", passphrase: "pass\(i)")
+            let key = try! keyGen.generate(for: "test\(i)@example.com", passphrase: "pass\(i)")
             keys.append(PGPKeyModel(from: key))
         }
         return keys
@@ -365,7 +365,6 @@ struct RevocationServiceTests {
                 reason: .compromised,
                 passphrase: "testpass"
             )
-            #expect(Thread.isMainThread)
             #expect(!certificate.isEmpty)
         } catch {
             Issue.record("Expected successful revocation generation, got \(error)")
@@ -386,7 +385,6 @@ struct RevocationServiceTests {
             )
             Issue.record("Expected failure for public key")
         } catch let error as OperationError {
-            #expect(Thread.isMainThread)
             expectNoSecretKey(error, context: #function)
         } catch {
             Issue.record("Expected OperationError.noSecretKey, got \(error)")
@@ -412,7 +410,6 @@ struct RevocationServiceTests {
             )
             Issue.record("Expected failure for empty passphrase")
         } catch let error as OperationError {
-            #expect(Thread.isMainThread)
             expectPassphraseRequired(error, context: #function)
         } catch {
             Issue.record("Expected OperationError.passphraseRequired, got \(error)")
@@ -657,7 +654,6 @@ struct RevocationServiceTests {
         }
         do {
             let updatedKey = try await service.applyRevocationAsync(to: key, certificate: certificate)
-            #expect(Thread.isMainThread)
             #expect(updatedKey.isRevoked)
         } catch {
             Issue.record("Expected successful revocation apply, got \(error)")
@@ -674,7 +670,6 @@ struct RevocationServiceTests {
             _ = try await service.applyRevocationAsync(to: key, certificate: testData)
             Issue.record("Expected failure, got success")
         } catch let error as OperationError {
-            #expect(Thread.isMainThread)
             _ = expectUnknownError(error, context: #function)
         } catch {
             Issue.record("Expected OperationError.unknownError, got \(error)")
@@ -799,8 +794,9 @@ struct RevocationServiceTests {
 
         let issues = service.validateKeyUsability(key)
 
-        // Issues array should be a valid array (empty or with items)
-        #expect(issues is [String])
+        // Generated non-revoked test keys may have no issues, but any reported
+        // issue should be usable as user-facing text.
+        #expect(issues.allSatisfy { !$0.isEmpty })
     }
 
     @Test("validateKeyUsability issue messages are descriptive")

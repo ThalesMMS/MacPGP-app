@@ -54,66 +54,66 @@ struct KeyDetailsView: View {
                 Button {
                     showTrustLevelPicker()
                 } label: {
-                    Label("Set Trust Level", systemImage: "shield.checkered")
+                    Label("keydetails.set_trust_level", systemImage: "shield.checkered")
                 }
-                .help("Set trust level for this key")
+                .help("keydetails.set_trust_level_for_this_key")
 
                 Button {
                     showingFingerprintVerification = true
                 } label: {
-                    Label("Verify Fingerprint", systemImage: "checkmark.seal")
+                    Label("keydetails.verify_fingerprint", systemImage: "checkmark.seal")
                 }
-                .help("Verify this key's fingerprint")
+                .help("keydetails.verify_this_key_s_fingerprint")
                 Menu {
-                    Button("Export Public Key...") {
+                    Button("keyring.export_public_key") {
                         exportKey(includeSecret: false)
                     }
 
                     if currentKey.isSecretKey {
-                        Button("Export Secret Key...") {
+                        Button("keyring.export_secret_key") {
                             exportKey(includeSecret: true)
                         }
                     }
                 } label: {
-                    Label("Export", systemImage: "square.and.arrow.up")
+                    Label("keydetails.export", systemImage: "square.and.arrow.up")
                 }
 
                 if currentKey.isSecretKey {
                     Menu {
                         if !currentKey.isRevoked {
-                            Button("Edit Expiration...") {
+                            Button("keydetails.edit_expiration_2") {
                                 showingExpirationEditor = true
                             }
                         }
 
-                        Button("Manage Revocation...") {
+                        Button("keydetails.manage_revocation") {
                             showingRevocationManagement = true
                         }
                     } label: {
-                        Label("Manage Key", systemImage: "slider.horizontal.3")
+                        Label("keydetails.manage_key", systemImage: "slider.horizontal.3")
                     }
                 }
 
                 Button(role: .destructive) {
                     showingDeleteConfirmation = true
                 } label: {
-                    Label("Delete", systemImage: "trash")
+                    Label("keydetails.delete", systemImage: "trash")
                 }
             }
         }
         .confirmationDialog(
-            "Delete Key",
+            "keyring.delete_key",
             isPresented: $showingDeleteConfirmation
         ) {
-            Button("Delete", role: .destructive) {
+            Button("keydetails.delete", role: .destructive) {
                 deleteKey()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("keygen.cancel", role: .cancel) {}
         } message: {
-            Text("Are you sure you want to delete \"\(currentKey.displayName)\"? This action cannot be undone.")
+            Text(String.localizedStringWithFormat(NSLocalizedString("keydetails.confirm_delete_format", comment: ""), currentKey.displayName))
         }
         .alert("Error", isPresented: $showingAlert) {
-            Button("OK") {}
+            Button("common.ok") {}
         } message: {
             Text(alertMessage ?? "An error occurred")
         }
@@ -188,7 +188,7 @@ struct KeyDetailsView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: currentKey.trustLevel.iconName)
-                            Text("Trust: \(currentKey.trustLevel.displayName)")
+                            Text(String.localizedStringWithFormat(NSLocalizedString("keydetails.trust_inline_format", comment: ""), currentKey.trustLevel.displayName))
                         }
                         .font(.caption)
                         .fontWeight(.medium)
@@ -203,7 +203,7 @@ struct KeyDetailsView: View {
                     .accessibilityIdentifier("Trust Level Badge \(currentKey.trustLevel.displayName)")
                     .id(currentKey.trustLevel)
                     .buttonStyle(.plain)
-                    .help("Set trust level for this key")
+                    .help("keydetails.set_trust_level_for_this_key")
 
                     if currentKey.isVerified {
                         KeyBadge(text: "Verified", color: .green)
@@ -251,7 +251,7 @@ struct KeyDetailsView: View {
         }
         .overlay(alignment: .bottomTrailing) {
             if currentKey.isSecretKey && !currentKey.isRevoked {
-                Button("Edit Expiration...") {
+                Button("keydetails.edit_expiration_2") {
                     showingExpirationEditor = true
                 }
                 .buttonStyle(.borderless)
@@ -262,7 +262,7 @@ struct KeyDetailsView: View {
 
     private var userIDsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("User IDs")
+            Text("keydetails.user_ids")
                 .font(.headline)
 
             ForEach(currentKey.userIDs) { userID in
@@ -295,15 +295,15 @@ struct KeyDetailsView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 if currentKey.isRevoked {
-                    Text("This key has been revoked")
+                    Text("keydetails.key_revoked")
                         .fontWeight(.semibold)
-                    Text("Revoked keys cannot be used for encryption or signing. This key should not be trusted.")
+                    Text("keydetails.key_revoked_message")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else if currentKey.isExpired {
-                    Text("This key has expired")
+                    Text("keydetails.key_expired")
                         .fontWeight(.semibold)
-                    Text("Expired keys cannot be used for encryption or signing.")
+                    Text("keydetails.key_expired_message")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -391,7 +391,7 @@ private struct KeyExpirationEditorView: View {
 
         NavigationStack {
             Form {
-                Section("Key") {
+                Section("keydetails.key") {
                     Text(key.displayName)
                         .font(.headline)
                     Text(key.shortKeyID)
@@ -400,7 +400,7 @@ private struct KeyExpirationEditorView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Section("Expiration") {
+                Section("settings.expiration") {
                     DatePicker(
                         "New Expiration Date",
                         selection: Binding(
@@ -418,7 +418,7 @@ private struct KeyExpirationEditorView: View {
                     }
                 }
 
-                Section("Passphrase") {
+                Section("keygen.passphrase") {
                     PassphraseField(title: "Passphrase", passphrase: $passphrase)
                 }
 
@@ -430,10 +430,10 @@ private struct KeyExpirationEditorView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Edit Expiration")
+            .navigationTitle("keydetails.edit_expiration")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("keygen.cancel") {
                         guard !isProcessing else { return }
                         dismiss()
                     }
@@ -441,7 +441,7 @@ private struct KeyExpirationEditorView: View {
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Update") {
+                    Button("keydetails.update") {
                         updateExpiration()
                     }
                     .disabled(isProcessing || passphrase.isEmpty || hasBlockingValidationIssue)
@@ -453,6 +453,15 @@ private struct KeyExpirationEditorView: View {
         .onDisappear {
             updateTask?.cancel()
             updateTask = nil
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .macPGPDidLock)) { _ in
+            // Cancel the in-flight update (it checks Task.isCancelled before
+            // applying), clear the passphrase, and dismiss the editor.
+            updateTask?.cancel()
+            updateTask = nil
+            passphrase = ""
+            isProcessing = false
+            dismiss()
         }
     }
 

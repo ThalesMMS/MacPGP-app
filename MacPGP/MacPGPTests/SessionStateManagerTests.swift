@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import MacPGP
 
+@MainActor
 @Suite("SessionStateManager Tests")
 struct SessionStateManagerTests {
 

@@ -1,4 +1,4 @@
-protocol PGPKeyCapabilityProviding {
+nonisolated protocol PGPKeyCapabilityProviding {
     var isSecretKey: Bool { get }
     var isExpired: Bool { get }
     var isRevoked: Bool { get }
@@ -6,7 +6,7 @@ protocol PGPKeyCapabilityProviding {
     var canSign: Bool { get }
 }
 
-extension PGPKeyCapabilityProviding {
+nonisolated extension PGPKeyCapabilityProviding {
     var isUsableForEncryption: Bool {
         !isExpired && !isRevoked && canEncrypt
     }

@@ -1,6 +1,6 @@
 import Foundation
 
-enum TrustLevel: String, Codable, CaseIterable, Identifiable {
+nonisolated enum TrustLevel: String, Codable, CaseIterable, Identifiable {
     case unknown = "Unknown"
     case never = "Never"
     case marginal = "Marginal"

@@ -138,6 +138,12 @@ public struct Key: Hashable, Sendable {
     public let metadata: Metadata
 
     public init(secretKey: SecretKey?, publicKey: PublicKey?) {
+        // Programmer-only invariant: `Key` is only ever constructed from a librnp
+        // key handle that exports at least one of a public or secret payload (see
+        // RNPBackend.exportKey). It is not reachable from user input or imported
+        // data — librnp never yields a key handle with neither payload — so this
+        // remains a precondition rather than a thrown error. Key *generation*
+        // failures are handled via KeyGenerationError (see KeyGenerator).
         guard let metadata = publicKey.map(\.metadata) ?? secretKey.map(\.metadata) else {
             preconditionFailure("Key requires at least a public or secret key payload")
         }
@@ -260,8 +266,57 @@ public struct VerifiedSignature: Hashable, Sendable {
     public let statusCode: UInt32
     public let isValid: Bool
 
+    public init(
+        keyID: String?,
+        fingerprint: String?,
+        creationDate: Date?,
+        expiresAfter: TimeInterval?,
+        statusCode: UInt32,
+        isValid: Bool
+    ) {
+        self.keyID = keyID
+        self.fingerprint = fingerprint
+        self.creationDate = creationDate
+        self.expiresAfter = expiresAfter
+        self.statusCode = statusCode
+        self.isValid = isValid
+    }
+
     public var isExpired: Bool {
         statusCode == RNP_ERROR_SIGNATURE_EXPIRED
+    }
+
+    /// Typed classification of librnp's per-signature status, so callers derive
+    /// the security outcome from the verified status rather than matching raw
+    /// codes or localized error text.
+    public enum Status: Sendable, Equatable {
+        /// Cryptographically valid and current.
+        case valid
+        /// Verified, but the signature or its key has expired.
+        case expired
+        /// Failed cryptographic verification.
+        case invalid
+        /// The signer's key was not available to verify against.
+        case keyNotFound
+        /// An unrecognized status; treated as not valid (fail closed).
+        case unknown
+    }
+
+    public var status: Status {
+        switch statusCode {
+        case UInt32(truncatingIfNeeded: RNP_SUCCESS):
+            return .valid
+        case UInt32(truncatingIfNeeded: RNP_ERROR_SIGNATURE_EXPIRED):
+            return .expired
+        case UInt32(truncatingIfNeeded: RNP_ERROR_SIGNATURE_INVALID),
+             UInt32(truncatingIfNeeded: RNP_ERROR_VERIFICATION_FAILED):
+            return .invalid
+        case UInt32(truncatingIfNeeded: RNP_ERROR_KEY_NOT_FOUND),
+             UInt32(truncatingIfNeeded: RNP_ERROR_NO_SUITABLE_KEY):
+            return .keyNotFound
+        default:
+            return .unknown
+        }
     }
 }
 

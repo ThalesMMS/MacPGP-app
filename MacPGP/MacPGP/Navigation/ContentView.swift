@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import AppKit
 
 struct ContentView: View {
     @Environment(KeyringService.self) private var keyringService
@@ -63,6 +64,18 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .decryptClipboard)) { _ in
             handleDecryptClipboard()
         }
+        // Recompute time-dependent key validity (expiration) when the app
+        // reactivates, the system clock changes, or the calendar day rolls over,
+        // so recipient/signing lists and banners stay correct without a relaunch.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            keyringService.refreshKeyValidity()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemClockDidChange)) { _ in
+            keyringService.refreshKeyValidity()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            keyringService.refreshKeyValidity()
+        }
         .environment(notificationService)
     }
 
@@ -78,7 +91,7 @@ struct ContentView: View {
         case .verify:
             VerifyView()
         case .keyring, nil:
-            Text(String(localized: "content.select_item", comment: "Placeholder text when no sidebar item is selected"))
+            Text(String(localized: "content.select_item", comment: "Fallback text when no sidebar item is selected"))
                 .foregroundStyle(.secondary)
         }
     }
@@ -246,7 +259,7 @@ struct ContentView: View {
 
         Task {
             do {
-                guard let data = clipboardText.data(using: .utf8) else {
+                guard clipboardText.data(using: .utf8) != nil else {
                     throw OperationError.decryptionFailed(underlying: nil)
                 }
 

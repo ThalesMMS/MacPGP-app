@@ -9,14 +9,14 @@ struct EncryptionErrorView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.orange)
 
-            Text("Unable to Read Encrypted File")
+            Text("quicklook_unable_to_read_title")
                 .font(.headline)
 
             Text(fileURL.lastPathComponent)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 
-            Text("MacPGP could not display this preview. Open the file in MacPGP to inspect it.")
+            Text("quicklook_unable_to_read_message")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

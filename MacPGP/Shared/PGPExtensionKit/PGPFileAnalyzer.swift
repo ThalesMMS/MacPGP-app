@@ -2,11 +2,11 @@ import Foundation
 import RNPKit
 
 /// Analyzes PGP files to determine encryption status and file type without performing decryption
-final class PGPFileAnalyzer {
+nonisolated final class PGPFileAnalyzer {
     private static let defaultHeaderByteLimit = 4096
 
     /// Represents the type of PGP file
-    enum FileType {
+    nonisolated enum FileType {
         case encrypted
         case signed
         case encryptedAndSigned
@@ -33,7 +33,7 @@ final class PGPFileAnalyzer {
     }
 
     /// Represents the encoding format of the PGP file
-    enum EncodingFormat {
+    nonisolated enum EncodingFormat {
         case binary
         case asciiArmored
         case unknown
@@ -51,7 +51,7 @@ final class PGPFileAnalyzer {
     }
 
     /// Result of file analysis
-    struct AnalysisResult {
+    nonisolated struct AnalysisResult {
         let fileType: FileType
         let encodingFormat: EncodingFormat
         let isEncrypted: Bool

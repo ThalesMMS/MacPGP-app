@@ -167,7 +167,6 @@ final class ServicesProvider: NSObject {
     private func showRecipientPicker() -> Set<PGPKeyModel>? {
         let availableKeys = availableEncryptionKeys().filter { !$0.isExpired }
         var selectedRecipients: Set<PGPKeyModel> = []
-        var dialogResult: NSApplication.ModalResponse?
 
         let pickerView = RecipientSelectionView(
             availableKeys: availableKeys,
@@ -175,9 +174,7 @@ final class ServicesProvider: NSObject {
                 get: { selectedRecipients },
                 set: { selectedRecipients = $0 }
             ),
-            onComplete: { result in
-                dialogResult = result
-            }
+            onComplete: { _ in }
         )
 
         let hostingController = NSHostingController(rootView: pickerView)
@@ -205,7 +202,6 @@ final class ServicesProvider: NSObject {
     private func showKeyPicker(secretKeys: [PGPKeyModel], operation: String) -> (key: PGPKeyModel, passphrase: String)? {
         var selectedKey: PGPKeyModel?
         var passphrase: String = ""
-        var dialogResult: NSApplication.ModalResponse?
 
         let pickerView = KeyPassphraseSelectionView(
             secretKeys: secretKeys,
@@ -218,9 +214,7 @@ final class ServicesProvider: NSObject {
                 get: { passphrase },
                 set: { passphrase = $0 }
             ),
-            onComplete: { result in
-                dialogResult = result
-            }
+            onComplete: { _ in }
         )
 
         let hostingController = NSHostingController(rootView: pickerView)
@@ -283,12 +277,12 @@ private struct RecipientSelectionView: View {
                 ContentUnavailableView(
                     "No Keys Available",
                     systemImage: "key",
-                    description: Text("Import recipient public keys first")
+                    description: Text("recipients.import_first")
                 )
                 .frame(maxHeight: .infinity)
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Select one or more recipients to encrypt for:")
+                    Text("services.select_one_or_more_recipients_to_encrypt")
                         .font(.body)
                         .foregroundStyle(.secondary)
 
@@ -316,7 +310,7 @@ private struct RecipientSelectionView: View {
                         Divider()
 
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Selected (\(selectedRecipients.count))")
+                            Text(String.localizedStringWithFormat(NSLocalizedString("common.selected_count_format", comment: ""), selectedRecipients.count))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
@@ -333,7 +327,7 @@ private struct RecipientSelectionView: View {
             }
 
             HStack {
-                Button("Cancel") {
+                Button("keygen.cancel") {
                     onComplete(.cancel)
                     NSApp.stopModal(withCode: .cancel)
                 }
@@ -341,7 +335,7 @@ private struct RecipientSelectionView: View {
 
                 Spacer()
 
-                Button("Encrypt") {
+                Button("sidebar.encrypt") {
                     onComplete(.OK)
                     NSApp.stopModal(withCode: .OK)
                 }
@@ -389,12 +383,12 @@ private struct KeyPassphraseSelectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Select key for \(operation.lowercased()):")
+            Text(String.localizedStringWithFormat(NSLocalizedString("services.select_key_for_format", comment: ""), operation.lowercased()))
                 .font(.body)
                 .foregroundStyle(.secondary)
 
-            Picker("Key:", selection: $selectedKey) {
-                Text("Select a key...").tag(nil as PGPKeyModel?)
+            Picker("services.key", selection: $selectedKey) {
+                Text("decrypt.select_key_placeholder").tag(nil as PGPKeyModel?)
                 ForEach(secretKeys) { key in
                     Text("\(key.displayName) (\(String(key.shortKeyID.suffix(8))))")
                         .tag(key as PGPKeyModel?)
@@ -405,7 +399,7 @@ private struct KeyPassphraseSelectionView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Passphrase:")
+                Text("services.passphrase")
                     .font(.body)
 
                 SecureField("Enter passphrase", text: $passphrase)
@@ -415,7 +409,7 @@ private struct KeyPassphraseSelectionView: View {
             Spacer()
 
             HStack {
-                Button("Cancel") {
+                Button("keygen.cancel") {
                     onComplete(.cancel)
                     NSApp.stopModal(withCode: .cancel)
                 }

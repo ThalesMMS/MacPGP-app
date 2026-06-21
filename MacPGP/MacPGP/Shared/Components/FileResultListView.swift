@@ -33,7 +33,7 @@ struct FileResultListView: View {
                                     .textSelection(.enabled)
                             }
                             Spacer()
-                            Button("Reveal") {
+                            Button("common.reveal") {
                                 NSWorkspace.shared.activateFileViewerSelecting([file])
                             }
                             .buttonStyle(.borderless)

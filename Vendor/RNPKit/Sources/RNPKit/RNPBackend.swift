@@ -228,12 +228,291 @@ enum RNPBackend {
         }
     }
 
+    /// Produces a cleartext-signed (`-----BEGIN PGP SIGNED MESSAGE-----`) message
+    /// using librnp's native cleartext operation, which applies the canonical
+    /// dash-escaping and line-ending rules. The result is always armored.
+    static func signCleartext(
+        _ data: Data,
+        using keys: [Key],
+        passphraseForKey: ((Key) -> String?)?
+    ) throws -> Data {
+        guard let signingKey = keys.first(where: { $0.isSecret && $0.capabilities.canSign }) else {
+            throw RNPError.missingSigningKey
+        }
+
+        return try withFFI(keys: keys, passphraseForKey: passphraseForKey) { ffi in
+            let input = try makeInput(from: data)
+            defer { _ = rnp_input_destroy(input) }
+
+            let output = try makeOutput()
+            defer { _ = rnp_output_destroy(output) }
+
+            var operation: OpaquePointer?
+            try check(
+                rnp_op_sign_cleartext_create(&operation, ffi, input, output),
+                context: "create cleartext sign operation"
+            )
+            defer {
+                if let operation {
+                    _ = rnp_op_sign_destroy(operation)
+                }
+            }
+
+            let primaryHandle = try locateKey(fingerprint: signingKey.fingerprint, in: ffi)
+            defer { _ = rnp_key_handle_destroy(primaryHandle) }
+
+            let handle = try defaultKey(for: "sign", from: primaryHandle)
+            defer { _ = rnp_key_handle_destroy(handle) }
+
+            try check(
+                rnp_op_sign_add_signature(operation, handle, nil),
+                context: "add cleartext signing key"
+            )
+            try check(rnp_op_sign_set_hash(operation, "SHA256"), context: "set cleartext sign hash")
+            try check(rnp_op_sign_execute(operation), context: "cleartext sign data")
+            return try outputData(output)
+        }
+    }
+
     static func verify(
         _ data: Data,
         signature: Data?,
         using keys: [Key]
     ) throws {
         _ = try inspect(data, signature: signature, using: keys, passphraseForKey: nil)
+    }
+
+    // MARK: - Streaming file operations
+
+    /// Encrypts a file directly from `inputPath` to `outputPath`. librnp streams the
+    /// file in bounded internal buffers, so neither the full input nor the full
+    /// output is materialized in memory. Armored output is produced by librnp as it
+    /// writes, so large armored output streams too.
+    static func encryptFile(
+        inputPath: String,
+        outputPath: String,
+        armored: Bool,
+        addSignature: Bool,
+        using keys: [Key],
+        passphraseForKey: ((Key) -> String?)?
+    ) throws {
+        let recipientKeys = keys.compactMap { key -> Key? in
+            guard key.capabilities.canEncrypt, let publicKey = key.publicKey else { return nil }
+            return Key(secretKey: nil, publicKey: publicKey)
+        }
+        let signingKeys = addSignature ? keys.compactMap { key -> Key? in
+            guard key.isSecret, key.capabilities.canSign, let secretKey = key.secretKey else { return nil }
+            return Key(secretKey: secretKey, publicKey: nil)
+        } : []
+        if addSignature && signingKeys.isEmpty {
+            throw RNPError.missingSigningKey
+        }
+
+        try withFFI(keys: keys, passphraseForKey: passphraseForKey) { ffi in
+            let input = try makeInput(fromPath: inputPath)
+            defer { _ = rnp_input_destroy(input) }
+            let output = try makeOutput(toPath: outputPath)
+            defer { _ = rnp_output_destroy(output) }
+
+            var operation: OpaquePointer?
+            try check(rnp_op_encrypt_create(&operation, ffi, input, output), context: "create encrypt operation")
+            defer { if let operation { _ = rnp_op_encrypt_destroy(operation) } }
+
+            for key in recipientKeys {
+                let primaryHandle = try locateKey(fingerprint: key.fingerprint, in: ffi)
+                defer { _ = rnp_key_handle_destroy(primaryHandle) }
+                let handle = try defaultKey(for: "encrypt", from: primaryHandle)
+                defer { _ = rnp_key_handle_destroy(handle) }
+                try check(rnp_op_encrypt_add_recipient(operation, handle), context: "add encryption recipient")
+            }
+            for key in signingKeys {
+                let primaryHandle = try locateKey(fingerprint: key.fingerprint, in: ffi)
+                defer { _ = rnp_key_handle_destroy(primaryHandle) }
+                let handle = try defaultKey(for: "sign", from: primaryHandle)
+                defer { _ = rnp_key_handle_destroy(handle) }
+                try check(rnp_op_encrypt_add_signature(operation, handle, nil), context: "add encryption signature")
+            }
+
+            try check(rnp_op_encrypt_set_armor(operation, armored), context: "set encryption armor")
+            try check(rnp_op_encrypt_execute(operation), context: "encrypt file")
+        }
+    }
+
+    /// Decrypts a file directly from `inputPath` to `outputPath` without buffering
+    /// the whole payload in memory.
+    static func decryptFile(
+        inputPath: String,
+        outputPath: String,
+        using keys: [Key],
+        passphraseForKey: ((Key) -> String?)?
+    ) throws {
+        try withFFI(keys: keys, passphraseForKey: passphraseForKey) { ffi in
+            let input = try makeInput(fromPath: inputPath)
+            defer { _ = rnp_input_destroy(input) }
+            let output = try makeOutput(toPath: outputPath)
+            defer { _ = rnp_output_destroy(output) }
+            try check(rnp_decrypt(ffi, input, output), context: "decrypt file")
+        }
+    }
+
+    /// Streams decryption from `inputPath` to `outputPath` while trying every
+    /// secret key in `keys` (librnp selects the matching recipient), and reports
+    /// the key id librnp actually used so the caller can attribute the result.
+    /// Neither the ciphertext nor the plaintext is buffered in memory at once.
+    ///
+    /// Uses `rnp_op_verify` rather than `rnp_decrypt` purely so the used
+    /// recipient is queryable; signatures are intentionally ignored here (this is
+    /// a decryption path, not a verification path).
+    static func decryptFileTryingKeys(
+        inputPath: String,
+        outputPath: String,
+        using keys: [Key],
+        passphraseForKey: ((Key) -> String?)?
+    ) throws -> String? {
+        try withFFI(keys: keys, passphraseForKey: passphraseForKey) { ffi in
+            let input = try makeInput(fromPath: inputPath)
+            defer { _ = rnp_input_destroy(input) }
+            let output = try makeOutput(toPath: outputPath)
+            defer { _ = rnp_output_destroy(output) }
+
+            var operation: OpaquePointer?
+            try check(
+                rnp_op_verify_create(&operation, ffi, input, output),
+                context: "create decrypt operation"
+            )
+            defer { if let operation { _ = rnp_op_verify_destroy(operation) } }
+
+            _ = rnp_op_verify_set_flags(operation, UInt32(RNP_VERIFY_IGNORE_SIGS_ON_DECRYPT))
+            let executeResult = rnp_op_verify_execute(operation)
+
+            // A decrypted message that is ALSO signed can report signature-related
+            // verdicts; those are not decryption failures. Only genuine decrypt/key
+            // failures (including RNP_ERROR_BAD_PASSWORD -> invalidPassphrase) throw.
+            if executeResult != RNP_SUCCESS &&
+                executeResult != RNP_ERROR_NO_SIGNATURES_FOUND &&
+                executeResult != RNP_ERROR_SIGNATURE_INVALID &&
+                executeResult != RNP_ERROR_SIGNATURE_EXPIRED &&
+                executeResult != RNP_ERROR_VERIFICATION_FAILED {
+                try check(executeResult, context: "decrypt file")
+            }
+
+            return try usedRecipientPrimaryFingerprint(from: operation, ffi: ffi)
+        }
+    }
+
+    /// Path-based signature verification. The signed content streams from
+    /// `inputPath`; for inline/embedded signatures the recovered content is
+    /// discarded to a null sink so nothing is buffered. For detached signatures
+    /// `signaturePath` supplies the (small) signature. Returns the per-signature
+    /// verdicts; callers derive the outcome.
+    static func verifyFile(
+        inputPath: String,
+        signaturePath: String?,
+        using keys: [Key],
+        passphraseForKey: ((Key) -> String?)? = nil
+    ) throws -> [VerifiedSignature] {
+        try withFFI(keys: keys, passphraseForKey: passphraseForKey) { ffi in
+            let input = try makeInput(fromPath: inputPath)
+            defer { _ = rnp_input_destroy(input) }
+
+            if let signaturePath {
+                let signatureInput = try makeInput(fromPath: signaturePath)
+                defer { _ = rnp_input_destroy(signatureInput) }
+
+                var operation: OpaquePointer?
+                try check(
+                    rnp_op_verify_detached_create(&operation, ffi, input, signatureInput),
+                    context: "create detached verify operation"
+                )
+                defer { if let operation { _ = rnp_op_verify_destroy(operation) } }
+
+                let executeResult = rnp_op_verify_execute(operation)
+                let signatures = try collectSignatures(from: operation)
+
+                // Tolerate per-signature verdicts so callers get a typed status;
+                // only genuine operational failures propagate (mirrors inspectDetached).
+                if executeResult != RNP_SUCCESS &&
+                    executeResult != RNP_ERROR_VERIFICATION_FAILED &&
+                    executeResult != RNP_ERROR_SIGNATURE_INVALID &&
+                    executeResult != RNP_ERROR_SIGNATURE_EXPIRED &&
+                    executeResult != RNP_ERROR_KEY_NOT_FOUND &&
+                    executeResult != RNP_ERROR_NO_SUITABLE_KEY &&
+                    executeResult != RNP_ERROR_NO_SIGNATURES_FOUND {
+                    try check(executeResult, context: "verify detached file signature")
+                }
+                return signatures
+            }
+
+            let output = try makeNullOutput()
+            defer { _ = rnp_output_destroy(output) }
+
+            var operation: OpaquePointer?
+            try check(
+                rnp_op_verify_create(&operation, ffi, input, output),
+                context: "create verify operation"
+            )
+            defer { if let operation { _ = rnp_op_verify_destroy(operation) } }
+
+            // NB: unlike decryptFileTryingKeys, do NOT set
+            // RNP_VERIFY_IGNORE_SIGS_ON_DECRYPT here — this is the verification
+            // path, so an encrypted+signed file must still have its embedded
+            // signature verified rather than reported as unsigned. The
+            // RNP_ERROR_DECRYPT_FAILED tolerance below covers the no-key case.
+            let executeResult = rnp_op_verify_execute(operation)
+            let signatures = try collectSignatures(from: operation)
+
+            // Mirrors inspectInline's tolerance list.
+            if executeResult != RNP_SUCCESS &&
+                executeResult != RNP_ERROR_NO_SIGNATURES_FOUND &&
+                executeResult != RNP_ERROR_KEY_NOT_FOUND &&
+                executeResult != RNP_ERROR_NO_SUITABLE_KEY &&
+                executeResult != RNP_ERROR_DECRYPT_FAILED &&
+                executeResult != RNP_ERROR_VERIFICATION_FAILED &&
+                executeResult != RNP_ERROR_SIGNATURE_INVALID &&
+                executeResult != RNP_ERROR_SIGNATURE_EXPIRED {
+                try check(executeResult, context: "verify file")
+            }
+            return signatures
+        }
+    }
+
+    /// Signs a file directly from `inputPath` to `outputPath` without buffering the
+    /// whole payload in memory.
+    static func signFile(
+        inputPath: String,
+        outputPath: String,
+        detached: Bool,
+        armored: Bool,
+        using keys: [Key],
+        passphraseForKey: ((Key) -> String?)?
+    ) throws {
+        guard let signingKey = keys.first(where: { $0.isSecret && $0.capabilities.canSign }) else {
+            throw RNPError.missingSigningKey
+        }
+
+        try withFFI(keys: keys, passphraseForKey: passphraseForKey) { ffi in
+            let input = try makeInput(fromPath: inputPath)
+            defer { _ = rnp_input_destroy(input) }
+            let output = try makeOutput(toPath: outputPath)
+            defer { _ = rnp_output_destroy(output) }
+
+            var operation: OpaquePointer?
+            let createResult: rnp_result_t = detached
+                ? rnp_op_sign_detached_create(&operation, ffi, input, output)
+                : rnp_op_sign_create(&operation, ffi, input, output)
+            try check(createResult, context: "create sign operation")
+            defer { if let operation { _ = rnp_op_sign_destroy(operation) } }
+
+            let primaryHandle = try locateKey(fingerprint: signingKey.fingerprint, in: ffi)
+            defer { _ = rnp_key_handle_destroy(primaryHandle) }
+            let handle = try defaultKey(for: "sign", from: primaryHandle)
+            defer { _ = rnp_key_handle_destroy(handle) }
+
+            try check(rnp_op_sign_add_signature(operation, handle, nil), context: "add signing key")
+            try check(rnp_op_sign_set_hash(operation, "SHA256"), context: "set sign hash")
+            try check(rnp_op_sign_set_armor(operation, armored), context: "set sign armor")
+            try check(rnp_op_sign_execute(operation), context: "sign file")
+        }
     }
 
     static func inspect(
@@ -445,12 +724,16 @@ enum RNPBackend {
         let fileInfo = try literalFileInfo(from: operation)
         let outputData = try? outputData(output)
 
+        // Tolerate per-signature verdicts so collectSignatures yields a typed
+        // status (the per-signature status, not the aggregate execute result, is
+        // authoritative); only genuine operational failures propagate.
         if executeResult != RNP_SUCCESS &&
             executeResult != RNP_ERROR_NO_SIGNATURES_FOUND &&
             executeResult != RNP_ERROR_KEY_NOT_FOUND &&
             executeResult != RNP_ERROR_NO_SUITABLE_KEY &&
             executeResult != RNP_ERROR_DECRYPT_FAILED &&
             executeResult != RNP_ERROR_VERIFICATION_FAILED &&
+            executeResult != RNP_ERROR_SIGNATURE_INVALID &&
             executeResult != RNP_ERROR_SIGNATURE_EXPIRED {
             try check(executeResult, context: "inspect OpenPGP message")
         }
@@ -496,9 +779,16 @@ enum RNPBackend {
         let executeResult = rnp_op_verify_execute(operation)
         let signatures = try collectSignatures(from: operation)
 
+        // Tolerate per-signature verdicts (invalid/failed/expired/missing-key) so
+        // callers get a typed `VerifiedSignature.status` instead of a thrown
+        // error; only genuine operational failures propagate.
         if executeResult != RNP_SUCCESS &&
             executeResult != RNP_ERROR_VERIFICATION_FAILED &&
-            executeResult != RNP_ERROR_SIGNATURE_EXPIRED {
+            executeResult != RNP_ERROR_SIGNATURE_INVALID &&
+            executeResult != RNP_ERROR_SIGNATURE_EXPIRED &&
+            executeResult != RNP_ERROR_KEY_NOT_FOUND &&
+            executeResult != RNP_ERROR_NO_SUITABLE_KEY &&
+            executeResult != RNP_ERROR_NO_SIGNATURES_FOUND {
             try check(executeResult, context: "inspect detached signature")
         }
 
@@ -564,6 +854,54 @@ enum RNPBackend {
 
             return string(fromAllocated: rawKeyID).nilIfEmpty
         }
+    }
+
+    /// Reports the key id of the recipient librnp actually used to decrypt, after
+    /// a verify/decrypt operation has executed. Returns nil when librnp cannot
+    /// attribute a recipient (e.g. hidden/wildcard recipient key ids), in which
+    /// case the decryption still succeeded — only the attribution is unavailable.
+    private static func usedRecipientKeyID(from operation: OpaquePointer?) throws -> String? {
+        var recipient: OpaquePointer?
+        guard rnp_op_verify_get_used_recipient(operation, &recipient) == RNP_SUCCESS,
+              recipient != nil else {
+            return nil
+        }
+        var rawKeyID: UnsafeMutablePointer<CChar>?
+        guard rnp_recipient_get_keyid(recipient, &rawKeyID) == RNP_SUCCESS else {
+            return nil
+        }
+        return string(fromAllocated: rawKeyID).nilIfEmpty
+    }
+
+    /// Resolves the used recipient to the fingerprint of its *primary* key, so
+    /// the caller can attribute a streamed decryption back to a `Key` keyed by
+    /// primary fingerprint. The recipient is typically an encryption subkey;
+    /// `rnp_key_get_primary_fprint` walks to the primary, falling back to the
+    /// key's own fingerprint when the recipient is itself a primary key. Returns
+    /// nil (decryption still succeeded) when attribution is unavailable.
+    private static func usedRecipientPrimaryFingerprint(
+        from operation: OpaquePointer?,
+        ffi: OpaquePointer?
+    ) throws -> String? {
+        guard let keyID = try usedRecipientKeyID(from: operation) else { return nil }
+
+        var handle: OpaquePointer?
+        guard rnp_locate_key(ffi, "keyid", keyID, &handle) == RNP_SUCCESS, handle != nil else {
+            return nil
+        }
+        defer { _ = rnp_key_handle_destroy(handle) }
+
+        var rawFingerprint: UnsafeMutablePointer<CChar>?
+        if rnp_key_get_primary_fprint(handle, &rawFingerprint) == RNP_SUCCESS,
+           let primary = string(fromAllocated: rawFingerprint).nilIfEmpty {
+            return primary.uppercased()
+        }
+        rawFingerprint = nil
+        if rnp_key_get_fprint(handle, &rawFingerprint) == RNP_SUCCESS,
+           let own = string(fromAllocated: rawFingerprint).nilIfEmpty {
+            return own.uppercased()
+        }
+        return nil
     }
 
     private static func collectSignatures(from operation: OpaquePointer?) throws -> [VerifiedSignature] {
@@ -929,6 +1267,34 @@ enum RNPBackend {
     private static func makeOutput() throws -> OpaquePointer? {
         var output: OpaquePointer?
         try check(rnp_output_to_memory(&output, 0), context: "create RNP output")
+        return output
+    }
+
+    /// Creates an RNP input that streams directly from a file path, so librnp reads
+    /// the file in bounded internal buffers instead of loading it into memory.
+    private static func makeInput(fromPath path: String) throws -> OpaquePointer? {
+        var input: OpaquePointer?
+        try check(rnp_input_from_path(&input, path), context: "create RNP input from path")
+        return input
+    }
+
+    /// Creates an RNP output that streams directly to a file path, so librnp writes
+    /// the result in bounded internal buffers instead of accumulating it in memory.
+    private static func makeOutput(toPath path: String) throws -> OpaquePointer? {
+        var output: OpaquePointer?
+        try check(
+            rnp_output_to_file(&output, path, UInt32(RNP_OUTPUT_FILE_OVERWRITE)),
+            context: "create RNP output to path"
+        )
+        return output
+    }
+
+    /// Creates an RNP output that discards everything written to it, so a verify
+    /// operation can recover (and throw away) inline-signed content without ever
+    /// buffering it. Used for path-based verification of large signed files.
+    private static func makeNullOutput() throws -> OpaquePointer? {
+        var output: OpaquePointer?
+        try check(rnp_output_to_null(&output), context: "create RNP null output")
         return output
     }
 

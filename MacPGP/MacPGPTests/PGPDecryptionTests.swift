@@ -107,6 +107,6 @@ struct PGPDecryptionTests {
     private func makeKey(email: String, passphrase: String) -> Key {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        return keyGen.generate(for: email, passphrase: passphrase)
+        return try! keyGen.generate(for: email, passphrase: passphrase)
     }
 }

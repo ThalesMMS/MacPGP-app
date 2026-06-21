@@ -30,6 +30,9 @@ struct RevocationManagementView: View {
                 )
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .macPGPDidLock)) { _ in
+            viewModel?.handleLock()
+        }
     }
 
     @ViewBuilder
@@ -59,7 +62,7 @@ struct RevocationManagementView: View {
         @Bindable var vm = viewModel
 
         Form {
-            Section("Key Information") {
+            Section("trust.key_information") {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(key.displayName)
                         .font(.headline)
@@ -77,7 +80,7 @@ struct RevocationManagementView: View {
                     if key.isRevoked {
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                            Text("This key is already revoked")
+                            Text("revocation.already_revoked")
                         }
                         .font(.caption)
                         .foregroundStyle(.red)
@@ -87,13 +90,13 @@ struct RevocationManagementView: View {
             }
 
             if key.isSecretKey && !key.isRevoked {
-                Section("Generate Revocation Certificate") {
+                Section("revocation.generate_certificate") {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Generate a revocation certificate to revoke this key in the future.")
+                        Text("revocation.generate_certificate_message")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
-                        Picker("Reason for Revocation", selection: $vm.selectedReason) {
+                        Picker("revocation.reason", selection: $vm.selectedReason) {
                             ForEach(RevocationReason.allCases, id: \.self) { reason in
                                 Text(reason.displayName).tag(reason)
                             }
@@ -104,7 +107,7 @@ struct RevocationManagementView: View {
                             passphrase: $vm.generatePassphrase
                         )
 
-                        Button("Generate Certificate") {
+                        Button("revocation.generate_button") {
                             Task {
                                 await viewModel.generateCertificate()
                             }
@@ -115,14 +118,14 @@ struct RevocationManagementView: View {
                 }
             }
 
-            Section("Import & Apply Revocation Certificate") {
+            Section("revocation.import_apply") {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Import a revocation certificate to permanently revoke this key.")
+                    Text("revocation.import_apply_message")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     HStack {
-                        Button("Choose File...") {
+                        Button("revocation.choose_file") {
                             viewModel.showingImportPicker = true
                         }
                         .buttonStyle(.bordered)
@@ -137,7 +140,7 @@ struct RevocationManagementView: View {
                     }
 
                     if viewModel.selectedCertificateURL != nil {
-                        Button("Apply Revocation") {
+                        Button("revocation.apply_revocation") {
                             viewModel.showingApplyConfirmation = true
                         }
                         .buttonStyle(.borderedProminent)
@@ -155,10 +158,10 @@ struct RevocationManagementView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Revocation Management")
+        .navigationTitle("revocation.title")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Close") {
+                Button("revocation.close") {
                     dismiss()
                 }
             }
@@ -179,14 +182,14 @@ struct RevocationManagementView: View {
             "Apply Revocation Certificate",
             isPresented: $vm.showingApplyConfirmation
         ) {
-            Button("Apply Revocation", role: .destructive) {
+            Button("revocation.apply_revocation", role: .destructive) {
                 Task {
                     await viewModel.applyRevocation()
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button("keygen.cancel", role: .cancel) {}
         } message: {
-            Text("This will permanently revoke \"\(key.displayName)\". This action cannot be undone and the key will no longer be usable for encryption or signing.")
+            Text(String.localizedStringWithFormat(NSLocalizedString("revocation.confirm_revoke_format", comment: ""), key.displayName))
         }
     }
 
@@ -203,7 +206,7 @@ struct RevocationManagementView: View {
                 Text(viewModel.processingMessage)
                     .font(.headline)
 
-                Text("This may take a moment")
+                Text("keygen.please_wait")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -245,21 +248,25 @@ struct RevocationManagementView: View {
 
             Spacer()
 
-            Button("Done") {
+            Button("keygen.done") {
                 dismiss()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
         .padding()
-        .navigationTitle("Success")
+        .navigationTitle("common.success")
     }
 }
 
 @MainActor
 @Observable
-final class RevocationManagementViewModel {
+final class RevocationManagementViewModel: SensitiveSessionState {
     let key: PGPKeyModel
+
+    /// Bumped on lock so a certificate generation that resolves after the
+    /// session is locked cannot publish results with a cleared passphrase.
+    private var lockGeneration = 0
 
     // Generate Certificate State
     var selectedReason: RevocationReason = .noReason
@@ -309,6 +316,7 @@ final class RevocationManagementViewModel {
     func generateCertificate() async {
         guard canGenerate else { return }
 
+        let generation = lockGeneration
         isProcessing = true
         processingMessage = "Generating revocation certificate..."
         errorMessage = nil
@@ -322,6 +330,9 @@ final class RevocationManagementViewModel {
                 reason: reason,
                 passphrase: passphrase
             )
+
+            // A lock during generation invalidates the run.
+            guard generation == lockGeneration else { return }
 
             // Prepare for export
             exportData = certificate
@@ -338,6 +349,7 @@ final class RevocationManagementViewModel {
             // Trigger file save
             showingExportSheet = true
         } catch {
+            guard generation == lockGeneration else { return }
             isProcessing = false
             if let operationError = error as? OperationError {
                 errorMessage = operationError.localizedDescription
@@ -345,6 +357,14 @@ final class RevocationManagementViewModel {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    /// Clears the generation passphrase and invalidates an in-flight certificate
+    /// generation on **Lock MacPGP**.
+    func handleLock() {
+        lockGeneration &+= 1
+        generatePassphrase = ""
+        isProcessing = false
     }
 
     func handleExportResult(_ result: Result<URL, Error>) {

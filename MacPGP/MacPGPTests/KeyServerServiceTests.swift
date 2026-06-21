@@ -10,11 +10,18 @@ import Foundation
 import RNPKit
 @testable import MacPGP
 
+nonisolated private func waitForSemaphore(
+    _ semaphore: DispatchSemaphore,
+    timeout: DispatchTime
+) -> DispatchTimeoutResult {
+    semaphore.wait(timeout: timeout)
+}
+
 // MARK: - Mock URLSession Support
 
 class MockURLProtocol: URLProtocol {
-    static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
-    static var asyncRequestHandler: ((MockURLProtocol, URLRequest) -> Void)?
+    nonisolated(unsafe) static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+    nonisolated(unsafe) static var asyncRequestHandler: ((MockURLProtocol, URLRequest) -> Void)?
 
     override class func canInit(with request: URLRequest) -> Bool {
         return true
@@ -62,7 +69,7 @@ struct KeyServerServiceTests {
         let keyGenerator = KeyGenerator()
         keyGenerator.keyBitsLength = 2048
 
-        let key = keyGenerator.generate(for: "upload@example.com", passphrase: "testpass")
+        let key = try! keyGenerator.generate(for: "upload@example.com", passphrase: "testpass")
         let publicKeyData = try! PublicKeyExport.export(key)
         let secretKeyData = try! key.export()
 
@@ -75,7 +82,7 @@ struct KeyServerServiceTests {
         let keyGenerator = KeyGenerator()
         keyGenerator.keyBitsLength = 2048
 
-        let key = keyGenerator.generate(for: "upload-alt@example.com", passphrase: "testpass")
+        let key = try! keyGenerator.generate(for: "upload-alt@example.com", passphrase: "testpass")
         let publicKeyData = try! PublicKeyExport.export(key)
         return try! Armor.armored(publicKeyData, as: .publicKey)
     }()
@@ -141,17 +148,13 @@ struct KeyServerServiceTests {
     }
 
     private func waitForSignal(_ semaphore: DispatchSemaphore, context: String) async {
-        let deadline = Date().addingTimeInterval(5)
+        let result = await Task.detached {
+            waitForSemaphore(semaphore, timeout: .now() + 5)
+        }.value
 
-        while Date() < deadline {
-            if semaphore.wait(timeout: .now()) == .success {
-                return
-            }
-
-            try? await Task.sleep(nanoseconds: 10_000_000)
+        if result != .success {
+            Issue.record("Timed out waiting for \(context)")
         }
-
-        Issue.record("Timed out waiting for \(context)")
     }
 
     // MARK: - Initialization Tests
@@ -463,12 +466,18 @@ struct KeyServerServiceTests {
     @Test("Search URL is built correctly")
     func testSearchURLBuilding() async throws {
         let service = createMockService()
-        let server = createTestServer()
+        let server = KeyServerConfig(
+            name: "Test Server",
+            hostname: "test.keyserver.com",
+            protocol: .hkps,
+            timeout: 12
+        )
 
         MockURLProtocol.requestHandler = { request in
             #expect(request.url?.path == "/pks/lookup")
             #expect(request.url?.query?.contains("op=index") == true)
             #expect(request.url?.query?.contains("options=mr") == true)
+            #expect(request.timeoutInterval == 12)
 
             let response = HTTPURLResponse(
                 url: request.url!,
@@ -485,7 +494,12 @@ struct KeyServerServiceTests {
     @Test("Fetch URL is built correctly")
     func testFetchURLBuilding() async throws {
         let service = createMockService()
-        let server = createTestServer()
+        let server = KeyServerConfig(
+            name: "Test Server",
+            hostname: "test.keyserver.com",
+            protocol: .hkps,
+            timeout: 12
+        )
 
         let testFingerprint = "ABCD1234EFGH5678"
 
@@ -493,6 +507,7 @@ struct KeyServerServiceTests {
             #expect(request.url?.path == "/pks/lookup")
             #expect(request.url?.query?.contains("op=get") == true)
             #expect(request.url?.query?.contains("0x\(testFingerprint)") == true)
+            #expect(request.timeoutInterval == 12)
 
             let response = HTTPURLResponse(
                 url: request.url!,

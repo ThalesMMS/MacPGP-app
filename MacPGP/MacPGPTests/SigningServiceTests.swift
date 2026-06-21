@@ -10,6 +10,7 @@ import Foundation
 import RNPKit
 @testable import MacPGP
 
+@MainActor
 @Suite("SigningService Tests")
 struct SigningServiceTests {
 
@@ -26,7 +27,7 @@ struct SigningServiceTests {
     func createTestKeyPair(email: String, passphrase: String) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: email, passphrase: passphrase)
+        let key = try! keyGen.generate(for: email, passphrase: passphrase)
         return PGPKeyModel(from: key)
     }
 
@@ -517,7 +518,9 @@ struct SigningServiceTests {
         let result = try service.verify(message: signedMessage)
 
         #expect(result.isValid)
-        #expect(result.originalMessage == testMessage)
+        // Cleartext verification returns librnp's recovered canonical content
+        // (normalized line endings, line-ending terminated); compare modulo that.
+        #expect(result.originalMessage?.replacingOccurrences(of: "\r\n", with: "\n").trimmingCharacters(in: CharacterSet(charactersIn: "\n")) == testMessage)
     }
 
     @Test("Verify inline signed message successfully")
@@ -723,7 +726,8 @@ struct SigningServiceTests {
         let verified = try service.verify(message: signed)
 
         #expect(verified.isValid)
-        #expect(verified.originalMessage == originalMessage)
+        // Recovered canonical content (see #138): compare modulo line endings.
+        #expect(verified.originalMessage?.replacingOccurrences(of: "\r\n", with: "\n").trimmingCharacters(in: CharacterSet(charactersIn: "\n")) == originalMessage)
     }
 
     @Test("Full sign-verify round trip for file")

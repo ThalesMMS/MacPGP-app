@@ -62,16 +62,26 @@ struct MacPGPApp: App {
     @State private var sessionState: SessionStateManager
     @State private var trustService: TrustService
     @State private var keyServerService: KeyServerService
+    @State private var preferences: PreferencesManager
 
     init() {
         Self.resetKeyringIfRequested()
+        Self.resetKeyServerPreferencesIfRequested()
+        Self.applyUITestLanguageIfRequested()
 
         let keyring = KeyringService()
         _keyringService = State(initialValue: keyring)
         _sessionState = State(initialValue: SessionStateManager())
         _trustService = State(initialValue: TrustService(keyringService: keyring))
-        _keyServerService = State(initialValue: KeyServerService())
+        _preferences = State(initialValue: PreferencesManager.shared)
+        let keyServer = KeyServerUITestSupport.isEnabled
+            ? KeyServerUITestSupport.makeKeyServerService()
+            : KeyServerService()
+        _keyServerService = State(initialValue: keyServer)
         appDelegate.configure(keyringService: keyring)
+
+        // Instantiate the lock controller so it registers system lock/sleep observers.
+        _ = SessionLockController.shared
     }
 
     /// Resets persisted keyring state for debug or test launches that include the `--reset-keyring` flag.
@@ -89,6 +99,30 @@ struct MacPGPApp: App {
         } catch {
             NSLog("[MacPGPApp] Failed to reset keyring: \(error.localizedDescription)")
         }
+    }
+
+    /// Resets persisted keyserver preferences for debug or test launches that include
+    /// the `--reset-keyserver-preferences` flag, so Keyserver UI tests start from a
+    /// known state. Gated identically to `--reset-keyring`.
+    private static func resetKeyServerPreferencesIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("--reset-keyserver-preferences") else { return }
+        guard isResetKeyringAllowed else { return }
+
+        let defaults = UserDefaults.standard
+        for key in ["enabledKeyServers", "defaultKeyServer", "keyServerTimeout", "insecureKeyServersAllowed"] {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    /// Forces a UI language for localization UI tests via `--uitest-language <code>`.
+    /// Gated identically to `--reset-keyring`, so production launches are unaffected.
+    private static func applyUITestLanguageIfRequested() {
+        guard isResetKeyringAllowed else { return }
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "--uitest-language"),
+              index + 1 < arguments.count,
+              let language = AppLanguage(rawValue: arguments[index + 1]) else { return }
+        PreferencesManager.shared.appLanguage = language
     }
 
     private static var isResetKeyringAllowed: Bool {
@@ -109,10 +143,18 @@ struct MacPGPApp: App {
                 .environment(sessionState)
                 .environment(trustService)
                 .environment(keyServerService)
+                .environment(\.locale, preferences.appLanguage.locale)
                 .frame(minWidth: 1024, minHeight: 768)
         }
         .windowResizability(.contentMinSize)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button(String(localized: "menu.lock_macpgp", comment: "Menu item to lock MacPGP and clear cached passphrases")) {
+                    SessionLockController.shared.lock()
+                }
+                .keyboardShortcut("l", modifiers: [.command, .control])
+            }
+
             CommandGroup(replacing: .newItem) {
                 Button(String(localized: "menu.generate_key", comment: "Menu item to generate a new PGP key")) {
                     NotificationCenter.default.post(name: .showKeyGeneration, object: nil)
@@ -159,6 +201,7 @@ struct MacPGPApp: App {
             SettingsView()
                 .environment(keyringService)
                 .environment(keyServerService)
+                .environment(\.locale, preferences.appLanguage.locale)
         }
     }
 }

@@ -183,7 +183,7 @@ struct KeyringServiceTests {
         // Create a key model that doesn't exist in the keyring
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let tempKey = keyGen.generate(for: "nonexistent@test.local", passphrase: "pass")
+        let tempKey = try! keyGen.generate(for: "nonexistent@test.local", passphrase: "pass")
         let fakeModel = PGPKeyModel(from: tempKey)
 
         #expect(throws: OperationError.self) {
@@ -201,7 +201,7 @@ struct KeyringServiceTests {
         // Generate a test key
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let testKey = keyGen.generate(for: "test-add@example.com", passphrase: "test")
+        let testKey = try! keyGen.generate(for: "test-add@example.com", passphrase: "test")
 
         // Add the key
         try service.addKey(testKey)
@@ -230,7 +230,7 @@ struct KeyringServiceTests {
         // Add a test key
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let testKey = keyGen.generate(for: "test-delete@example.com", passphrase: "test")
+        let testKey = try! keyGen.generate(for: "test-delete@example.com", passphrase: "test")
         try service.addKey(testKey)
 
         guard let keyToDelete = service.keys.first(where: { $0.email == "test-delete@example.com" }) else {
@@ -257,7 +257,7 @@ struct KeyringServiceTests {
         // Generate and armor a test key
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let testKey = keyGen.generate(for: "test-import@example.com", passphrase: "test")
+        let testKey = try! keyGen.generate(for: "test-import@example.com", passphrase: "test")
         let keyData = try testKey.export()
         let armoredKey = try Armor.armored(keyData, as: .publicKey)
 
@@ -280,7 +280,7 @@ struct KeyringServiceTests {
         // Add a test key
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let testKey = keyGen.generate(for: "test-export@example.com", passphrase: "test")
+        let testKey = try! keyGen.generate(for: "test-export@example.com", passphrase: "test")
         try service.addKey(testKey)
 
         guard let keyToExport = service.keys.first(where: { $0.email == "test-export@example.com" }) else {
@@ -308,7 +308,7 @@ struct KeyringServiceTests {
         // Add a test key
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let testKey = keyGen.generate(for: "test-search@example.com", passphrase: "test")
+        let testKey = try! keyGen.generate(for: "test-search@example.com", passphrase: "test")
         try service.addKey(testKey)
 
         // Search for the key
@@ -331,7 +331,7 @@ struct KeyringServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: "trust-inplace@test.local", passphrase: "pass")
+        let rawKey = try! keyGen.generate(for: "trust-inplace@test.local", passphrase: "pass")
         try service.addKey(rawKey)
 
         guard let addedKey = service.keys.first(where: { $0.email == "trust-inplace@test.local" }) else {
@@ -355,7 +355,7 @@ struct KeyringServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: "trust-level-set@test.local", passphrase: "pass")
+        let rawKey = try! keyGen.generate(for: "trust-level-set@test.local", passphrase: "pass")
         try service.addKey(rawKey)
 
         guard let addedKey = service.keys.first(where: { $0.email == "trust-level-set@test.local" }) else {
@@ -379,7 +379,7 @@ struct KeyringServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: "trust-count-preserve@test.local", passphrase: "pass")
+        let rawKey = try! keyGen.generate(for: "trust-count-preserve@test.local", passphrase: "pass")
         try service.addKey(rawKey)
 
         guard let addedKey = service.keys.first(where: { $0.email == "trust-count-preserve@test.local" }) else {
@@ -400,12 +400,12 @@ struct KeyringServiceTests {
 
         let keyGen1 = KeyGenerator()
         keyGen1.keyBitsLength = 2048
-        let rawKey1 = keyGen1.generate(for: "trust-target-1@test.local", passphrase: "pass")
+        let rawKey1 = try! keyGen1.generate(for: "trust-target-1@test.local", passphrase: "pass")
         try service.addKey(rawKey1)
 
         let keyGen2 = KeyGenerator()
         keyGen2.keyBitsLength = 2048
-        let rawKey2 = keyGen2.generate(for: "trust-target-2@test.local", passphrase: "pass")
+        let rawKey2 = try! keyGen2.generate(for: "trust-target-2@test.local", passphrase: "pass")
         try service.addKey(rawKey2)
 
         guard let key1 = service.keys.first(where: { $0.email == "trust-target-1@test.local" }),
@@ -436,7 +436,7 @@ struct KeyringServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: "trust-clear@test.local", passphrase: "pass")
+        let rawKey = try! keyGen.generate(for: "trust-clear@test.local", passphrase: "pass")
         try service.addKey(rawKey)
 
         guard let addedKey = service.keys.first(where: { $0.email == "trust-clear@test.local" }) else {
@@ -463,7 +463,7 @@ struct KeyringServiceTests {
 
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let rawKey = keyGen.generate(for: "trust-clear-count@test.local", passphrase: "pass")
+        let rawKey = try! keyGen.generate(for: "trust-clear-count@test.local", passphrase: "pass")
         try service.addKey(rawKey)
 
         guard let addedKey = service.keys.first(where: { $0.email == "trust-clear-count@test.local" }) else {
@@ -486,12 +486,12 @@ struct KeyringServiceTests {
 
         let keyGen1 = KeyGenerator()
         keyGen1.keyBitsLength = 2048
-        let rawKey1 = keyGen1.generate(for: "trust-clear-t1@test.local", passphrase: "pass")
+        let rawKey1 = try! keyGen1.generate(for: "trust-clear-t1@test.local", passphrase: "pass")
         try service.addKey(rawKey1)
 
         let keyGen2 = KeyGenerator()
         keyGen2.keyBitsLength = 2048
-        let rawKey2 = keyGen2.generate(for: "trust-clear-t2@test.local", passphrase: "pass")
+        let rawKey2 = try! keyGen2.generate(for: "trust-clear-t2@test.local", passphrase: "pass")
         try service.addKey(rawKey2)
 
         guard let key1 = service.keys.first(where: { $0.email == "trust-clear-t1@test.local" }),

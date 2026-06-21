@@ -10,6 +10,7 @@ import Foundation
 import RNPKit
 @testable import MacPGP
 
+@MainActor
 @Suite("Encrypt/Decrypt Integration Tests")
 struct EncryptDecryptIntegrationTests {
 
@@ -18,7 +19,7 @@ struct EncryptDecryptIntegrationTests {
     func createTestKeyPair(email: String, passphrase: String) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
-        let key = keyGen.generate(for: email, passphrase: passphrase)
+        let key = try! keyGen.generate(for: email, passphrase: passphrase)
         return PGPKeyModel(from: key)
     }
 

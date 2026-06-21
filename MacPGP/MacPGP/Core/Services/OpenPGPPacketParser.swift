@@ -8,7 +8,7 @@
 import Foundation
 import RNPKit
 
-internal enum OpenPGPPacketParser {
+nonisolated internal enum OpenPGPPacketParser {
 
     /// Extracts the issuer (signer's) 8-byte key ID from a PGP signature if present.
     ///

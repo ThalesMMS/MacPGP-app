@@ -1,6 +1,6 @@
 import Foundation
 
-enum KeyServerProtocol: String, Codable {
+nonisolated enum KeyServerProtocol: String, Codable {
     case hkp = "hkp"
     case hkps = "hkps"
     case http = "http"
@@ -29,7 +29,7 @@ enum KeyServerProtocol: String, Codable {
     }
 }
 
-struct KeyServerConfig: Identifiable, Codable, Hashable {
+nonisolated struct KeyServerConfig: Identifiable, Codable, Hashable {
     let id: UUID
     let name: String
     let hostname: String
@@ -67,12 +67,47 @@ struct KeyServerConfig: Identifiable, Codable, Hashable {
         return components.url
     }
 
+    /// The URL used for actual network loading. The logical `hkp`/`hkps` schemes
+    /// are mapped to the `http`/`https` transport `URLSession` understands, while
+    /// the configured host and port are preserved. The insecure-transport policy
+    /// is enforced separately at the service boundary (see
+    /// `KeyServerService.ensureTransportAllowed`); this mapping does not relax it.
+    var transportURL: URL? {
+        var components = URLComponents()
+        components.scheme = isSecure ? "https" : "http"
+        components.host = hostname
+        components.port = port
+        return components.url
+    }
+
     var displayURL: String {
         "\(`protocol`.rawValue)://\(hostname):\(port)"
     }
 
     var isSecure: Bool {
         `protocol` == .hkps || `protocol` == .https
+    }
+
+    /// True when this server uses a plaintext transport (HKP/HTTP) that requires
+    /// an explicit, informed opt-in before MacPGP will contact it.
+    var requiresInsecureOptIn: Bool {
+        !isSecure
+    }
+
+    /// Returns a copy of this configuration with `allowInsecure` overridden. Used
+    /// to carry the user's persisted insecure-transport opt-in into the effective
+    /// configuration handed to `KeyServerService`.
+    func withAllowInsecure(_ allow: Bool) -> KeyServerConfig {
+        KeyServerConfig(
+            id: id,
+            name: name,
+            hostname: hostname,
+            port: port,
+            protocol: `protocol`,
+            isEnabled: isEnabled,
+            timeout: timeout,
+            allowInsecure: allow
+        )
     }
 
     var statusDescription: String {
@@ -119,21 +154,35 @@ extension KeyServerConfig {
         .mitKeyserver
     ]
 
+    @MainActor
     static var enabledServers: [KeyServerConfig] {
         enabledServers(using: PreferencesManager.shared)
     }
 
+    @MainActor
     static func enabledServers(using preferences: PreferencesManager) -> [KeyServerConfig] {
         let enabledHostnames = Set(preferences.enabledKeyServers)
         let servers = defaults.filter { enabledHostnames.contains($0.hostname) }
-        return servers.isEmpty ? defaults.filter(\.isEnabled) : servers
+        let resolved = servers.isEmpty ? defaults.filter(\.isEnabled) : servers
+        // Carry the user's explicit insecure-transport opt-in into the effective
+        // configuration so the service boundary can enforce it. Secure servers are
+        // returned unchanged; insecure servers are only marked usable when opted in.
+        return resolved.map { server in
+            server.isSecure
+                ? server
+                : server.withAllowInsecure(preferences.isInsecureKeyServerAllowed(server.hostname))
+        }
     }
 
-    static func defaultServer(using preferences: PreferencesManager = .shared) -> KeyServerConfig {
+    @MainActor
+    static func defaultServer(using preferences: PreferencesManager? = nil) -> KeyServerConfig {
+        let preferences = preferences ?? .shared
         let enabledServers = enabledServers(using: preferences)
-        return enabledServers.first(where: { $0.hostname == preferences.defaultKeyServer }) ??
-            enabledServers.first ??
-            .keysOpenpgp
+        if let chosen = enabledServers.first(where: { $0.hostname == preferences.defaultKeyServer }) {
+            return chosen
+        }
+        // Never silently fall back to an insecure server: prefer a secure one.
+        return enabledServers.first(where: { $0.isSecure }) ?? .keysOpenpgp
     }
 
     static var preview: KeyServerConfig {
