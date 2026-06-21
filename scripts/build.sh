@@ -258,6 +258,35 @@ write_developer_id_export_options() {
   plutil -insert teamID -string "$TEAM_ID" "$export_options"
 }
 
+notarize_and_staple_app() {
+  local app="$1"
+  local notary_profile="$2"
+  local tmp_dir zip_path
+
+  command -v ditto >/dev/null 2>&1 || die "ditto not found"
+  command -v xcrun >/dev/null 2>&1 || die "xcrun not found"
+
+  tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/macpgp-app-notary.XXXXXX")"
+  zip_path="$tmp_dir/MacPGP.app.zip"
+
+  (
+    trap 'rm -rf "$tmp_dir"' EXIT
+    info "Preparing app notarization archive"
+    ditto -c -k --keepParent "$app" "$zip_path"
+    info "Submitting app for notarization"
+    xcrun notarytool submit "$zip_path" --keychain-profile "$notary_profile" --wait
+  )
+
+  info "Stapling notarization ticket to app"
+  xcrun stapler staple "$app"
+  xcrun stapler validate "$app"
+
+  if command -v syspolicy_check >/dev/null 2>&1; then
+    info "Validating app distribution policy"
+    syspolicy_check distribution "$app"
+  fi
+}
+
 # --- Commands ---------------------------------------------------------------
 do_build() {
   info "Building $SCHEME ($CONFIGURATION, $(mode_label))"
@@ -337,6 +366,10 @@ do_dmg() {
     -allowProvisioningUpdates | "${formatter[@]}"
 
   [[ -d "$app" ]] || die "Developer ID export did not create $app"
+
+  if [[ -n "$NOTARY_PROFILE_OVERRIDE" ]]; then
+    notarize_and_staple_app "$app" "$NOTARY_PROFILE_OVERRIDE"
+  fi
 
   package_args=(
     --app "$app"

@@ -11,11 +11,25 @@ MacPGP is a native macOS OpenPGP app for managing keys, encrypting files and mes
 
 ## Installation
 
-MacPGP is distributed through the Mac App Store.
+MacPGP is distributed as a Developer ID signed, notarized, and stapled DMG
+through GitHub Releases.
+
+1. Download [MacPGP-1.0.1.dmg](https://github.com/ThalesMMS/MacPGP-app/releases/download/1.0.1/MacPGP-1.0.1.dmg) from the [MacPGP 1.0.1 release](https://github.com/ThalesMMS/MacPGP-app/releases/tag/1.0.1).
+2. Open the DMG and copy `MacPGP.app` to `/Applications`.
+3. Launch MacPGP. If macOS asks for confirmation, approve the Developer ID signed app.
+
+Release asset checksum:
+
+```text
+SHA-256  MacPGP-1.0.1.dmg
+94158d1997ae5c817c018119440f309332c7de153204e5083faa0ad014fdf400
+```
+
+Requirements and release notes:
 
 - Requires an Apple Silicon Mac (`arm64`) running macOS Tahoe 26.2 or later. The vendored OpenPGP bridge is `arm64`-only; Intel Macs and `x86_64` builds are not supported.
 - Build-host and CI architecture requirements for contributors are documented in [DEVELOPMENT.md](DEVELOPMENT.md).
-- Release notes: [CHANGELOG.md](CHANGELOG.md)
+- Release notes are available on the [GitHub Releases page](https://github.com/ThalesMMS/MacPGP-app/releases). Project history is also tracked in [CHANGELOG.md](CHANGELOG.md).
 
 ## What MacPGP Does
 

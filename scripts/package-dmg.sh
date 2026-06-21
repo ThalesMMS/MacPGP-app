@@ -76,6 +76,11 @@ verify_developer_id_app() {
   fi
 }
 
+verify_stapled_app() {
+  xcrun stapler validate "$app_bundle" >/dev/null 2>&1 ||
+    die "app bundle must have a stapled notarization ticket before packaging a publishable DMG: $app_bundle"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --app)
@@ -129,6 +134,10 @@ fi
 info_plist="$app_bundle/Contents/Info.plist"
 [[ -f "$info_plist" ]] || die "Info.plist not found in app bundle: $info_plist"
 verify_developer_id_app
+if [[ -n "$notary_profile" ]]; then
+  require_tool xcrun
+  verify_stapled_app
+fi
 
 bundle_name="$(plist_value CFBundleName "$info_plist")"
 short_version="$(plist_value CFBundleShortVersionString "$info_plist")"

@@ -18,7 +18,7 @@ permissions:
 jobs:
   build-and-test:
     name: Build and test
-    runs-on: macos-14
+    runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 90
     env:
       PROJECT_PATH: MacPGP/MacPGP.xcodeproj
@@ -26,19 +26,32 @@ jobs:
       DESTINATION: platform=macOS
       DERIVED_DATA_PATH: DerivedData
       RESULT_BUNDLE_DIR: TestResults
-      # Hosted runners do not have the App Group provisioning profiles. CI signs ad hoc
-      # and strips entitlements for automated build/test; manual gates cover extensions.
-      CI_MACOSX_DEPLOYMENT_TARGET: "14.0"
+      CI_MACOSX_DEPLOYMENT_TARGET: "26.2"
       CI_CODE_SIGN_IDENTITY: "-"
       CI_CODE_SIGN_STYLE: Manual
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode
+      - name: Verify Apple Silicon Xcode runner
         run: |
-          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+          test "$(uname -m)" = "arm64"
           xcodebuild -version
+          python3 - <<'PY'
+          import re
+          import subprocess
+          import sys
+
+          output = subprocess.check_output(["xcodebuild", "-version"], text=True)
+          match = re.search(r"Xcode\s+(\d+(?:\.\d+)?)", output)
+          if not match:
+              sys.exit("Unable to parse Xcode version")
+
+          version = tuple(int(part) for part in match.group(1).split("."))
+          required = (26, 2)
+          if version < required:
+              sys.exit(f"Xcode {match.group(1)} is too old; require Xcode 26.2+")
+          PY
 
       - name: Prepare result bundle directory
         run: |
