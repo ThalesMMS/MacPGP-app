@@ -24,7 +24,10 @@ nonisolated enum PGPArmorBlock: CaseIterable {
 }
 
 nonisolated enum PGPArmorDetector {
-    /// Armor must begin the payload after leading whitespace; embedded prose does not count as PGP armor.
+    /// Detects the PGP armor block type in the given text.
+    /// - Parameters:
+    ///   - text: The text to search for a PGP armor block header.
+    /// - Returns: The detected `PGPArmorBlock` type, or `nil` if no armor header is found.
     static func detectedBlock(in text: String) -> PGPArmorBlock? {
         detectedBlock(inNormalizedText: normalizedText(from: text))
     }

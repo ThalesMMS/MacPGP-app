@@ -101,6 +101,28 @@ struct SessionLockControllerTests {
         }
     }
 
+    @Test("off-main system sleep notification locks the cache")
+    func offMainSleepLocksCache() async {
+        let cache = makeCache()
+        let workspace = NotificationCenter()
+        let controller = SessionLockController(
+            cache: cache,
+            workspaceNotificationCenter: workspace,
+            appNotificationCenter: NotificationCenter(),
+            lockNotificationCenter: NotificationCenter()
+        )
+
+        cache.store("secret", forKeyID: "ABCD")
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            DispatchQueue.global().async {
+                workspace.post(name: NSWorkspace.willSleepNotification, object: nil)
+                continuation.resume()
+            }
+        }
+        #expect(cache.passphrase(forKeyID: "ABCD") == nil)
+        withExtendedLifetime(controller) {}
+    }
+
     @Test("ordinary app deactivation does NOT lock the cache")
     func ordinaryDeactivationDoesNotLock() {
         let cache = makeCache()

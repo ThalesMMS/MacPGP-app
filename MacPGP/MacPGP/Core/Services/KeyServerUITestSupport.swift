@@ -32,7 +32,8 @@ nonisolated enum KeyServerUITestSupport {
         return Scenario(rawValue: raw) ?? .successMultiple
     }
 
-    /// Builds a `KeyServerService` backed by the deterministic stub protocol.
+    /// Creates a stubbed KeyServerService configured to intercept network requests for UI testing.
+    /// - Returns: A KeyServerService instance that routes requests through the stub URL protocol.
     @MainActor
     static func makeKeyServerService() -> KeyServerService {
         let configuration = URLSessionConfiguration.ephemeral

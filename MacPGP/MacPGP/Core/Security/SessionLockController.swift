@@ -61,14 +61,24 @@ final class SessionLockController {
     }
 
     private func addObserver(on center: NotificationCenter, for name: Notification.Name) {
-        // queue: nil so AppKit's main-thread posts (and tests posting on the main
-        // actor) invoke the handler synchronously on the main thread.
         let token = center.addObserver(forName: name, object: nil, queue: nil) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.lock()
-            }
+            self?.lockFromAnyThread()
         }
         observerTokens.append((center, token))
+    }
+
+    nonisolated private func lockFromAnyThread() {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                self.lock()
+            }
+        } else {
+            DispatchQueue.main.sync {
+                MainActor.assumeIsolated {
+                    self.lock()
+                }
+            }
+        }
     }
 
     deinit {

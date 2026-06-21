@@ -129,6 +129,8 @@ nonisolated final class KeyGenerationService: Sendable {
         return issues
     }
 
+    /// Evaluates the strength of a passphrase.
+    /// - Returns: A `PassphraseStrength` value indicating the passphrase's strength.
     func passphraseStrength(_ passphrase: String) -> PassphraseStrength {
         let issues = validatePassphrase(passphrase)
 

@@ -64,6 +64,8 @@ nonisolated enum ShareItemFileLoader {
         return nil
     }
 
+    /// Loads the provider's file representation as a temporary file URL.
+    /// - Returns: A URL pointing to the temporary file, or nil if the file representation could not be loaded.
     private static func fileRepresentation(from provider: NSItemProvider) async -> URL? {
         for typeIdentifier in candidateTypeIdentifiers(for: provider) {
             if let url = await loadFileRepresentation(from: provider, typeIdentifier: typeIdentifier) {
@@ -74,6 +76,11 @@ nonisolated enum ShareItemFileLoader {
         return nil
     }
 
+    /// Loads a file representation from an item provider and copies it to a temporary location.
+    /// - Parameters:
+    ///   - provider: The item provider to load from.
+    ///   - typeIdentifier: The uniform type identifier specifying which file representation to request.
+    /// - Returns: A URL to the copied file in the temporary directory, or `nil` if loading or copying fails.
     private static func loadFileRepresentation(from provider: NSItemProvider, typeIdentifier: String) async -> URL? {
         let suggestedName = provider.suggestedName
         return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
@@ -100,6 +107,8 @@ nonisolated enum ShareItemFileLoader {
         }
     }
 
+    /// Attempts to load the provider's data as a temporary file.
+    /// - Returns: A URL to the temporary file, or nil if the data cannot be extracted.
     private static func dataRepresentation(from provider: NSItemProvider) async -> URL? {
         for typeIdentifier in candidateTypeIdentifiers(for: provider) {
             if let url = await loadDataRepresentation(from: provider, typeIdentifier: typeIdentifier) {
@@ -110,6 +119,11 @@ nonisolated enum ShareItemFileLoader {
         return nil
     }
 
+    /// Loads the data representation for a given type identifier and writes it to a temporary file.
+    /// - Parameters:
+    ///   - provider: The item provider to load data from.
+    ///   - typeIdentifier: The type identifier of the data representation to load.
+    /// - Returns: The URL of the temporary file containing the written data, or `nil` if loading or writing fails.
     private static func loadDataRepresentation(from provider: NSItemProvider, typeIdentifier: String) async -> URL? {
         let suggestedName = provider.suggestedName
         return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in

@@ -58,17 +58,20 @@ nonisolated struct BackupFormat: Codable, Identifiable, Sendable {
         return "\(encryptionText) backup of \(keyCount) \(keyText)"
     }
 
+    /// Creates a new BackupFormat with the specified checksum.
+    /// - Parameters:
+    ///   - checksum: The checksum value to set.
+    /// - Returns: A new BackupFormat instance with the updated checksum and all other properties preserved from this instance.
     func withChecksum(_ checksum: String) -> BackupFormat {
-        let copy = self
-        return BackupFormat(
-            id: copy.id,
-            version: copy.version,
-            createdDate: copy.createdDate,
-            createdBy: copy.createdBy,
-            keyFingerprints: copy.keyFingerprints,
-            encryptionType: copy.encryptionType,
+        BackupFormat(
+            id: id,
+            version: version,
+            createdDate: createdDate,
+            createdBy: createdBy,
+            keyFingerprints: keyFingerprints,
+            encryptionType: encryptionType,
             checksum: checksum,
-            metadata: copy.metadata
+            metadata: metadata
         )
     }
 

@@ -58,6 +58,7 @@ nonisolated final class KeyringPersistence: KeyringPersisting {
     private let fileManager = FileManager.default
     private let directoryOverride: URL?
     private let testDirectory: URL?
+    private let metadataMutationLock = NSLock()
 
     private static let isRunningTests =
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
@@ -419,6 +420,9 @@ nonisolated final class KeyringPersistence: KeyringPersisting {
         verificationDate: Date?,
         verificationMethod: String?
     ) throws {
+        metadataMutationLock.lock()
+        defer { metadataMutationLock.unlock() }
+
         var metadata = loadMetadata()
 
         let verificationMetadata = KeyVerificationMetadata(
@@ -433,6 +437,9 @@ nonisolated final class KeyringPersistence: KeyringPersisting {
     }
 
     func removeVerificationStatus(forFingerprint fingerprint: String) throws {
+        metadataMutationLock.lock()
+        defer { metadataMutationLock.unlock() }
+
         var metadata = loadMetadata()
         metadata.verifications.removeValue(forKey: fingerprint)
         try saveMetadata(metadata)
@@ -450,6 +457,9 @@ nonisolated final class KeyringPersistence: KeyringPersisting {
         trustLevel: TrustLevel,
         notes: String?
     ) throws {
+        metadataMutationLock.lock()
+        defer { metadataMutationLock.unlock() }
+
         var metadata = loadMetadata()
 
         let trustMetadata = KeyTrustMetadata(
@@ -464,6 +474,9 @@ nonisolated final class KeyringPersistence: KeyringPersisting {
     }
 
     func removeTrustLevel(forFingerprint fingerprint: String) throws {
+        metadataMutationLock.lock()
+        defer { metadataMutationLock.unlock() }
+
         var metadata = loadMetadata()
         metadata.trusts.removeValue(forKey: fingerprint)
         try saveMetadata(metadata)

@@ -136,6 +136,10 @@ struct MacPGPApp: App {
         #endif
     }
 
+    private func localizedMenuLabel(_ key: String.LocalizationValue, comment: StaticString) -> String {
+        String(localized: key, locale: preferences.appLanguage.locale, comment: comment)
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -149,48 +153,48 @@ struct MacPGPApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(after: .appInfo) {
-                Button(String(localized: "menu.lock_macpgp", comment: "Menu item to lock MacPGP and clear cached passphrases")) {
+                Button(localizedMenuLabel("menu.lock_macpgp", comment: "Menu item to lock MacPGP and clear cached passphrases")) {
                     SessionLockController.shared.lock()
                 }
                 .keyboardShortcut("l", modifiers: [.command, .control])
             }
 
             CommandGroup(replacing: .newItem) {
-                Button(String(localized: "menu.generate_key", comment: "Menu item to generate a new PGP key")) {
+                Button(localizedMenuLabel("menu.generate_key", comment: "Menu item to generate a new PGP key")) {
                     NotificationCenter.default.post(name: .showKeyGeneration, object: nil)
                 }
                 .keyboardShortcut("n", modifiers: [.command])
 
-                Button(String(localized: "menu.import_key", comment: "Menu item to import a PGP key")) {
+                Button(localizedMenuLabel("menu.import_key", comment: "Menu item to import a PGP key")) {
                     NotificationCenter.default.post(name: .importKey, object: nil)
                 }
                 .keyboardShortcut("i", modifiers: [.command])
 
-                Button(String(localized: "menu.search_key_server", comment: "Menu item to search for keys on a key server")) {
+                Button(localizedMenuLabel("menu.search_key_server", comment: "Menu item to search for keys on a key server")) {
                     NotificationCenter.default.post(name: .showKeyServerSearch, object: nil)
                 }
                 .keyboardShortcut("k", modifiers: [.command])
 
                 Divider()
 
-                Button(String(localized: "menu.backup_keys", comment: "Menu item to backup PGP keys")) {
+                Button(localizedMenuLabel("menu.backup_keys", comment: "Menu item to backup PGP keys")) {
                     NotificationCenter.default.post(name: .showBackupWizard, object: nil)
                 }
                 .keyboardShortcut("b", modifiers: [.command, .shift])
 
-                Button(String(localized: "menu.restore_keys", comment: "Menu item to restore backed up PGP keys")) {
+                Button(localizedMenuLabel("menu.restore_keys", comment: "Menu item to restore backed up PGP keys")) {
                     NotificationCenter.default.post(name: .showRestoreWizard, object: nil)
                 }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
             }
 
             CommandGroup(after: .textEditing) {
-                Button(String(localized: "menu.encrypt_clipboard", comment: "Menu item to encrypt clipboard contents")) {
+                Button(localizedMenuLabel("menu.encrypt_clipboard", comment: "Menu item to encrypt clipboard contents")) {
                     NotificationCenter.default.post(name: .encryptClipboard, object: nil)
                 }
                 .keyboardShortcut("e", modifiers: [.command, .shift])
 
-                Button(String(localized: "menu.decrypt_clipboard", comment: "Menu item to decrypt clipboard contents")) {
+                Button(localizedMenuLabel("menu.decrypt_clipboard", comment: "Menu item to decrypt clipboard contents")) {
                     NotificationCenter.default.post(name: .decryptClipboard, object: nil)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .shift])

@@ -30,6 +30,15 @@ nonisolated final class FileCommitGate: @unchecked Sendable {
 }
 
 nonisolated enum SecureScopedFileAccess {
+    /// Executes a closure on a security-scoped URL with automatic resource management.
+    ///
+    /// Ensures the security-scoped resource access is properly managed before and after the operation. File access errors are mapped to `OperationError` values.
+    ///
+    /// - Parameters:
+    ///   - url: The security-scoped URL to access.
+    ///   - perform: A closure that executes the operation on the URL and returns a value.
+    /// - Returns: The value returned by `perform`.
+    /// - Throws: `OperationError` for file access errors, or any error thrown by `perform`.
     static func withSecurityScopedAccess<T>(
         to url: URL,
         perform: (URL) throws -> T

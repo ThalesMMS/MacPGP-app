@@ -150,4 +150,38 @@ struct KeyServerPreferenceTests {
             #expect(defaultServer.hostname == KeyServerConfig.mitKeyserver.hostname)
         }
     }
+
+    @Test("KeyServerConfig.defaultServer(using: nil) uses PreferencesManager.shared")
+    func testDefaultServerNilPreferencesUsesShared() {
+        withCleanKeyServerPreferences {
+            PreferencesManager.shared.enabledKeyServers = [
+                KeyServerConfig.keysOpenpgp.hostname,
+                KeyServerConfig.ubuntuKeyserver.hostname
+            ]
+            PreferencesManager.shared.defaultKeyServer = KeyServerConfig.ubuntuKeyserver.hostname
+
+            // Passing nil should behave identically to passing .shared explicitly.
+            let viaShared = KeyServerConfig.defaultServer(using: PreferencesManager.shared)
+            let viaNil = KeyServerConfig.defaultServer(using: nil)
+
+            #expect(viaShared.hostname == viaNil.hostname)
+            #expect(viaNil.hostname == KeyServerConfig.ubuntuKeyserver.hostname)
+        }
+    }
+
+    @Test("KeyServerConfig.defaultServer(using: nil) falls back to a secure server when stored default is disabled")
+    func testDefaultServerNilFallsBackToSecureServer() {
+        withCleanKeyServerPreferences {
+            // Enable only the secure openpgp server; MIT (insecure) is not enabled.
+            PreferencesManager.shared.enabledKeyServers = [KeyServerConfig.keysOpenpgp.hostname]
+            // Point defaultKeyServer to a hostname that is NOT in the enabled list.
+            UserDefaults.standard.set(KeyServerConfig.mitKeyserver.hostname, forKey: DefaultsKeys.defaultKeyServer)
+
+            let result = KeyServerConfig.defaultServer(using: nil)
+
+            // Must fall back to a secure enabled server, never the disabled MIT server.
+            #expect(result.hostname != KeyServerConfig.mitKeyserver.hostname)
+            #expect(result.isSecure)
+        }
+    }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import RNPKit
 
 nonisolated enum OperationError: LocalizedError {
     case keyNotFound(keyID: String)
@@ -290,6 +291,18 @@ nonisolated enum OperationError: LocalizedError {
         case .unknownError(let message):
             return String(format: NSLocalizedString("error.unknown_error.reason", comment: "Failure reason for unexpected errors"), message)
         }
+    }
+}
+
+extension OperationError {
+    static func from(_ error: Error) -> OperationError {
+        if let operationError = error as? OperationError {
+            return operationError
+        }
+        if case RNPError.invalidPassphrase = error {
+            return .invalidPassphrase
+        }
+        return .unknownError(message: error.localizedDescription)
     }
 }
 

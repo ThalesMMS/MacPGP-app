@@ -15,12 +15,13 @@ sign_identity="${DMG_SIGN_IDENTITY:-}"
 notary_profile="${NOTARY_PROFILE:-}"
 staple=1
 
+# usage prints help text describing the script's options, environment variables, and usage examples.
 usage() {
   cat <<'EOF'
 Usage: scripts/package-dmg.sh [options]
 
 Options:
-  --app <path>             MacPGP.app to package. Defaults to a known build/export path.
+  --app <path>             MacPGP.app to package. Defaults to a known release/export path.
   --output <path>          Output DMG path. Defaults to build/dmg/MacPGP-<version>.dmg.
   --volume-name <name>     Mounted volume name. Defaults to "MacPGP <version>".
   --sign-identity <name>   Code-sign the DMG, for example "Developer ID Application: ...".
@@ -40,17 +41,39 @@ Examples:
 EOF
 }
 
+# die prints an error message to stderr and exits with status 1.
 die() {
   echo "error: $*" >&2
   exit 1
 }
 
+# require_tool verifies that a command exists in PATH, exiting with an error if not found.
 require_tool() {
   command -v "$1" >/dev/null 2>&1 || die "$1 not found"
 }
 
+# plist_value reads a plist value by key path and echoes it to stdout.
 plist_value() {
   /usr/libexec/PlistBuddy -c "Print :$1" "$2" 2>/dev/null || true
+}
+
+# verify_developer_id_app validates the app bundle before creating a public DMG.
+verify_developer_id_app() {
+  local signature_details
+
+  codesign --verify --strict --deep --verbose=2 "$app_bundle" >/dev/null 2>&1 ||
+    die "app bundle signature is not valid for distribution: $app_bundle"
+
+  signature_details="$(codesign --display --verbose=4 "$app_bundle" 2>&1)" ||
+    die "unable to inspect app bundle signature: $app_bundle"
+
+  if ! grep -q '^Authority=Developer ID Application:' <<<"$signature_details"; then
+    die "app bundle must be signed with a Developer ID Application identity: $app_bundle"
+  fi
+
+  if ! grep -Eq '^Runtime Version=|^flags=.*runtime' <<<"$signature_details"; then
+    die "app bundle must have hardened runtime enabled: $app_bundle"
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -83,12 +106,15 @@ require_tool hdiutil
 require_tool ditto
 require_tool codesign
 
+if [[ -n "$notary_profile" && -z "$sign_identity" ]]; then
+  die "--notary-profile requires --sign-identity so the notarized DMG follows the Developer ID release flow"
+fi
+
 if [[ -z "$app_bundle" ]]; then
   for candidate in \
     "build/developer-id/MacPGP.app" \
     "build/export/MacPGP.app" \
-    "DerivedData/Build/Products/Release/MacPGP.app" \
-    "DerivedData/Build/Products/Debug/MacPGP.app"
+    "DerivedData/Build/Products/Release/MacPGP.app"
   do
     if [[ -d "$candidate" ]]; then
       app_bundle="$candidate"
@@ -97,11 +123,12 @@ if [[ -z "$app_bundle" ]]; then
   done
 fi
 
-[[ -n "$app_bundle" ]] || die "no app bundle supplied; pass --app /path/to/MacPGP.app"
+[[ -n "$app_bundle" ]] || die "no release app bundle found; pass --app /path/to/MacPGP.app after building/exporting a signed release app"
 [[ -d "$app_bundle" ]] || die "app bundle not found: $app_bundle"
 
 info_plist="$app_bundle/Contents/Info.plist"
 [[ -f "$info_plist" ]] || die "Info.plist not found in app bundle: $info_plist"
+verify_developer_id_app
 
 bundle_name="$(plist_value CFBundleName "$info_plist")"
 short_version="$(plist_value CFBundleShortVersionString "$info_plist")"
@@ -123,6 +150,7 @@ fi
 mkdir -p "$(dirname "$output_path")"
 
 staging_root="$(mktemp -d "${TMPDIR:-/tmp}/macpgp-dmg.XXXXXX")"
+# cleanup removes the temporary staging root directory.
 cleanup() {
   rm -rf "$staging_root"
 }

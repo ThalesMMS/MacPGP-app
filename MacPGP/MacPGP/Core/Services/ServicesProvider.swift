@@ -163,9 +163,18 @@ final class ServicesProvider: NSObject {
     // MARK: - UI Selection Methods
 
     /// Shows a modal dialog for selecting recipients (public keys) for encryption
-    /// - Returns: Set of selected keys, or nil if cancelled
+    /// Presents a modal dialog for selecting encryption key recipients.
+    /// - Returns: A set of selected recipients if confirmed, or `nil` if cancelled.
     private func showRecipientPicker() -> Set<PGPKeyModel>? {
         let availableKeys = availableEncryptionKeys().filter { !$0.isExpired }
+        guard !availableKeys.isEmpty else {
+            showError(
+                "No usable public keys available",
+                description: "All public keys available for encryption are expired"
+            )
+            return nil
+        }
+
         var selectedRecipients: Set<PGPKeyModel> = []
 
         let pickerView = RecipientSelectionView(
@@ -198,7 +207,11 @@ final class ServicesProvider: NSObject {
     }
 
     /// Shows a modal dialog for selecting a secret key and entering passphrase
-    /// - Returns: Tuple of selected key and passphrase, or nil if cancelled
+    /// Presents a modal dialog for selecting a secret key and entering a passphrase.
+    /// - Parameters:
+    ///   - secretKeys: The available secret keys to select from.
+    ///   - operation: The operation name, used as the dialog title and confirmation button label.
+    /// - Returns: A tuple containing the selected key and passphrase if confirmed; `nil` if the user cancels or does not complete all required fields.
     private func showKeyPicker(secretKeys: [PGPKeyModel], operation: String) -> (key: PGPKeyModel, passphrase: String)? {
         var selectedKey: PGPKeyModel?
         var passphrase: String = ""

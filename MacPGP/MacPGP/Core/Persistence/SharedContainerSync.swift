@@ -2,6 +2,8 @@ import Foundation
 import RNPKit
 
 nonisolated enum SharedContainerSync {
+    /// Synchronizes keys to the shared app-group container if available.
+    /// - Throws: If synchronization fails.
     static func syncKeysToContainer(keys: [Key]) throws {
         guard let keysURL = sharedKeysURL() else {
             return

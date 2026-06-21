@@ -91,6 +91,8 @@ struct LabelValueRow: View {
         }
     }
 
+    /// Builds the label view with optional colon.
+    /// - Returns: A styled view containing the label, optionally followed by a colon.
     @ViewBuilder
     private func labelView(showsColon: Bool) -> some View {
         if showsColon {

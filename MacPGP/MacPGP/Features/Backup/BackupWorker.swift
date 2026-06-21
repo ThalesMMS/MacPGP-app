@@ -126,6 +126,8 @@ nonisolated protocol BackupWorking: Sendable {
 }
 
 nonisolated struct BackupWorker: BackupWorking {
+    /// Creates a backup payload containing exported key data and metadata, optionally encrypted.
+    /// - Returns: The backup payload, encrypted if requested.
     func makePayload(
         exportedData: Data,
         keyFingerprints: [String],

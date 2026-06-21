@@ -306,6 +306,9 @@ struct SettingsView: View {
         updateBackupReminderSchedule()
     }
 
+    /// Clears all stored passphrases from the keychain.
+    ///
+    /// If the operation fails, displays an error alert.
     private func clearKeychain() {
         do {
             try KeychainManager.shared.deleteAllPassphrases()

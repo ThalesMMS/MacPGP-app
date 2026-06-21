@@ -79,7 +79,7 @@ struct KeyServerSecurityTests {
         KeyServerConfig(name: "Secure", hostname: "secure.example.test", protocol: .hkps)
     }
 
-    private func withCleanKeyServerPreferences(_ body: () throws -> Void) rethrows {
+    private func withCleanKeyServerPreferences(_ body: () throws -> Void) throws {
         Self.preferencesLock.lock()
         defer { Self.preferencesLock.unlock() }
 
@@ -204,7 +204,7 @@ struct KeyServerSecurityTests {
 
     @Test("Insecure opt-in persists for known insecure hosts only")
     func testInsecureOptInPersistence() throws {
-        withCleanKeyServerPreferences {
+        try withCleanKeyServerPreferences {
             let preferences = PreferencesManager.shared
             #expect(!preferences.isInsecureKeyServerAllowed(KeyServerConfig.mitKeyserver.hostname))
 
@@ -224,7 +224,7 @@ struct KeyServerSecurityTests {
 
     @Test("enabledServers carries the persisted insecure opt-in into the effective config")
     func testEnabledServersResolveOptIn() throws {
-        withCleanKeyServerPreferences {
+        try withCleanKeyServerPreferences {
             let preferences = PreferencesManager.shared
             preferences.enabledKeyServers = [
                 KeyServerConfig.keysOpenpgp.hostname,
@@ -250,7 +250,7 @@ struct KeyServerSecurityTests {
 
     @Test("Default server fallback never selects an insecure server")
     func testDefaultServerFallbackPrefersSecure() throws {
-        withCleanKeyServerPreferences {
+        try withCleanKeyServerPreferences {
             let preferences = PreferencesManager.shared
             preferences.enabledKeyServers = [
                 KeyServerConfig.ubuntuKeyserver.hostname,
@@ -267,7 +267,7 @@ struct KeyServerSecurityTests {
 
     @Test("Explicitly chosen insecure default is still respected")
     func testExplicitInsecureDefaultRespected() throws {
-        withCleanKeyServerPreferences {
+        try withCleanKeyServerPreferences {
             let preferences = PreferencesManager.shared
             preferences.enabledKeyServers = [
                 KeyServerConfig.ubuntuKeyserver.hostname,

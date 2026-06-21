@@ -60,6 +60,10 @@ nonisolated enum KeyAlgorithm: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// Converts a public key algorithm to its corresponding key algorithm.
+    /// - Parameters:
+    ///   - algorithm: The public key algorithm to convert.
+    /// - Returns: The equivalent KeyAlgorithm, or .unknown if the algorithm is not directly supported.
     static func from(publicKeyAlgorithm algorithm: PublicKeyAlgorithm) -> KeyAlgorithm {
         switch algorithm {
         case .rsa:

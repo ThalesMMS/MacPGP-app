@@ -299,4 +299,102 @@ struct PreferencesManagerTests {
             #expect(UserDefaults.standard.stringArray(forKey: TestDefaultsKeys.appleLanguages) == [AppLanguage.german.rawValue])
         }
     }
+
+    // MARK: - AppLanguage.locale
+
+    @Test("AppLanguage.locale returns Locale with matching identifier for each case")
+    func appLanguageLocaleMatchesRawValue() {
+        for language in AppLanguage.allCases {
+            let locale = language.locale
+            #expect(locale.identifier == language.rawValue)
+        }
+    }
+
+    @Test("AppLanguage.locale english returns en locale")
+    func appLanguageLocaleEnglish() {
+        #expect(AppLanguage.english.locale.identifier == "en")
+    }
+
+    @Test("AppLanguage.locale chinese returns zh-Hans locale")
+    func appLanguageLocaleChineseSimplified() {
+        #expect(AppLanguage.chinese.locale.identifier == "zh-Hans")
+    }
+
+    @Test("AppLanguage.locale produces distinct Locale instances for distinct languages")
+    func appLanguageLocaleDistinct() {
+        let locales = AppLanguage.allCases.map { $0.locale }
+        let identifiers = locales.map { $0.identifier }
+        let uniqueIdentifiers = Set(identifiers)
+        #expect(uniqueIdentifiers.count == AppLanguage.allCases.count)
+    }
+
+    // MARK: - appLanguage caching
+
+    @Test("appLanguage getter refreshes cached language from UserDefaults")
+    func appLanguageGetterRefreshesCachedLanguageFromDefaults() {
+        preservingLanguageDefaults {
+            PreferencesManager.shared.appLanguage = .german
+            UserDefaults.standard.set(AppLanguage.french.rawValue, forKey: TestDefaultsKeys.appLanguage)
+
+            #expect(PreferencesManager.shared.appLanguage == .french)
+            #expect(UserDefaults.standard.stringArray(forKey: TestDefaultsKeys.appleLanguages) == [AppLanguage.german.rawValue])
+        }
+    }
+
+    @Test("appLanguage setter updates cached value immediately")
+    func appLanguageSetterUpdatesCachedValue() {
+        preservingLanguageDefaults {
+            PreferencesManager.shared.appLanguage = .portuguese
+            #expect(PreferencesManager.shared.appLanguage == .portuguese)
+
+            PreferencesManager.shared.appLanguage = .english
+            #expect(PreferencesManager.shared.appLanguage == .english)
+        }
+    }
+
+    // MARK: - resetToDefaults language reset
+
+    @Test("resetToDefaults clears appLanguage from UserDefaults")
+    func resetToDefaultsClearsStoredLanguage() {
+        preservingLanguageDefaults {
+            // Store a specific language so there is something to clear.
+            UserDefaults.standard.set(AppLanguage.german.rawValue, forKey: TestDefaultsKeys.appLanguage)
+
+            PreferencesManager.shared.resetToDefaults()
+
+            // After reset, the stored raw language key should be absent.
+            #expect(UserDefaults.standard.string(forKey: TestDefaultsKeys.appLanguage) == nil)
+
+            // Restore what resetToDefaults wiped so preservingLanguageDefaults can
+            // restore cleanly; this is handled automatically by the outer defer block.
+        }
+    }
+
+    @Test("resetToDefaults resets appLanguage to a valid AppLanguage value")
+    func resetToDefaultsResetsLanguageToValidCase() {
+        preservingLanguageDefaults {
+            PreferencesManager.shared.appLanguage = .chinese
+
+            PreferencesManager.shared.resetToDefaults()
+
+            // After reset the language must still be a valid AppLanguage case.
+            #expect(AppLanguage.allCases.contains(PreferencesManager.shared.appLanguage))
+        }
+    }
+
+    @Test("resetToDefaults applies AppleLanguages for the detected system language")
+    func resetToDefaultsAppliesAppleLanguages() {
+        preservingLanguageDefaults {
+            PreferencesManager.shared.appLanguage = .spanish
+
+            PreferencesManager.shared.resetToDefaults()
+
+            // applyLanguage writes a single-element array to AppleLanguages.
+            let appleLanguages = UserDefaults.standard.stringArray(forKey: TestDefaultsKeys.appleLanguages)
+            #expect(appleLanguages?.count == 1)
+            if let first = appleLanguages?.first {
+                #expect(AppLanguage(rawValue: first) != nil)
+            }
+        }
+    }
 }

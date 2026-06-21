@@ -135,6 +135,11 @@ nonisolated class FinderSync: FIFinderSync {
         openFilesWithMainApp(encryptedFiles)
     }
 
+    /// Opens files using the MacPGP application.
+    ///
+    /// If the MacPGP application cannot be located or opened, forwards an error to the containing app.
+    ///
+    /// - Parameter fileURLs: The files to open with MacPGP.
     private func openFilesWithMainApp(_ fileURLs: [URL]) {
         guard let mainAppURL = resolveMainAppURL() else {
             Self.forwardErrorToContainingApp(
@@ -160,6 +165,8 @@ nonisolated class FinderSync: FIFinderSync {
         }
     }
 
+    /// Resolves the URL of the main application.
+    /// - Returns: The `URL` of the main application, or `nil` if resolution fails.
     private func resolveMainAppURL() -> URL? {
         let containingAppURL = Bundle.main.bundleURL
             .deletingLastPathComponent()
@@ -175,6 +182,7 @@ nonisolated class FinderSync: FIFinderSync {
         return NSWorkspace.shared.urlForApplication(withBundleIdentifier: SharedConfiguration.mainAppBundleIdentifier)
     }
 
+    /// Forwards an error to the containing app via the error queue.
     private static func forwardErrorToContainingApp(title: String, message: String) {
         NSLog("Finder Sync error: \(title) - \(message)")
 

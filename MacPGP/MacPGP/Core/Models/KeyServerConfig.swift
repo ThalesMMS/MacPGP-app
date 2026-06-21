@@ -159,6 +159,11 @@ extension KeyServerConfig {
         enabledServers(using: PreferencesManager.shared)
     }
 
+    /// Returns the enabled key servers from preferences, applying insecure transport opt-in settings.
+    ///
+    /// Insecure servers are only returned if the user has explicitly allowed insecure connections for that server's hostname.
+    ///
+    /// - Returns: An array of `KeyServerConfig` instances.
     @MainActor
     static func enabledServers(using preferences: PreferencesManager) -> [KeyServerConfig] {
         let enabledHostnames = Set(preferences.enabledKeyServers)
@@ -174,6 +179,12 @@ extension KeyServerConfig {
         }
     }
 
+    /// Retrieves the default key server configuration.
+    ///
+    /// Prioritizes the user-configured default server if enabled, falls back to the first secure
+    /// server from the enabled list, or `keysOpenpgp` if no secure server is available.
+    /// - Parameter preferences: The preferences manager to use. If `nil`, uses the shared instance.
+    /// - Returns: The selected `KeyServerConfig`.
     @MainActor
     static func defaultServer(using preferences: PreferencesManager? = nil) -> KeyServerConfig {
         let preferences = preferences ?? .shared

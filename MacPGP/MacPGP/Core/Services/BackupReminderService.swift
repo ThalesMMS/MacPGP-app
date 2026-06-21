@@ -84,6 +84,9 @@ final class BackupReminderService {
         }
     }
 
+    /// Displays a backup reminder if sufficient time has passed since the last one was shown.
+    ///
+    /// Enforces a cooldown interval between successive immediate reminders. Updates the last reminder timestamp only if the notification is successfully queued and authorized.
     private func showBackupReminderIfAllowed() {
         let intervalDays = PreferencesManager.shared.backupReminderIntervalDays
 
@@ -109,7 +112,9 @@ final class BackupReminderService {
         }
     }
 
-    /// Displays a backup reminder notification immediately
+    /// Displays a backup reminder notification immediately, including information about the last backup date if available.
+    /// - Parameters:
+    ///   - completion: A closure called with `true` if the notification was delivered successfully, `false` otherwise.
     private func showBackupReminder(completion: @escaping @Sendable (Bool) -> Void) {
         let content = UNMutableNotificationContent()
         content.title = NSLocalizedString("BackupReminder.Title", comment: "Backup reminder notification title")

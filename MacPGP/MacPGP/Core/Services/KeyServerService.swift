@@ -472,7 +472,8 @@ final class KeyServerService {
         return components?.url
     }
 
-    // MARK: - Response Parsing
+    /// Parses an HKP machine-readable key server search response into individual search results.
+    /// - Returns: An array of parsed search results.
 
     private nonisolated static func parseSearchResults(_ data: Data) async throws -> [KeySearchResult] {
         try await Task.detached(priority: .userInitiated) {

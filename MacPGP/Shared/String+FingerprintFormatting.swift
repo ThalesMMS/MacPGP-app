@@ -1,6 +1,8 @@
 import Foundation
 
 nonisolated extension String {
+    /// Formats the string as a fingerprint with hex digits grouped into 4-character chunks.
+    /// - Returns: A string containing only hex digits in uppercase, separated into groups of four characters with spaces.
     func formattedAsFingerprint() -> String {
         let cleaned = String(filter(\.isHexDigit)).uppercased()
         return stride(from: 0, to: cleaned.count, by: 4).map { i -> String in

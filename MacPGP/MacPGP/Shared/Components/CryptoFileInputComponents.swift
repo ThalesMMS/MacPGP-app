@@ -224,6 +224,7 @@ struct DropZone: View {
         }
     }
 
+    /// Presents a file selection dialog and updates the bound file(s) with the user's selection.
     private func selectFiles() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = allowsMultiple

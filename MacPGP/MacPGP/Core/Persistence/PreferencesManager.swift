@@ -267,6 +267,9 @@ final class PreferencesManager {
         Set(KeyServerConfig.defaults.filter { !$0.isSecure }.map(\.hostname))
     }
 
+    /// Filters hostnames to include only those known to be insecure, removing duplicates.
+    /// - Parameter servers: The hostnames to normalize.
+    /// - Returns: The filtered list of insecure hostnames with duplicates removed.
     private func normalizeInsecureKeyServers(_ servers: [String]) -> [String] {
         let knownInsecure = insecureKeyServerHostnames
         var seen = Set<String>()
@@ -276,7 +279,13 @@ final class PreferencesManager {
     }
 
     var appLanguage: AppLanguage {
-        get { selectedAppLanguage }
+        get {
+            let storedLanguage = Self.storedOrDetectedLanguage(defaults: defaults)
+            if selectedAppLanguage != storedLanguage {
+                selectedAppLanguage = storedLanguage
+            }
+            return selectedAppLanguage
+        }
         set {
             selectedAppLanguage = newValue
             defaults.set(newValue.rawValue, forKey: Keys.appLanguage)
@@ -284,21 +293,15 @@ final class PreferencesManager {
         }
     }
 
-    /// Apply the selected language to the application
-    /// This sets the AppleLanguages user default which affects String(localized:) and NSLocalizedString
+    /// Applies a language preference to the app by setting the `AppleLanguages` user default.
     private func applyLanguage(_ language: AppLanguage) {
-        // Set the language override in UserDefaults
-        // This is the standard way to override app language without changing system settings
         defaults.set([language.rawValue], forKey: "AppleLanguages")
         defaults.synchronize()
     }
 
     private init() {
         selectedAppLanguage = Self.storedOrDetectedLanguage(defaults: defaults)
-
-        // Apply the saved language preference on initialization
-        // This ensures the app starts with the correct language
-        applyLanguage(appLanguage)
+        applyLanguage(selectedAppLanguage)
     }
 
     private var defaultEnabledKeyServers: [String] {
@@ -307,6 +310,10 @@ final class PreferencesManager {
             .map(\.hostname)
     }
 
+    /// Filters the keyserver list to include only known servers and removes duplicates.
+    /// - Parameters:
+    ///   - servers: The list of keyserver hostnames to normalize.
+    /// - Returns: A filtered list containing only known keyservers without duplicates, in the original order.
     private func normalizeEnabledKeyServers(_ servers: [String]) -> [String] {
         let knownServers = Set(KeyServerConfig.defaults.map(\.hostname))
         var seen = Set<String>()
@@ -316,6 +323,8 @@ final class PreferencesManager {
         }
     }
 
+    /// Returns the app language preference from storage, falling back to system detection or English.
+    /// - Returns: The stored language preference if available and valid, the system language if none is stored, or English if the stored value cannot be decoded.
     private static func storedOrDetectedLanguage(defaults: UserDefaults) -> AppLanguage {
         guard let value = defaults.string(forKey: Keys.appLanguage) else {
             return detectSystemLanguage()
@@ -323,56 +332,42 @@ final class PreferencesManager {
         return AppLanguage(rawValue: value) ?? .english
     }
 
+    /// Determines which supported app language matches the system's preferred language.
+    /// - Returns: An `AppLanguage` case corresponding to the system's preference, or `.english` if no supported language matches.
     private static func detectSystemLanguage() -> AppLanguage {
-        // Get the system's preferred languages
-        let preferredLanguages = Locale.preferredLanguages
-
-        // Try to match the first preferred language to our supported languages
-        for languageIdentifier in preferredLanguages {
-            // Extract the language code (e.g., "en-US" -> "en", "zh-Hans-CN" -> "zh-Hans")
+        for languageIdentifier in Locale.preferredLanguages {
             let locale = Locale(identifier: languageIdentifier)
-            guard let languageCode = locale.language.languageCode?.identifier else {
-                continue
-            }
+            guard let languageCode = locale.language.languageCode?.identifier else { continue }
 
-            // Check for script code for Chinese (simplified vs traditional)
-            let scriptCode = locale.language.script?.identifier
-
-            // Match to our supported languages
             switch languageCode {
-            case "en":
-                return .english
-            case "es":
-                return .spanish
-            case "fr":
-                return .french
-            case "de":
-                return .german
-            case "pt":
-                return .portuguese
+            case "en": return .english
+            case "es": return .spanish
+            case "fr": return .french
+            case "de": return .german
+            case "pt": return .portuguese
             case "zh":
-                // For Chinese, check if it's Simplified (Hans)
-                if scriptCode == "Hans" || scriptCode == nil {
+                if locale.language.script?.identifier == "Hans" {
                     return .chinese
                 }
-                // We only support Simplified Chinese, but still return it for Traditional
-                return .chinese
-            default:
                 continue
+            default: continue
             }
         }
-
-        // Default to English if no match found
         return .english
     }
 
+    /// Clears all stored preferences and reapplies the system language.
     func resetToDefaults() {
         let domain = Bundle.main.bundleIdentifier ?? "com.macpgp"
         defaults.removePersistentDomain(forName: domain)
         selectedAppLanguage = Self.detectSystemLanguage()
-        applyLanguage(appLanguage)
+        applyLanguage(selectedAppLanguage)
     }
 
+    /// Ensures an algorithm is supported, defaulting to RSA if not.
+    /// - Parameters:
+    ///   - algorithm: The algorithm to validate.
+    /// - Returns: The provided algorithm if it is one of the supported algorithms (RSA, ECDSA, or EDDSA), otherwise `.rsa`.
     private static func normalizedDefaultKeyAlgorithm(_ algorithm: KeyAlgorithm) -> KeyAlgorithm {
         [.rsa, .ecdsa, .eddsa].contains(algorithm) ? algorithm : .rsa
     }

@@ -13,6 +13,11 @@ nonisolated protocol SecItemClient: Sendable {
 
 /// Default client backed by the system Keychain Services.
 nonisolated struct SystemSecItemClient: SecItemClient {
+    /// Adds an item to Keychain services.
+    /// - Parameters:
+    ///   - attributes: The attributes dictionary defining the Keychain item to add.
+    ///   - result: An optional pointer where a reference to the added item can be returned.
+    /// - Returns: An OSStatus code indicating success or describing the error that occurred.
     func add(_ attributes: CFDictionary, _ result: UnsafeMutablePointer<CFTypeRef?>?) -> OSStatus {
         SecItemAdd(attributes, result)
     }

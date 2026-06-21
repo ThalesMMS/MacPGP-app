@@ -83,7 +83,7 @@ final class RevocationService {
                 passphrase: passphrase
             )
         } catch {
-            let wrapped = Self.operationError(from: error)
+            let wrapped = OperationError.from(error)
             lastError = wrapped
             throw wrapped
         }
@@ -117,7 +117,7 @@ final class RevocationService {
                 )
             }.value
         } catch {
-            let wrapped = Self.operationError(from: error)
+            let wrapped = OperationError.from(error)
             lastError = wrapped
             throw wrapped
         }
@@ -181,7 +181,7 @@ final class RevocationService {
         do {
             return try Self.applyRevocationData(to: key, certificate: certificate)
         } catch {
-            let wrapped = Self.operationError(from: error)
+            let wrapped = OperationError.from(error)
             lastError = wrapped
             throw wrapped
         }
@@ -209,7 +209,7 @@ final class RevocationService {
                 try Self.applyRevocationData(to: key, certificate: certificate)
             }.value
         } catch {
-            let wrapped = Self.operationError(from: error)
+            let wrapped = OperationError.from(error)
             lastError = wrapped
             throw wrapped
         }
@@ -321,7 +321,7 @@ final class RevocationService {
                 passphraseForKey: { _ in passphrase }
             )
         } catch {
-            throw operationError(from: error)
+            throw OperationError.from(error)
         }
     }
 
@@ -343,21 +343,7 @@ final class RevocationService {
                 trustLevel: key.trustLevel
             )
         } catch {
-            throw operationError(from: error)
-        }
-    }
-
-    private nonisolated static func operationError(from error: Error) -> OperationError {
-        if let operationError = error as? OperationError {
-            return operationError
-        }
-
-        do {
-            throw error
-        } catch RNPError.invalidPassphrase {
-            return .invalidPassphrase
-        } catch {
-            return .unknownError(message: error.localizedDescription)
+            throw OperationError.from(error)
         }
     }
 }

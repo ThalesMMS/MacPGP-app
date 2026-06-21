@@ -16,15 +16,18 @@ struct KeyExpirationServiceTests {
 
     // MARK: - Test Helpers
 
-    /// Creates a mock key with specified expiration date
-    private func createMockKey(expiresIn days: Int?, isSecret: Bool = false) -> PGPKeyModel {
+    /// Creates a mock key.
+    private func createMockKey(isSecret: Bool = false) -> PGPKeyModel {
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
         let key = try! keyGen.generate(for: "test@example.com", passphrase: "test")
 
-        // We'll create a custom key model using the Key's actual structure
-        // For testing purposes, we use the actual key and rely on RNP-backed expiration handling
-        return PGPKeyModel(from: key)
+        if isSecret {
+            return PGPKeyModel(from: key)
+        }
+
+        let publicKey = key.publicKey!
+        return PGPKeyModel(from: Key(secretKey: nil, publicKey: publicKey))
     }
 
     /// Creates a test key with specific characteristics
@@ -369,7 +372,7 @@ struct KeyExpirationServiceTests {
     }
 
     @Test("extendExpiration updates the key expiration date")
-    func testExtendExpirationUpdatesKey() throws {
+    func testExtendExpirationUpdatesKey() async throws {
         let service = KeyExpirationService.shared
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
@@ -377,7 +380,7 @@ struct KeyExpirationServiceTests {
         let keyModel = PGPKeyModel(from: key)
         let newExpirationDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
 
-        let updatedKey = try service.extendExpiration(
+        let updatedKey = try await service.extendExpirationAsync(
             for: keyModel,
             newExpirationDate: newExpirationDate,
             passphrase: "testpass"
@@ -391,7 +394,7 @@ struct KeyExpirationServiceTests {
     }
 
     @Test("extendExpiration wraps unsupported passphrase failures as unknown error")
-    func testExtendExpirationInvalidPassphrase() {
+    func testExtendExpirationInvalidPassphrase() async {
         let service = KeyExpirationService.shared
         let keyGen = KeyGenerator()
         keyGen.keyBitsLength = 2048
@@ -400,7 +403,7 @@ struct KeyExpirationServiceTests {
         let newExpirationDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
 
         do {
-            _ = try service.extendExpiration(
+            _ = try await service.extendExpirationAsync(
                 for: keyModel,
                 newExpirationDate: newExpirationDate,
                 passphrase: "wrong-passphrase"
@@ -420,13 +423,13 @@ struct KeyExpirationServiceTests {
     // MARK: - extendExpiration Error Handling Tests
 
     @Test("extendExpiration fails for public-only key")
-    func testExtendExpirationPublicKeyError() {
+    func testExtendExpirationPublicKeyError() async {
         let service = KeyExpirationService.shared
         let keyModel = createTestKey(passphrase: "pass", isSecret: false)
         let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
 
         do {
-            _ = try service.extendExpiration(
+            _ = try await service.extendExpirationAsync(
                 for: keyModel,
                 newExpirationDate: futureDate,
                 passphrase: "pass"
@@ -445,13 +448,13 @@ struct KeyExpirationServiceTests {
     }
 
     @Test("extendExpiration fails for past date")
-    func testExtendExpirationPastDateError() {
+    func testExtendExpirationPastDateError() async {
         let service = KeyExpirationService.shared
         let keyModel = createTestKey(passphrase: "pass")
         let pastDate = Date().addingTimeInterval(-86400)
 
         do {
-            _ = try service.extendExpiration(
+            _ = try await service.extendExpirationAsync(
                 for: keyModel,
                 newExpirationDate: pastDate,
                 passphrase: "pass"
@@ -470,13 +473,13 @@ struct KeyExpirationServiceTests {
     }
 
     @Test("extendExpiration fails for empty passphrase")
-    func testExtendExpirationEmptyPassphraseError() {
+    func testExtendExpirationEmptyPassphraseError() async {
         let service = KeyExpirationService.shared
         let keyModel = createTestKey(passphrase: "pass")
         let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
 
         do {
-            _ = try service.extendExpiration(
+            _ = try await service.extendExpirationAsync(
                 for: keyModel,
                 newExpirationDate: futureDate,
                 passphrase: ""
@@ -495,13 +498,13 @@ struct KeyExpirationServiceTests {
     }
 
     @Test("extendExpiration sets lastError on failure")
-    func testExtendExpirationSetsLastError() {
+    func testExtendExpirationSetsLastError() async {
         let service = KeyExpirationService.shared
         let keyModel = createTestKey(passphrase: "pass")
         let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
 
         do {
-            _ = try service.extendExpiration(
+            _ = try await service.extendExpirationAsync(
                 for: keyModel,
                 newExpirationDate: futureDate,
                 passphrase: ""
@@ -519,12 +522,12 @@ struct KeyExpirationServiceTests {
     }
 
     @Test("extendExpiration resets isProcessing flag")
-    func testExtendExpirationResetsProcessingFlag() throws {
+    func testExtendExpirationResetsProcessingFlag() async throws {
         let service = KeyExpirationService.shared
         let successKey = createTestKey(email: "processing-success@example.com", passphrase: "pass")
         let successDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
 
-        _ = try service.extendExpiration(
+        _ = try await service.extendExpirationAsync(
             for: successKey,
             newExpirationDate: successDate,
             passphrase: "pass"
@@ -535,7 +538,7 @@ struct KeyExpirationServiceTests {
         let failureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
 
         do {
-            _ = try service.extendExpiration(
+            _ = try await service.extendExpirationAsync(
                 for: failureKey,
                 newExpirationDate: failureDate,
                 passphrase: ""
@@ -625,5 +628,145 @@ struct KeyExpirationServiceTests {
             expectPassphraseRequired(lastError, context: "\(#function) lastError")
         }
         #expect(!service.isProcessing)
+    }
+
+    // MARK: - OperationError mapping
+
+    @Test("extendExpiration wraps OperationError unchanged — no double wrapping")
+    func testExtendExpirationDoesNotRewrapOperationError() async {
+        // When extendedKey throws an OperationError directly (e.g. passphraseRequired),
+        // OperationError.from(_:) must pass it through unmodified, not wrap it in unknownError.
+        let service = KeyExpirationService.shared
+        let keyModel = createTestKey(passphrase: "correct-pass")
+        let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
+
+        do {
+            _ = try await service.extendExpirationAsync(
+                for: keyModel,
+                newExpirationDate: futureDate,
+                passphrase: ""  // triggers OperationError.passphraseRequired directly
+            )
+            Issue.record("Expected OperationError.passphraseRequired")
+        } catch let error as OperationError {
+            // Must be .passphraseRequired, not .unknownError wrapping a string
+            if case .passphraseRequired = error {
+                // Correct — passthrough preserved.
+            } else {
+                Issue.record("Expected .passphraseRequired (unchanged), got \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
+
+    @Test("extendExpiration wraps OperationError.noSecretKey unchanged")
+    func testExtendExpirationDoesNotRewrapNoSecretKey() async {
+        let service = KeyExpirationService.shared
+        let publicKeyModel = createTestKey(passphrase: "pass", isSecret: false)
+        let futureDate = Calendar.current.date(byAdding: .year, value: 1, to: Date())!
+
+        do {
+            _ = try await service.extendExpirationAsync(
+                for: publicKeyModel,
+                newExpirationDate: futureDate,
+                passphrase: "pass"
+            )
+            Issue.record("Expected OperationError.noSecretKey")
+        } catch let error as OperationError {
+            if case .noSecretKey = error {
+                // Correct — passthrough preserved.
+            } else {
+                Issue.record("Expected .noSecretKey (unchanged), got \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
+
+    // MARK: - extendExpiration metadata preservation
+
+    @Test("extendExpiration preserves verification metadata from original key")
+    func testExtendExpirationPreservesVerificationMetadata() async throws {
+        let service = KeyExpirationService.shared
+        let baseKey = createTestKey(email: "meta@example.com", passphrase: "meta-pass")
+
+        // Build a key model with explicit verification metadata.
+        let verificationDate = Date(timeIntervalSince1970: 1_000_000)
+        let keyWithMeta = PGPKeyModel(
+            from: baseKey.rawKey,
+            isVerified: true,
+            verificationDate: verificationDate,
+            verificationMethod: .inPerson,
+            trustLevel: .full
+        )
+
+        let futureDate = Calendar.current.date(byAdding: .month, value: 6, to: Date())!
+        let updatedKey = try await service.extendExpirationAsync(
+            for: keyWithMeta,
+            newExpirationDate: futureDate,
+            passphrase: "meta-pass"
+        )
+
+        #expect(updatedKey.isVerified == true)
+        #expect(updatedKey.trustLevel == .full)
+        #expect(updatedKey.verificationMethod == .inPerson)
+        if let vDate = updatedKey.verificationDate {
+            #expect(abs(vDate.timeIntervalSince(verificationDate)) < 1)
+        } else {
+            Issue.record("verificationDate should be preserved after expiration extension")
+        }
+    }
+
+    @Test("extendExpiration preserves unverified state from original key")
+    func testExtendExpirationPreservesUnverifiedState() async throws {
+        let service = KeyExpirationService.shared
+        let key = createTestKey(email: "unverified@example.com", passphrase: "unver-pass")
+
+        let futureDate = Calendar.current.date(byAdding: .month, value: 3, to: Date())!
+        let updatedKey = try await service.extendExpirationAsync(
+            for: key,
+            newExpirationDate: futureDate,
+            passphrase: "unver-pass"
+        )
+
+        #expect(updatedKey.isVerified == false)
+        #expect(updatedKey.verificationDate == nil)
+        #expect(updatedKey.verificationMethod == nil)
+    }
+
+    // MARK: - validateExpirationDate boundary
+
+    @Test("validateExpirationDate at exactly 5-year boundary produces no warning")
+    func testValidateExpirationDateExactFiveYears() {
+        let service = KeyExpirationService.shared
+        let keyGen = KeyGenerator()
+        keyGen.keyBitsLength = 2048
+        let key = try! keyGen.generate(for: "boundary@example.com", passphrase: "pass")
+        let keyModel = PGPKeyModel(from: key)
+
+        // Exactly 5 years from now is within the limit, so no warning expected.
+        let fiveYears = Calendar.current.date(byAdding: .year, value: 5, to: Date())!
+        let issues = service.validateExpirationDate(fiveYears, forKey: keyModel)
+        let warnings = issues.filter { $0.severity == .warning }
+        // At the exact boundary there should be no "more than 5 years" warning.
+        #expect(warnings.isEmpty)
+    }
+
+    @Test("validateExpirationDate just past 5-year boundary produces warning")
+    func testValidateExpirationDateJustPastFiveYears() {
+        let service = KeyExpirationService.shared
+        let keyGen = KeyGenerator()
+        keyGen.keyBitsLength = 2048
+        let key = try! keyGen.generate(for: "boundary2@example.com", passphrase: "pass")
+        let keyModel = PGPKeyModel(from: key)
+
+        let fiveYearsPlusOneDay = Calendar.current.date(
+            byAdding: .day, value: 1,
+            to: Calendar.current.date(byAdding: .year, value: 5, to: Date())!
+        )!
+        let issues = service.validateExpirationDate(fiveYearsPlusOneDay, forKey: keyModel)
+        let warnings = issues.filter { $0.severity == .warning }
+        #expect(!warnings.isEmpty)
+        #expect(warnings.contains { $0.message.contains("5 years") })
     }
 }

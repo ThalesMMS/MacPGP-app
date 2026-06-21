@@ -12,11 +12,16 @@ nonisolated struct ValidationIssue: Hashable {
 }
 
 @Observable
+@MainActor
 final class KeyExpirationService {
     static let shared = KeyExpirationService()
 
-    private(set) var isProcessing = false
+    private var activeOperationCount = 0
     private(set) var lastError: OperationError?
+
+    var isProcessing: Bool {
+        activeOperationCount > 0
+    }
 
     private init() {}
 
@@ -35,70 +40,81 @@ final class KeyExpirationService {
         }
     }
 
-    /// Extends the expiration date of a key
+    /// Extends the expiration date of a PGP key.
     /// - Parameters:
-    ///   - key: The key model to extend
-    ///   - newExpirationDate: The new expiration date (must be in the future)
-    ///   - passphrase: The passphrase to unlock the secret key
-    /// - Returns: Updated PGPKeyModel with new expiration date
-    /// - Throws: OperationError if the operation fails
+    ///   - key: The key model to extend.
+    ///   - newExpirationDate: The new expiration date (must be in the future).
+    ///   - passphrase: The passphrase to unlock the secret key.
+    /// - Returns: The updated key with the new expiration date.
+    /// - Throws: `OperationError` if the key is not a secret key, the date is not in the future, the passphrase is empty, or the operation fails.
+    @available(*, deprecated, message: "Use extendExpirationAsync(for:newExpirationDate:passphrase:) to keep cryptographic work off the main actor.")
     func extendExpiration(
         for key: PGPKeyModel,
         newExpirationDate: Date,
         passphrase: String
     ) throws -> PGPKeyModel {
-        isProcessing = true
+        beginOperation()
         lastError = nil
+        defer { endOperation() }
 
         do {
-            let updatedKey = try Self.extendedKey(
-                key,
-                newExpirationDate: newExpirationDate,
-                passphrase: passphrase
-            )
-            isProcessing = false
-            return updatedKey
+            return try Self.extendedKey(key, newExpirationDate: newExpirationDate, passphrase: passphrase)
+        } catch let error as CancellationError {
+            throw error
         } catch {
-            let wrapped = Self.operationError(from: error)
+            let wrapped = OperationError.from(error)
             lastError = wrapped
-            isProcessing = false
             throw wrapped
         }
     }
 
-    /// Asynchronously extends the expiration date of a key
+    /// Asynchronously extends the expiration date of a PGP key.
     /// - Parameters:
-    ///   - key: The key model to extend
-    ///   - newExpirationDate: The new expiration date (must be in the future)
-    ///   - passphrase: The passphrase to unlock the secret key
-    /// - Returns: Updated PGPKeyModel with new expiration date
-    /// - Throws: OperationError if the operation fails
+    ///   - key: The PGP key to extend.
+    ///   - newExpirationDate: The new expiration date (must be in the future).
+    ///   - passphrase: The passphrase for the key.
+    /// - Returns: The updated key with the extended expiration date.
+    /// - Throws: `OperationError` if the key is invalid, the expiration date is invalid, or the passphrase is incorrect.
     func extendExpirationAsync(
         for key: PGPKeyModel,
         newExpirationDate: Date,
         passphrase: String
     ) async throws -> PGPKeyModel {
-        isProcessing = true
+        beginOperation()
         lastError = nil
+        defer { endOperation() }
 
         do {
-            let updatedKey = try await Task.detached(priority: .userInitiated) {
-                try Self.extendedKey(
-                    key,
-                    newExpirationDate: newExpirationDate,
-                    passphrase: passphrase
-                )
+            return try await Task.detached(priority: .userInitiated) {
+                try Self.extendedKey(key, newExpirationDate: newExpirationDate, passphrase: passphrase)
             }.value
-            isProcessing = false
-            return updatedKey
+        } catch let error as CancellationError {
+            throw error
         } catch {
-            let wrapped = Self.operationError(from: error)
+            let wrapped = OperationError.from(error)
             lastError = wrapped
-            isProcessing = false
             throw wrapped
         }
     }
 
+    private func beginOperation() {
+        activeOperationCount += 1
+    }
+
+    private func endOperation() {
+        activeOperationCount = max(0, activeOperationCount - 1)
+    }
+
+    /// Extends the expiration date of a secret key.
+    ///
+    /// Creates and returns a new `PGPKeyModel` with the updated expiration while preserving the original key's verification metadata.
+    ///
+    /// - Parameters:
+    ///   - key: The key whose expiration to extend; must be a secret key.
+    ///   - newExpirationDate: The new expiration date; must be in the future.
+    ///   - passphrase: The passphrase to unlock the key; must not be empty.
+    /// - Returns: A new `PGPKeyModel` with the updated expiration.
+    /// - Throws: `OperationError.noSecretKey` if the key is not a secret key; `OperationError.passphraseRequired` if the passphrase is empty; `OperationError.unknownError` if the expiration date is not in the future or if the underlying key update fails.
     private nonisolated static func extendedKey(
         _ key: PGPKeyModel,
         newExpirationDate: Date,
@@ -128,16 +144,6 @@ final class KeyExpirationService {
             verificationMethod: key.verificationMethod,
             trustLevel: key.trustLevel
         )
-    }
-
-    private nonisolated static func operationError(from error: Error) -> OperationError {
-        if let operationError = error as? OperationError {
-            return operationError
-        }
-        if case RNPError.invalidPassphrase = error {
-            return .invalidPassphrase
-        }
-        return OperationError.unknownError(message: error.localizedDescription)
     }
 
     /// Returns all expired keys

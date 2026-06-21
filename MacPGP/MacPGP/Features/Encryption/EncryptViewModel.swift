@@ -432,6 +432,11 @@ final class EncryptViewModel: SensitiveSessionState {
         NSPasteboard.general.setString(content, forType: .string)
     }
 
+    /// Ensures a signing passphrase is available for the given key, invoking the resume closure once obtained.
+    /// - Parameters:
+    ///   - signerKey: The key to retrieve a passphrase for.
+    ///   - action: The pending encryption operation.
+    ///   - resume: A closure to invoke once the passphrase is available.
     private func retrieveSigningPassphraseIfNeeded(
         for signerKey: PGPKeyModel,
         pending action: PendingAction,

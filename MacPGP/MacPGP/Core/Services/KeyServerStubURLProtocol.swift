@@ -6,8 +6,13 @@ import Foundation
 /// fixtures so Keyserver UI tests never depend on internet availability or live
 /// keyservers. The scenario is selected by `KeyServerUITestSupport.scenario`.
 nonisolated final class KeyServerStubURLProtocol: URLProtocol {
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    /// Indicates that this protocol can initialize with any URL request.
+    /// - Returns: `true` always.
+    override static func canInit(with request: URLRequest) -> Bool { true }
+
+    /// Provides the canonical form of the request without modification.
+    /// - Returns: The same request passed as input.
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         let scenario = KeyServerUITestSupport.scenario
